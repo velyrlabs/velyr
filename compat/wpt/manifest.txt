@@ -1,0 +1,3 @@
+# Selected web-platform-tests (ADR-015): a test file, or a directory whose .any.js files are all run.
+url
+encoding

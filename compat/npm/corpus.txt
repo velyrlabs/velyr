@@ -1,0 +1,34 @@
+# Curated npm corpus (M6 acceptance): popular, mostly pure-ESM packages.
+# Format: <package> [<import specifier for the smoke test>]
+# The specifier defaults to the package name; give one when the bare name is not importable.
+# Lifecycle scripts stay denied (VELYR-68), so packages that need them do not belong here.
+zod
+nanoid
+date-fns
+lodash-es
+uuid
+ky
+hono
+preact
+valibot
+superjson
+immer
+nanostores
+chalk
+picocolors
+yaml
+marked
+dayjs
+p-limit
+quick-lru
+tinybench
+mitt
+p-map
+p-queue
+defu
+ufo
+klona
+ms
+destr
+escape-string-regexp
+camelcase

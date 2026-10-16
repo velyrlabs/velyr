@@ -1,0 +1,61 @@
+[package]
+name = "velyr-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+velyr-runtime-errors = { path = "../crates/runtime-errors" }
+velyr-runtime-permissions = { path = "../crates/runtime-permissions" }
+velyr-runtime-modules = { path = "../crates/runtime-modules" }
+velyr-compat-npm = { path = "../crates/compat-npm" }
+arbitrary = { version = "1", features = ["derive"] }
+base64 = "0.22"
+flate2 = "1"
+serde_json = "1"
+sha2 = "0.10"
+tar = "0.4"
+tempfile = "3"
+tokio = { version = "1.53", features = ["rt", "fs"] }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "error_code_roundtrip"
+path = "fuzz_targets/error_code_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "permissions_path"
+path = "fuzz_targets/permissions_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "module_resolve"
+path = "fuzz_targets/module_resolve.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tar_extract"
+path = "fuzz_targets/tar_extract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "exports_resolve"
+path = "fuzz_targets/exports_resolve.rs"
+test = false
+doc = false
+bench = false

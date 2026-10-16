@@ -1,0 +1,21 @@
+[package]
+name = "velyr-qa-test262"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "velyr-test262"
+path = "src/main.rs"
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-engine-native = { path = "../engine-native" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

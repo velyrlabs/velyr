@@ -1,0 +1,3 @@
+console.log("before");
+process.exit(3);
+console.log("after");

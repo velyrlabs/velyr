@@ -1,0 +1,37 @@
+[package]
+name = "velyr-qa-wpt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "velyr-wpt"
+path = "src/main.rs"
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-workers = { path = "../runtime-workers" }
+velyr-io-fs = { path = "../io-fs" }
+velyr-io-net = { path = "../io-net" }
+velyr-io-tls = { path = "../io-tls" }
+velyr-web-core = { path = "../web-core" }
+velyr-web-crypto = { path = "../web-crypto" }
+velyr-web-fetch = { path = "../web-fetch" }
+velyr-web-streams = { path = "../web-streams" }
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
