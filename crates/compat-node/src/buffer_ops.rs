@@ -53,9 +53,19 @@ pub fn compat_node_host_functions() -> Vec<HostFunctionDef> {
             callback: op_buffer_byte_length,
         },
     ];
+    defs.extend(crate::async_context_ops::async_context_host_functions());
     defs.extend(crate::process_ops::process_host_functions());
     defs.extend(crate::crypto_ops::crypto_host_functions());
     defs.extend(crate::fs_ops::fs_host_functions());
+    defs.extend(crate::os_ops::os_host_functions());
+    defs.extend(crate::v8_ops::v8_host_functions());
+    defs.extend(crate::zlib_ops::zlib_host_functions());
+    defs.extend(crate::net_ops::net_node_host_functions());
+    defs.extend(crate::child_process_ops::child_process_host_functions());
+    defs.extend(crate::worker_threads_ops::worker_threads_host_functions());
+    defs.extend(crate::dns_query::dns_query_host_functions());
+    defs.extend(crate::http_ops::http_host_functions());
+    defs.extend(crate::http_client_ops::http_client_host_functions());
     defs
 }
 

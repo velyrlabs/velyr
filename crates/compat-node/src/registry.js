@@ -25,8 +25,23 @@
     hrtime: "op_process_hrtime", uptime: "op_process_uptime", memory: "op_process_memory",
     write: "op_process_write", immediateSet: "op_immediate_set", immediateClear: "op_immediate_clear",
     immediateRef: "op_immediate_ref",
+    ctxSet: "op_async_context_set", ctxGet: "op_async_context_get",
     cryptoSync: "op_node_crypto", cryptoAsync: "op_node_crypto_async",
     fsSync: "op_node_fs", fsAsync: "op_node_fs_async",
+    os: "op_node_os", zlibSync: "op_node_zlib", zlibAsync: "op_node_zlib_async",
+    dnsLookup: "op_node_dns_lookup", dnsQuery: "op_node_dns_query", childRunSync: "op_node_child_run_sync",
+    httpListen: "op_node_http_listen", httpAccept: "op_node_http_accept", httpTake: "op_node_http_take",
+    httpRead: "op_node_http_read", httpRespond: "op_node_http_respond", httpWrite: "op_node_http_write",
+    httpEnd: "op_node_http_end", httpFail: "op_node_http_fail", httpShutdown: "op_node_http_shutdown",
+    httpClose: "op_node_http_close", httpDisconnected: "op_node_http_disconnected",
+    httpUpgrade: "op_node_http_upgrade", httpUpReady: "op_node_http_up_ready",
+    httpUpRead: "op_node_http_up_read", httpUpWrite: "op_node_http_up_write",
+    httpUpShutdown: "op_node_http_up_shutdown",
+    httpClientNew: "op_node_http_client_new", httpClientClose: "op_node_http_client_close",
+    httpReqBegin: "op_node_http_creq_begin", httpReqWrite: "op_node_http_creq_write",
+    httpReqEnd: "op_node_http_creq_end", httpReqResponse: "op_node_http_creq_response",
+    httpReqRead: "op_node_http_creq_read", httpReqClose: "op_node_http_creq_close",
+    worker: "op_node_worker", v8: "op_node_v8",
   })) {
     ops[key] = global[name] || missing("process (compat_node_host_functions)");
     opNames.push(name);
@@ -45,6 +60,7 @@
 
   const api = Object.freeze({
     has: (name) => publicNames.has(name),
+    names: () => [...publicNames],
     require(name) {
       if (!publicNames.has(name)) throw new Error(`No such builtin module: ${name}`);
       return load(name);
@@ -54,5 +70,9 @@
 
   // `require('node:x')`: compat-commonjs strips the prefix and looks the name up here.
   const commonjs = global[Symbol.for("velyr.commonjs")];
-  if (commonjs) for (const name of publicNames) commonjs.builtins.set(name, load(name));
+  if (commonjs) {
+    for (const name of publicNames) commonjs.builtins.set(name, load(name));
+    // Same rule as the ESM resolver (`builtin_name`): a bare `test` is an npm package.
+    commonjs.prefixOnly.add("test");
+  }
 })(globalThis);

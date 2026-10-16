@@ -283,3 +283,17 @@ fn host_emits_lifecycle_events() {
     );
     assert_ok(result);
 }
+
+#[test]
+fn memory_usage_reports_the_engine_heap_when_the_host_has_metrics() {
+    assert_ok(check(
+        r#"eq(process.memoryUsage().heapUsed, 0);
+        globalThis.Velyr = { metrics: () => ({ heap: { totalBytes: 10, usedBytes: 5, externalBytes: 2 } }) };
+        const usage = process.memoryUsage();
+        eq(usage.heapTotal, 10);
+        eq(usage.heapUsed, 5);
+        eq(usage.external, 2);
+        globalThis.Velyr = { metrics: () => { throw new Error('denied'); } };
+        eq(process.memoryUsage().heapUsed, 0);"#,
+    ));
+}

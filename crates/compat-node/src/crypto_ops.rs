@@ -10,7 +10,7 @@ use velyr_runtime_ops::op_async;
 
 use crate::{crypto_cipher, crypto_hash, crypto_keys, crypto_sign, crypto_stream};
 
-type Parts = Result<Vec<Vec<u8>>, String>;
+pub(crate) type Parts = Result<Vec<Vec<u8>>, String>;
 
 /// Largest `randomBytes` request (Node's `kMaxLength` is larger; this bounds one allocation).
 const MAX_RANDOM: usize = 1 << 31;
@@ -104,7 +104,8 @@ fn dispatch(name: &str, args: &[Vec<u8>]) -> Parts {
     }
 }
 
-fn encode(result: Parts) -> Vec<u8> {
+/// Frames an op result: a status byte (0 ok, 1 error) then length-prefixed parts. Shared with zlib.
+pub(crate) fn encode(result: Parts) -> Vec<u8> {
     let (status, parts) = match result {
         Ok(parts) => (0u8, parts),
         Err(message) => (1u8, vec![message.into_bytes()]),
@@ -117,25 +118,30 @@ fn encode(result: Parts) -> Vec<u8> {
     out
 }
 
-fn read_call(
+/// Splits `(name, ...typed arrays)` into the op name and the copied bytes; `label` names the op
+/// family in errors. Shared with zlib.
+pub(crate) fn read_call(
     ctx: &mut dyn CallContext,
     args: &[Value],
+    label: &str,
 ) -> Result<(String, Vec<Vec<u8>>), HostError> {
     let Some((Value::String(name), rest)) = args.split_first() else {
-        return Err(HostError::TypeError(
-            "crypto op expects (name, ...bytes)".into(),
-        ));
+        return Err(HostError::TypeError(format!(
+            "{label} op expects (name, ...bytes)"
+        )));
     };
     let parts = rest
         .iter()
         .map(|value| ctx.read_bytes(value))
         .collect::<Option<Vec<_>>>()
-        .ok_or_else(|| HostError::TypeError("crypto op arguments must be typed arrays".into()))?;
+        .ok_or_else(|| {
+            HostError::TypeError(format!("{label} op arguments must be typed arrays"))
+        })?;
     Ok((name.to_string_lossy(), parts))
 }
 
 fn op_sync(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
-    let (name, parts) = read_call(ctx, args)?;
+    let (name, parts) = read_call(ctx, args, "crypto")?;
     let result = if crypto_stream::handles(&name) {
         crypto_stream::run(ctx, &name, &parts)
     } else {
@@ -145,7 +151,7 @@ fn op_sync(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError
 }
 
 fn op_async_call(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
-    let (name, parts) = read_call(ctx, args)?;
+    let (name, parts) = read_call(ctx, args, "crypto")?;
     op_async(ctx, |_token| async move {
         let result = tokio::task::spawn_blocking(move || dispatch(&name, &parts))
             .await

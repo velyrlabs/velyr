@@ -7,6 +7,7 @@ pub(crate) const FS_FACTORIES: &[(&str, &str)] = &[
     ("internal/fs/ops", include_str!("fs/ops.js")),
     ("internal/fs/handle", include_str!("fs/handle.js")),
     ("internal/fs/streams", include_str!("fs/streams.js")),
+    ("internal/fs/watch", include_str!("fs/watch.js")),
     ("fs/promises", include_str!("fs/promises.js")),
     ("fs", include_str!("fs/index.js")),
 ];
@@ -69,8 +70,11 @@ pub(crate) const FS_EXPORTS: &[&str] = &[
     "symlinkSync",
     "unlink",
     "unlinkSync",
+    "unwatchFile",
     "utimes",
     "utimesSync",
+    "watch",
+    "watchFile",
     "write",
     "writeFile",
     "writeFileSync",
@@ -100,5 +104,6 @@ pub(crate) const FS_PROMISES_EXPORTS: &[&str] = &[
     "symlink",
     "unlink",
     "utimes",
+    "watch",
     "writeFile",
 ];

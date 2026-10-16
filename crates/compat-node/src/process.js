@@ -10,6 +10,7 @@
 const EventEmitter = require('events');
 const errors = require('internal/errors');
 const ops = require('internal/ops');
+const asyncContext = require('internal/async_context');
 
 const NODE_VERSION = '24.11.0';
 const defaults = { platform: 'linux', arch: 'x64', pid: 0, execPath: '', args: [], velyr: '0.0.0' };
@@ -36,7 +37,7 @@ function uncaught(error) {
 
 function nextTick(callback, ...args) {
   errors.validateFunction(callback, 'callback');
-  queue.push({ callback, args });
+  queue.push({ callback, args, frame: asyncContext.current() });
 }
 
 // Drains the whole queue, including ticks queued while draining; true when something ran.
@@ -45,9 +46,9 @@ function tickCallback() {
   draining = true;
   try {
     for (let i = 0; i < queue.length; i++) {
-      const { callback, args } = queue[i];
+      const { callback, args, frame } = queue[i];
       queue[i] = undefined;
-      try { callback(...args); } catch (error) { uncaught(error); }
+      try { asyncContext.run(frame, callback, undefined, args); } catch (error) { uncaught(error); }
     }
   } finally {
     queue = [];
@@ -140,9 +141,20 @@ function hrtime(previous) {
   return [ds, dn];
 }
 hrtime.bigint = () => { const [sec, nsec] = ops.hrtime(); return BigInt(sec) * 1000000000n + BigInt(nsec); };
+// Heap figures come from `Velyr.metrics()` when the host installed it; otherwise they stay 0.
+function engineHeap() {
+  try {
+    const metrics = globalThis.Velyr && globalThis.Velyr.metrics;
+    return typeof metrics === 'function' ? metrics().heap : null;
+  } catch {
+    return null;
+  }
+}
 function memoryUsage() {
   const [rss, heapTotal, heapUsed] = ops.memory();
-  return { rss, heapTotal, heapUsed, external: 0, arrayBuffers: 0 };
+  const heap = engineHeap();
+  if (!heap) return { rss, heapTotal, heapUsed, external: 0, arrayBuffers: 0 };
+  return { rss, heapTotal: heap.totalBytes, heapUsed: heap.usedBytes, external: heap.externalBytes || 0, arrayBuffers: 0 };
 }
 memoryUsage.rss = () => ops.memory()[0];
 

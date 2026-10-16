@@ -19,7 +19,9 @@
 //!
 //! Known limits: see the notes at the top of each `src/*.js`.
 
+mod async_context_ops;
 mod buffer_ops;
+mod child_process_ops;
 mod crypto_cipher;
 mod crypto_der;
 mod crypto_gcm;
@@ -29,13 +31,32 @@ mod crypto_keys;
 mod crypto_ops;
 mod crypto_sign;
 mod crypto_stream;
+mod dns_query;
 mod fs_copy;
 mod fs_jobs;
 mod fs_js;
 mod fs_ops;
+mod http_client_ops;
+mod http_ops;
+mod http_upgrade_ops;
+mod net_ops;
+mod os_ops;
 mod process_ops;
 mod registry;
+mod registry_async;
+mod registry_extra;
+mod registry_http;
+mod registry_net;
+mod registry_tables;
+mod registry_test;
 mod streams;
+mod v8_ops;
+mod worker_threads_ops;
+mod zlib_codec;
+mod zlib_deflate;
+mod zlib_gzip;
+mod zlib_ops;
+mod zlib_zstd;
 
 use velyr_engine_api::{Isolate, JsException, Source, Value};
 use velyr_runtime_event_loop::TimerHandle;
@@ -46,6 +67,7 @@ pub use registry::{BUILTINS, Builtin, NodeBuiltinResolver, builtin_name, facade_
 
 /// Defines the Tier 1 builtins in `isolate`. Call after `install_commonjs`, if that is used.
 pub fn install_compat_node(isolate: &mut impl Isolate) -> Result<(), JsException> {
+    isolate.set_slot(http_client_ops::HttpState::default());
     isolate
         .eval_script(&Source {
             name: "velyr:compat-node".into(),
@@ -102,6 +124,9 @@ pub fn install_process_global(
                 { value, writable: true, configurable: true, enumerable });
             define("process", process, false);
             define("global", globalThis, true);
+            for (const name of ["setTimeout", "clearTimeout", "setInterval", "clearInterval"]) {
+                define(name, timers[name], true);
+            }
             define("setImmediate", timers.setImmediate, true);
             define("clearImmediate", timers.clearImmediate, true);
             return process._tickCallback;

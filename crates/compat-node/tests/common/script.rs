@@ -1,5 +1,5 @@
-//! Script harness: `run_file` on V8 with the real event loop, the tick hook and an explicit
-//! capability set. Scripts are the body of an async function; a failed check throws and comes
+//! Script harness: `run_file` on V8 (or, through `run_on`, the native engine) with the real
+//! event loop, the tick hook and an explicit capability set. Scripts are the body of an async function; a failed check throws and comes
 //! back as the run result.
 #![allow(dead_code)]
 
@@ -11,12 +11,16 @@ use velyr_compat_node::{
     ProcessConfig, compat_node_host_functions, configure_process, emit_before_exit, emit_exit,
     emit_signal, emit_unhandled_rejection, install_compat_node, install_process_global,
 };
-use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Isolate, Source, Value};
+use velyr_engine_api::{CallContext, Engine, HostError, HostFunctionDef, Isolate, Source, Value};
+use velyr_engine_native::NativeEngine;
 use velyr_engine_v8::V8Engine;
+use velyr_io_net::{install_net, net_host_functions};
 use velyr_runtime_core::{RunError, RuntimeConfig, run_file};
 use velyr_runtime_event_loop::CompletionValue;
-use velyr_runtime_ops::{install_op_context, op_async};
-use velyr_runtime_permissions::{Capability, CapabilitySet, NamePattern};
+use velyr_runtime_ops::{BOOTSTRAP_JS, OpRegistry, install_op_context, op_async};
+use velyr_runtime_permissions::{
+    AddrPattern, Capability, CapabilitySet, HostPattern, NamePattern, PortRange,
+};
 use velyr_runtime_resources::QuotaConfig;
 use velyr_web_core::{
     encoding_host_functions, install_encoding, install_events, install_timers, install_url,
@@ -46,7 +50,59 @@ pub fn grants(read: &[&str], write: &[&str]) -> Arc<CapabilitySet> {
     builder.build()
 }
 
+/// The engine a script runs on.
+#[derive(Debug, Clone, Copy)]
+pub enum EngineKind {
+    V8,
+    Native,
+}
+
+/// Whether the script gets io-net with loopback connect/listen grants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Net {
+    Off,
+    Loopback,
+}
+
 pub fn run_with(body: &str, permissions: Arc<CapabilitySet>, setup: &'static str) -> String {
+    let init = Some(V8Engine::init_platform as fn());
+    run_engine(V8Engine::new(), init, body, permissions, setup, Net::Off)
+}
+
+/// `run` on `engine`, with `net` as asked.
+pub fn run_on(engine: EngineKind, body: &str, net: Net) -> String {
+    let permissions = match net {
+        Net::Off => grants(&[], &[]),
+        Net::Loopback => loopback(),
+    };
+    match engine {
+        EngineKind::V8 => {
+            let init = Some(V8Engine::init_platform as fn());
+            run_engine(V8Engine::new(), init, body, permissions, "", net)
+        }
+        EngineKind::Native => run_engine(NativeEngine, None, body, permissions, "", net),
+    }
+}
+
+fn loopback() -> Arc<CapabilitySet> {
+    let ports = PortRange {
+        start: 0,
+        end: 65535,
+    };
+    CapabilitySet::builder()
+        .allow(Capability::NetConnect(HostPattern::new("127.0.0.1"), ports))
+        .allow(Capability::NetListen(AddrPattern::new("127.0.0.1"), ports))
+        .build()
+}
+
+fn run_engine<E: Engine + Send + 'static>(
+    engine: E,
+    platform_init: Option<fn()>,
+    body: &str,
+    permissions: Arc<CapabilitySet>,
+    setup: &'static str,
+    net: Net,
+) -> String {
     let dir = tempfile::tempdir().unwrap();
     let path: PathBuf = dir.path().join("main.js");
     let script = format!(
@@ -64,14 +120,23 @@ pub fn run_with(body: &str, permissions: Arc<CapabilitySet>, setup: &'static str
         arity: 0,
         callback: op_test_io,
     });
+    // io-net's JS sits on the `Velyr.core` ops bootstrap.
+    let bootstrap = match net {
+        Net::Off => "",
+        Net::Loopback => {
+            host_functions.extend(OpRegistry::builtin().host_functions().iter().cloned());
+            host_functions.extend(net_host_functions());
+            BOOTSTRAP_JS
+        }
+    };
     let result = run_file(
-        V8Engine::new(),
+        engine,
         RuntimeConfig {
-            platform_init: Some(V8Engine::init_platform),
+            platform_init,
             ..RuntimeConfig::default()
         },
         host_functions,
-        "",
+        bootstrap,
         move |isolate, sender, timers| {
             install_op_context(isolate, 0, sender, permissions, QuotaConfig::default());
             configure_process(
@@ -89,6 +154,9 @@ pub fn run_with(body: &str, permissions: Arc<CapabilitySet>, setup: &'static str
             install_encoding(isolate).expect("encoding");
             install_web_streams(isolate).expect("web streams");
             install_web_crypto(isolate).expect("web crypto");
+            if net == Net::Loopback {
+                install_net(isolate).expect("net");
+            }
             install_compat_node(isolate).expect("compat node");
             let drain = install_process_global(isolate, timers).expect("process global");
             isolate.set_tick_hook(drain);

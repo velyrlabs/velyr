@@ -4,6 +4,7 @@
 const errors = require('internal/errors');
 const ops = require('internal/ops');
 const process = require('process');
+const asyncContext = require('internal/async_context');
 
 const pending = new Map();
 
@@ -14,6 +15,7 @@ class Immediate {
     this.#id = id;
     this._onImmediate = callback;
     this._argv = args;
+    this._frame = asyncContext.current();
     pending.set(id, this);
   }
   hasRef() { return this.#refed; }
@@ -39,7 +41,9 @@ function dispatch(id) {
   const immediate = pending.get(id);
   if (!immediate) return;
   pending.delete(id);
-  try { immediate._onImmediate(...immediate._argv); } catch (error) { process._uncaught(error); }
+  try {
+    asyncContext.run(immediate._frame, immediate._onImmediate, undefined, immediate._argv);
+  } catch (error) { process._uncaught(error); }
 }
 
 const global = globalThis;

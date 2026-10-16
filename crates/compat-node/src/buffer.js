@@ -176,6 +176,14 @@ proto.toString = function toString(encoding, start, end) {
 };
 proto.toLocaleString = proto.toString;
 
+// Node's undocumented `<encoding>Slice(start, end)` (undici's body reader calls `utf8Slice`).
+for (const encoding of ['utf8', 'latin1', 'ascii', 'hex', 'base64', 'base64url', 'ucs2']) {
+  Object.defineProperty(proto, `${encoding}Slice`, {
+    value: function (start, end) { return this.toString(encoding, start, end); },
+    writable: true, configurable: true,
+  });
+}
+
 proto.toJSON = function toJSON() {
   return { type: 'Buffer', data: Array.from(this) };
 };

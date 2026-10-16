@@ -13,17 +13,33 @@ velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
 velyr-io-fs = { path = "../io-fs" }
+velyr-io-net = { path = "../io-net" }
+velyr-io-http = { path = "../io-http" }
+velyr-io-tls = { path = "../io-tls" }
+velyr-io-process = { path = "../io-process" }
+tokio-util.workspace = true
 memory-stats = "1"
 aws-lc-rs = "=1.18.2"
 scrypt = { version = "0.11", default-features = false }
+flate2 = { version = "=1.1.10", features = ["zlib-rs"] }
+brotli = { version = "7", default-features = false, features = ["std"] }
+crc32fast = "1"
+# Pure Rust zstd decoder (MIT): only decompression is offered; `hash` verifies frame checksums.
+ruzstd = { version = "0.9", default-features = false, features = ["std", "hash"] }
+sysinfo = { version = "0.37", default-features = false, features = ["system", "user"] }
 tokio.workspace = true
+serde_json.workspace = true
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["system-config", "tokio"] }
 
 [dev-dependencies]
 tempfile = "3"
 tokio.workspace = true
 velyr-compat-commonjs = { path = "../compat-commonjs" }
 velyr-engine-v8 = { path = "../engine-v8" }
+velyr-engine-native = { path = "../engine-native" }
+rcgen = "=0.14.10"
 velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-workers = { path = "../runtime-workers" }
 velyr-web-core = { path = "../web-core" }
 velyr-web-crypto = { path = "../web-crypto" }
 velyr-web-streams = { path = "../web-streams" }

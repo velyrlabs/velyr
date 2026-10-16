@@ -8,7 +8,7 @@
 //
 // Known limits: readFile(fd) is not supported; open flags are strings only; access() is
 // approximated from permission bits; symlink() ignores `type`; writes through a descriptor are
-// always complete (no short writes); no fsync/truncate/readv/writev/watch.
+// always complete (no short writes); no fsync/truncate/readv/writev (watch is in watch.js).
 const errors = require('internal/errors');
 const { Buffer } = require('buffer');
 const path = require('path');
