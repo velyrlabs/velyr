@@ -354,11 +354,11 @@ Each run: boot, one request per route, 1.5 s, then idle RSS (`ps`), physical foo
 repo, so the guard was the sampler itself. A and B alternated, 3 runs each, medians. Load average 9
 to 40 (other agents building), and macOS compressed pages in some runs (RSS 148 to 167 MB with an
 unchanged footprint), so idle RSS swings by 70 MB between identical runs; the footprint and the
-counters are the readings to trust. Rule: an item below -5% is reverted.
+counters are the readings to trust. Rule applied at measurement time: an item below -5% is reverted (later relaxed for item 4, see below).
 
 | Item | Idle RSS MB (A -> B) | Footprint MiB (A -> B) | Peak RSS MB (A -> B) | Counter moved | Probe ms (A -> B) | Decision |
 |---|---:|---:|---:|---|---:|---|
-| 4. Shapes: shared layouts | 219.5 -> 156.9 (noise) | 202.0 -> 195.2 (-3.4%) | 220.6 -> 212.1 | `shapes` 8.3 -> 1.7 MB | 826.1 -> 758.4 | reverted |
+| 4. Shapes: shared layouts | 219.5 -> 156.9 (noise) | 202.0 -> 195.2 (-3.4%) | 220.6 -> 212.1 | `shapes` 8.3 -> 1.7 MB | 826.1 -> 758.4 | kept (human decision) |
 | 2. Compact instructions | not built | bound: -2.1% | | instructions 11.0 MB | | not attempted |
 | 3. Single source | not built | bound in scope: -0.5% | | `source` 11.1 MB | | blocked by scope |
 
@@ -368,9 +368,12 @@ layout in place, a branch or a reconfiguration copied its prefix. It removed the
 `shape.rs`: `shapes` went from 4.9 to 1.6 MB in an empty isolate (RSS 44.7 -> 41.9 MB) and from 8.3 to
 1.7 MB in the large app, but that is 3.4% of the footprint, below the bar. The probe ran 3 times on
 each side at different moments (B first, at load 15 to 20), so its 8% gain is load, not the change; it
-shows no regression. Reverted by hand; the shared-layout `ShapeTable` is the first thing to bring back
-if several sub-5% items are later taken together. The 1.7 MB left is per-shape headers and transition
-maps.
+shows no regression. It was first reverted by hand under the 5% rule, then reapplied by human decision
+(VELYR-213 follow-up): items below 5% are accepted when they are cheap and cause no regression, and this
+one is both. `crates/engine-vm/src/object/shape.rs` is the only file changed. After reapplying,
+`cargo test -p velyr-engine-vm` and `cargo test -p velyr-engine-native` pass, and
+`accounting_throughput_probe` ran at 835 and 833 ms (best of 7, twice), within noise of the 826 ms
+baseline (no slowdown above 10%). The 1.7 MB left is per-shape headers and transition maps.
 
 Item 2: a temporary counter (charged in `Emitter::finish`, removed after the run) read 11.0 MB of
 `Instruction` at idle, out of 27.9 MB of `code`; the rest is stubs (36,505 functions in the fixture,
@@ -385,6 +388,9 @@ text, 1.1 MB of line starts (276k lines at 4 bytes), the bootstrap scripts and n
 the loader's transformed text (6.7 MB, `runtime-modules`), handed over as `Source { text: String }`
 (`engine-api`); sharing one `Arc<str>` needs both crates, outside this ticket's files. What is left in
 scope, building the line table on the first stack trace, is about 1.1 MB (0.5%).
+
+Decision: the 180 MB target is closed, for the reasons below, and the single-source change (6.7 MB,
+spanning `runtime-modules` and `engine-api`) is left for a future ticket.
 
 Idle RSS stays at about 200 to 220 MB (footprint 202 MiB, 211.8 MB), not below 180 MB. Reaching 180 MB
 needs about 30 MB; the three items together are bounded by 6.6 + 4.4 + 6.7 = 17.7 MB even if every one
