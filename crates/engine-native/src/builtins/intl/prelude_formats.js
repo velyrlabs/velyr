@@ -5,7 +5,7 @@
   const global = globalThis;
   const shared = global.__intl_shared;
   delete global.__intl_shared;
-  const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocale,
+  const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocaleKeys, typeOption,
     toOptions, getOption, getNumber, decodeParts, typeError } = shared;
   const { defineProperty } = Object;
   const Intl = global.Intl;
@@ -14,7 +14,7 @@
   const TIME_FIELDS = ['dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits'];
   // The order `datetime.rs` reads the spec in.
   const SPEC_KEYS = ['dateStyle', 'timeStyle', 'weekday', 'era', 'year', 'month', 'day',
-    'hour', 'minute', 'second', 'fractionalSecondDigits', 'hourCycle'];
+    'hour', 'minute', 'second', 'fractionalSecondDigits', 'hourCycle', 'timeZoneName'];
   const TEXT = ['narrow', 'short', 'long'];
   const NUMERIC = ['2-digit', 'numeric'];
   const COMPONENTS = [
@@ -53,12 +53,13 @@
   const createDateTimeFormat = (locales, options, required, defaults) => {
     options = toDateTimeOptions(options === undefined ? undefined : toOptions(options), required, defaults);
     getOption(options, 'localeMatcher', ['lookup', 'best fit']);
-    getOption(options, 'calendar');
-    getOption(options, 'numberingSystem');
+    const calendar = typeOption(options, 'calendar');
+    const numberingSystem = typeOption(options, 'numberingSystem');
     const hour12 = options.hour12;
     let hourCycle = getOption(options, 'hourCycle', ['h11', 'h12', 'h23', 'h24']);
     if (hour12 !== undefined) hourCycle = hour12 ? 'h12' : 'h23';
-    const locale = resolveLocale(locales);
+    const { locale, data, values } = resolveLocaleKeys(locales, { ca: calendar, nu: numberingSystem, hc: hourCycle });
+    hourCycle ??= values.hc;
     let timeZone = options.timeZone;
     if (timeZone === undefined) {
       timeZone = ops.default_zone();
@@ -67,7 +68,8 @@
       timeZone = ops.canonical_zone(name);
       if (timeZone === undefined) throw new RangeError(`Invalid time zone specified: ${name}`);
     }
-    const record = { kind: 'DateTimeFormat', locale, timeZone, hourCycle };
+    const record = { kind: 'DateTimeFormat', locale, data, calendar: values.ca ?? 'gregory',
+      numberingSystem: values.nu ?? 'latn', timeZone, hourCycle };
     let explicit;
     for (const [name, values] of COMPONENTS) {
       const value = getOption(options, name, values);
@@ -75,8 +77,9 @@
     }
     const fractional = getNumber(options, 'fractionalSecondDigits', 1, 3, undefined);
     if (fractional !== undefined) { record.fractionalSecondDigits = fractional; explicit = 'fractionalSecondDigits'; }
-    // shortcut: timeZoneName is validated but not rendered (no zone names in the patterns).
-    getOption(options, 'timeZoneName', ['short', 'long', 'shortOffset', 'longOffset', 'shortGeneric', 'longGeneric']);
+    const timeZoneName = getOption(options, 'timeZoneName',
+      ['short', 'long', 'shortOffset', 'longOffset', 'shortGeneric', 'longGeneric']);
+    if (timeZoneName !== undefined) { record.timeZoneName = timeZoneName; explicit = 'timeZoneName'; }
     getOption(options, 'formatMatcher', ['basic', 'best fit']);
     const dateStyle = getOption(options, 'dateStyle', STYLES);
     const timeStyle = getOption(options, 'timeStyle', STYLES);
@@ -94,7 +97,7 @@
     let t = date === undefined ? Date.now() : Number(date);
     t = Math.abs(t) > 8.64e15 ? NaN : Math.trunc(t) + 0;
     if (t !== t) throw new RangeError('Invalid time value');
-    return ops.date_time_format(record.locale, record.spec, t, record.timeZone, parts);
+    return ops.date_time_format(record.data, record.spec, t, record.timeZone, parts);
   };
   constructor(DateTimeFormat, 'DateTimeFormat', {
     formatToParts(date) {
@@ -102,12 +105,12 @@
     },
     resolvedOptions() {
       const r = slot(this, 'DateTimeFormat', 'resolvedOptions');
-      const result = { locale: r.locale, calendar: 'gregory', numberingSystem: 'latn', timeZone: r.timeZone };
+      const result = { locale: r.locale, calendar: r.calendar, numberingSystem: r.numberingSystem, timeZone: r.timeZone };
       if (r.hourCycle !== undefined) {
         result.hourCycle = r.hourCycle;
         result.hour12 = r.hourCycle === 'h11' || r.hourCycle === 'h12';
       }
-      for (const key of [...COMPONENTS.map(([name]) => name), 'fractionalSecondDigits', 'dateStyle', 'timeStyle']) {
+      for (const key of [...COMPONENTS.map(([name]) => name), 'fractionalSecondDigits', 'timeZoneName', 'dateStyle', 'timeStyle']) {
         if (r[key] !== undefined) result[key] = r[key];
       }
       return result;
@@ -140,19 +143,22 @@
       return new Collator(locales, options).compare(String(this), String(that));
     },
   });
-  const dateMethod = (required, defaults) => function (locales = undefined, options = undefined) {
-    const t = call(thisTime, this);
+  const localeDateString = (self, locales, options, required, defaults) => {
+    const t = call(thisTime, self);
     if (t !== t) return 'Invalid Date';
     return formatDate(createDateTimeFormat(locales, options, required, defaults), t, false);
   };
   define(Date.prototype, {
-    toLocaleString: dateMethod('any', 'all'),
-    toLocaleDateString: dateMethod('date', 'date'),
-    toLocaleTimeString: dateMethod('time', 'time'),
+    toLocaleString(locales = undefined, options = undefined) {
+      return localeDateString(this, locales, options, 'any', 'all');
+    },
+    toLocaleDateString(locales = undefined, options = undefined) {
+      return localeDateString(this, locales, options, 'date', 'date');
+    },
+    toLocaleTimeString(locales = undefined, options = undefined) {
+      return localeDateString(this, locales, options, 'time', 'time');
+    },
   });
-  for (const name of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']) {
-    defineProperty(Date.prototype[name], 'name', { value: name, configurable: true });
-  }
   // shortcut: no cycle detection, like the plain Array.prototype.toLocaleString it replaces.
   define(Array.prototype, {
     toLocaleString(locales = undefined, options = undefined) {

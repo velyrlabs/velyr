@@ -50,13 +50,63 @@
       candidate = candidate.slice(0, cut);
     }
   };
-  // shortcut: lookup matching only, and -u- extensions are dropped (not resolved).
-  const resolveLocale = (locales) => {
-    for (const locale of canonicalLocales(locales)) {
-      const found = bestAvailable(locale);
-      if (found !== undefined) return found;
+  // Values of the -u- keywords the formatters resolve (ECMA-402 relevantExtensionKeys).
+  const KEYWORD_VALUES = {
+    nu: ['arab', 'arabext', 'beng', 'deva', 'fullwide', 'gujr', 'guru', 'hanidec', 'khmr', 'knda',
+      'laoo', 'latn', 'limb', 'mlym', 'mong', 'mymr', 'orya', 'tamldec', 'telu', 'thai', 'tibt'],
+    ca: ['buddhist', 'chinese', 'coptic', 'dangi', 'ethioaa', 'ethiopic', 'gregory', 'hebrew', 'indian',
+      'islamic', 'islamic-civil', 'islamic-tbla', 'islamic-umalqura', 'iso8601', 'japanese', 'persian', 'roc'],
+    hc: ['h11', 'h12', 'h23', 'h24'],
+  };
+  // The keywords of the -u- extension of a canonical tag: { ca: 'buddhist', nu: 'arab' }.
+  const unicodeKeywords = (locale) => {
+    const keywords = {};
+    const match = /-u((?:-[a-z0-9]{2,8})+)/i.exec(locale);
+    if (match === null) return keywords;
+    let key;
+    for (const subtag of match[1].slice(1).split('-')) {
+      if (subtag.length === 2) { key = subtag; keywords[key] = ''; }
+      else if (key !== undefined) keywords[key] = keywords[key] === '' ? subtag : `${keywords[key]}-${subtag}`;
     }
-    return ops.default_locale();
+    return keywords;
+  };
+  // ResolveLocale with lookup matching (best fit resolves the same: every CLDR locale is
+  // available). `fromOptions` maps each relevant keyword ('nu', 'ca', 'hc') to the value of
+  // its option or undefined. Returns the resolved `locale` (keywords kept only when taken
+  // from the tag), `data` (the tag with every effective keyword, for the native ops) and
+  // the effective `values`.
+  const resolveLocaleKeys = (locales, fromOptions) => {
+    let base = ops.default_locale();
+    let keywords = {};
+    for (const requested of canonicalLocales(locales)) {
+      const found = bestAvailable(requested);
+      if (found === undefined) continue;
+      base = found;
+      keywords = unicodeKeywords(requested);
+      break;
+    }
+    const values = {};
+    const kept = {};
+    for (const key of Object.keys(fromOptions).sort()) {
+      const supported = (value) => value !== undefined && KEYWORD_VALUES[key].includes(value);
+      if (supported(keywords[key])) { values[key] = keywords[key]; kept[key] = keywords[key]; }
+      const option = fromOptions[key];
+      if (supported(option) && option !== values[key]) { values[key] = option; delete kept[key]; }
+    }
+    const tag = (map) => {
+      const keys = Object.keys(map);
+      return keys.length === 0 ? base : `${base}-u-${keys.map((key) => `${key}-${map[key]}`).join('-')}`;
+    };
+    return { locale: tag(kept), data: tag(values), values };
+  };
+  const resolveLocale = (locales) => resolveLocaleKeys(locales, {}).locale;
+  // A string option holding a Unicode type (numberingSystem, calendar), lowercased.
+  const typeOption = (options, name) => {
+    const value = getOption(options, name);
+    if (value !== undefined && !/^[a-z0-9]{3,8}(-[a-z0-9]{3,8})*$/i.test(value)) {
+      throw new RangeError(`Invalid ${name} : ${value}`);
+    }
+    return value === undefined ? value : value.toLowerCase();
   };
   const supportedLocalesOf = (locales, options) => {
     const requested = canonicalLocales(locales);
@@ -134,60 +184,6 @@
     if (min > max) throw new RangeError('maximumFractionDigits value is out of range.');
     return { minimumIntegerDigits, minimumFractionDigits: min, maximumFractionDigits: max };
   };
-
-  function NumberFormat(locales = undefined, options = undefined) {
-    const self = instance(new.target, this, NumberFormat);
-    options = toOptions(options);
-    getOption(options, 'localeMatcher', ['lookup', 'best fit']);
-    const locale = resolveLocale(locales);
-    // shortcut: no currency, unit, compact notation or significant digits; they throw
-    // instead of formatting wrongly. Add them with icu_experimental's formatters.
-    const style = getOption(options, 'style', ['decimal', 'percent', 'currency', 'unit'], 'decimal');
-    if (style === 'currency' || style === 'unit') {
-      throw new RangeError(`Intl.NumberFormat style "${style}" is not supported yet`);
-    }
-    const notation = getOption(options, 'notation', ['standard', 'scientific', 'engineering', 'compact'], 'standard');
-    if (notation !== 'standard') throw new RangeError(`Intl.NumberFormat notation "${notation}" is not supported yet`);
-    if (options.minimumSignificantDigits !== undefined || options.maximumSignificantDigits !== undefined) {
-      throw new RangeError('Intl.NumberFormat significant digits are not supported yet');
-    }
-    const digits = digitOptions(options, style === 'percent' ? 0 : 3);
-    const grouping = options.useGrouping;
-    let useGrouping = 'auto';
-    if (grouping === false || grouping === null || grouping === 0 || grouping === '') useGrouping = false;
-    else if (grouping === true) useGrouping = 'always';
-    else if (grouping !== undefined) useGrouping = getOption(options, 'useGrouping', ['always', 'auto', 'min2', 'true', 'false']);
-    if (useGrouping === 'true') useGrouping = 'always';
-    if (useGrouping === 'false') useGrouping = false;
-    slots.set(self, { kind: 'NumberFormat', locale, style, useGrouping, ...digits });
-    return self;
-  }
-  const formatNumber = (record, value, parts) => {
-    const x = typeof value === 'bigint' ? String(value) : Number(value);
-    return ops.number_format(record.locale, x, record.minimumIntegerDigits,
-      record.minimumFractionDigits, record.maximumFractionDigits, String(record.useGrouping),
-      record.style, parts);
-  };
-  const toNumeric = (value) => {
-    const primitive = typeof value === 'object' && value !== null ? Number(value) : value;
-    return typeof primitive === 'bigint' ? primitive : Number(primitive);
-  };
-  constructor(NumberFormat, 'NumberFormat', {
-    formatToParts(value) {
-      return decodeParts(formatNumber(slot(this, 'NumberFormat', 'formatToParts'), toNumeric(value), true));
-    },
-    resolvedOptions() {
-      const r = slot(this, 'NumberFormat', 'resolvedOptions');
-      return {
-        locale: r.locale, numberingSystem: 'latn', style: r.style,
-        minimumIntegerDigits: r.minimumIntegerDigits, minimumFractionDigits: r.minimumFractionDigits,
-        maximumFractionDigits: r.maximumFractionDigits, useGrouping: r.useGrouping,
-        notation: 'standard', signDisplay: 'auto', roundingMode: 'halfExpand',
-      };
-    },
-  });
-  boundGetter(NumberFormat.prototype, 'format', 'NumberFormat',
-    (record) => (value) => formatNumber(record, toNumeric(value), false));
 
   function PluralRules(locales = undefined, options = undefined) {
     if (new.target === undefined) typeError("Constructor Intl.PluralRules requires 'new'");
@@ -294,13 +290,14 @@
   const Intl = {};
   define(Intl, {
     getCanonicalLocales(locales) { return canonicalLocales(locales); },
-    Collator, NumberFormat, PluralRules, Segmenter,
+    Collator, PluralRules, Segmenter,
   });
   tag(Intl, 'Intl');
   defineProperty(global, 'Intl', { value: Intl, writable: true, configurable: true });
   defineProperty(global, '__intl_shared', {
     value: freeze({ ops, define, tag, slots, slot, boundGetter, constructor, instance,
-      resolveLocale, toOptions, getOption, getNumber, decodeParts, typeError }),
+      resolveLocale, resolveLocaleKeys, typeOption, toOptions, getOption, getNumber, decodeParts,
+      typeError }),
     configurable: true,
   });
 })();

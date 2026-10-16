@@ -2,13 +2,14 @@
 //! options (ToDateTimeOptions, style/component conflicts) into a `spec`; the instant is
 //! moved to the wall clock of the time zone with the tzdb of `temporal_rs`.
 
-use icu_datetime::fieldsets::builder::{DateFields, FieldSetBuilder};
-use icu_datetime::fieldsets::enums::CompositeDateTimeFieldSet;
-use icu_datetime::input::{Date, DateTime, Time};
+use icu_calendar::Iso;
+use icu_datetime::fieldsets::builder::{DateFields, FieldSetBuilder, ZoneStyle};
+use icu_datetime::fieldsets::enums::{CompositeFieldSet, ZoneFieldSet};
+use icu_datetime::input::{Date, DateTime, Time, TimeZone, UtcOffset, ZonedDateTime};
 use icu_datetime::options::{Length, SubsecondDigits, TimePrecision, YearStyle};
 use icu_datetime::preferences::HourCycle;
 use icu_datetime::{DateTimeFormatter, DateTimeFormatterPreferences, parts};
-use temporal_rs::ZonedDateTime;
+use temporal_rs::ZonedDateTime as TemporalZoned;
 use velyr_engine_vm::Value;
 use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
 use writeable::{Part, Writeable};
@@ -17,7 +18,7 @@ use super::{OpResult, Parts, bool_arg, locale, number_arg, range_error, string_a
 use crate::date::{host_zone, parse_zone};
 
 /// Option names in the order the prelude joins them into the spec.
-const KEYS: [&str; 12] = [
+const KEYS: [&str; 13] = [
     "dateStyle",
     "timeStyle",
     "weekday",
@@ -30,6 +31,7 @@ const KEYS: [&str; 12] = [
     "second",
     "fractionalSecondDigits",
     "hourCycle",
+    "timeZoneName",
 ];
 
 struct Spec(Vec<String>);
@@ -89,11 +91,31 @@ fn time_precision(spec: &Spec) -> Option<TimePrecision> {
     )
 }
 
+fn zone_style(spec: &Spec) -> Option<ZoneStyle> {
+    if spec.get("dateStyle").is_some() || spec.get("timeStyle").is_some() {
+        return match spec.get("timeStyle") {
+            Some("full") => Some(ZoneStyle::SpecificLong),
+            Some("long") => Some(ZoneStyle::SpecificShort),
+            _ => None,
+        };
+    }
+    Some(match spec.get("timeZoneName")? {
+        "short" => ZoneStyle::SpecificShort,
+        "long" => ZoneStyle::SpecificLong,
+        "shortOffset" => ZoneStyle::LocalizedOffsetShort,
+        "longOffset" => ZoneStyle::LocalizedOffsetLong,
+        "shortGeneric" => ZoneStyle::GenericShort,
+        _ => ZoneStyle::GenericLong,
+    })
+}
+
 /// shortcut: one length for the whole pattern (ICU4X field sets), so `dateStyle` and
-/// `timeStyle` of different lengths use the date's, and textual weekday/month lengths
-/// collapse onto it; time zone names are not rendered.
-fn field_set(spec: &Spec) -> Option<CompositeDateTimeFieldSet> {
+/// `timeStyle` of different lengths use the date's (which also picks the date-time glue,
+/// as CLDR does), and textual weekday/month lengths collapse onto it; the narrow forms
+/// are not available.
+fn field_set(spec: &Spec) -> Option<CompositeFieldSet> {
     let mut builder = FieldSetBuilder::new();
+    builder.zone_style = zone_style(spec);
     if spec.get("dateStyle").is_some() || spec.get("timeStyle").is_some() {
         if let Some(style) = spec.get("dateStyle") {
             builder.length = Some(length(style));
@@ -130,7 +152,7 @@ fn field_set(spec: &Spec) -> Option<CompositeDateTimeFieldSet> {
             builder.year_style = Some(YearStyle::Full);
         }
     }
-    builder.build_composite_datetime().ok()
+    builder.build_composite().ok()
 }
 
 fn preferences(tag: &str, hour_cycle: Option<&str>) -> DateTimeFormatterPreferences {
@@ -144,14 +166,31 @@ fn preferences(tag: &str, hour_cycle: Option<&str>) -> DateTimeFormatterPreferen
     prefs
 }
 
-/// The wall-clock date and time of the instant `t` (ms) in the zone `zone`.
-fn wall_clock(zone: &str, t: f64) -> Option<DateTime<icu_calendar::Iso>> {
-    let zone = parse_zone(zone)?;
-    let zdt = ZonedDateTime::try_new_iso(t as i128 * 1_000_000, zone).ok()?;
+/// The instant `t` (ms) as the wall clock of the time zone `zone`.
+struct Instant {
+    wall: DateTime<Iso>,
+    zone: TimeZone,
+    offset: Option<UtcOffset>,
+}
+
+fn instant(zone: &str, t: f64) -> Option<Instant> {
+    let id = parse_zone(zone)?;
+    let zdt = TemporalZoned::try_new_iso(t as i128 * 1_000_000, id).ok()?;
     let date = Date::try_new_iso(zdt.year(), zdt.month(), zdt.day()).ok()?;
     let nanos = u32::from(zdt.millisecond()) * 1_000_000;
     let time = Time::try_new(zdt.hour(), zdt.minute(), zdt.second(), nanos).ok()?;
-    Some(DateTime { date, time })
+    let seconds = (zdt.offset_nanoseconds() / 1_000_000_000) as i32;
+    // Offset zones (`+05:30`) have no IANA name to look up.
+    let named = !zone.starts_with(['+', '-']);
+    Some(Instant {
+        wall: DateTime { date, time },
+        zone: if named {
+            TimeZone::from_iana_id(zone)
+        } else {
+            TimeZone::UNKNOWN
+        },
+        offset: UtcOffset::try_from_seconds(seconds).ok(),
+    })
 }
 
 fn part_name(part: Part) -> &'static str {
@@ -172,6 +211,48 @@ fn part_name(part: Part) -> &'static str {
     }
 }
 
+/// The weekday name at its own length: the field sets share one length with the month, so
+/// `weekday: 'long', month: 'short'` would otherwise get an abbreviated weekday.
+fn weekday_text(
+    prefs: DateTimeFormatterPreferences,
+    style: &str,
+    date: &Date<Iso>,
+) -> Option<String> {
+    let mut builder = FieldSetBuilder::new();
+    builder.date_fields = Some(DateFields::E);
+    builder.length = Some(if style == "long" {
+        Length::Long
+    } else {
+        Length::Medium
+    });
+    let formatter = DateTimeFormatter::try_new(prefs, builder.build_date().ok()?).ok()?;
+    Some(formatter.format(date).write_to_string().into_owned())
+}
+
+/// Pads or truncates the numeric fields requested as `2-digit`; ICU4X patterns only know
+/// the locale's own width. Non-Latin digits are left as formatted.
+fn apply_two_digit(spec: &Spec, parts: &mut Vec<(&'static str, String)>) {
+    // ICU4X writes the digits of one field as separate entries; join them first.
+    let mut merged: Vec<(&'static str, String)> = Vec::with_capacity(parts.len());
+    for (kind, text) in parts.drain(..) {
+        match merged.last_mut() {
+            Some((last, buffer)) if *last == kind => buffer.push_str(&text),
+            _ => merged.push((kind, text)),
+        }
+    }
+    *parts = merged;
+    for (kind, text) in parts {
+        if spec.get(kind) != Some("2-digit") || !text.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        if *kind == "year" {
+            text.drain(..text.len().saturating_sub(2));
+        } else if text.len() < 2 {
+            text.insert(0, '0');
+        }
+    }
+}
+
 fn failure(vm: &mut Interpreter, what: &str) -> Abrupt {
     range_error(vm, &format!("Cannot format the date: {what}"))
 }
@@ -186,16 +267,49 @@ pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResul
     let Ok(formatter) = DateTimeFormatter::try_new(prefs, fields) else {
         return Err(failure(vm, "no data for this locale"));
     };
-    let Some(input) = wall_clock(&string_arg(args, 3), number_arg(args, 2)) else {
+    let Some(at) = instant(&string_arg(args, 3), number_arg(args, 2)) else {
         return Err(failure(vm, "time value out of range"));
+    };
+    let zone = at.zone.with_offset(at.offset).at_date_time(at.wall);
+    let input = ZonedDateTime {
+        date: at.wall.date,
+        time: at.wall.time,
+        zone,
     };
     let mut out = Parts::new(part_name);
     let _ = formatter.format(&input).write_to_parts(&mut out);
+    apply_two_digit(&spec, &mut out.parts);
+    // `weekday` and `dateStyle` never combine (the prelude rejects it).
+    if let Some(style) = spec.get("weekday")
+        && let Some(name) = weekday_text(prefs, style, &at.wall.date)
+    {
+        for (_, text) in out.parts.iter_mut().filter(|(kind, _)| *kind == "weekday") {
+            text.clone_from(&name);
+        }
+    }
     if bool_arg(args, 4) {
         return Ok(Value::str(&out.encode()));
     }
     let text: String = out.parts.iter().map(|(_, text)| text.as_str()).collect();
     Ok(Value::str(&text))
+}
+
+thread_local! {
+    static ZONE_NAMES: DateTimeFormatter<ZoneFieldSet> = {
+        let mut builder = FieldSetBuilder::new();
+        builder.zone_style = Some(ZoneStyle::SpecificLong);
+        let fields = builder.build_zone().expect("a zone style builds a zone field set");
+        let prefs = DateTimeFormatterPreferences::from(&locale("en-US"));
+        DateTimeFormatter::try_new(prefs, fields).expect("compiled data has the zone names")
+    };
+}
+
+/// The English long name of `zone` at `t` (`Brasilia Standard Time`), as printed by
+/// `Date.prototype.toString`.
+pub(crate) fn zone_long_name(zone: &str, t: f64) -> Option<String> {
+    let at = instant(zone, t)?;
+    let info = at.zone.with_offset(at.offset).at_date_time(at.wall);
+    ZONE_NAMES.with(|formatter| Some(formatter.format(&info).write_to_string().into_owned()))
 }
 
 /// The canonical name of a time zone, or `undefined` when it is not one.

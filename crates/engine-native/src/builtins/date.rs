@@ -1,5 +1,5 @@
 //! The local time zone of `Date` (VELYR-114): `TZ` when it names an IANA zone, else the
-//! host zone (`iana-time-zone`), else UTC; offsets come from the tzdb compiled into
+//! host zone (the `/etc/localtime` link, else `iana-time-zone`), else UTC; offsets come from the tzdb compiled into
 //! `temporal_rs`.
 
 use std::rc::Rc;
@@ -40,11 +40,20 @@ pub(crate) fn offset_from_local(zone: TimeZone, local: f64) -> f64 {
 pub(crate) fn host_zone() -> TimeZone {
     let from_env = std::env::var("TZ").ok().and_then(|id| parse_zone(&id));
     let from_host = || {
-        iana_time_zone::get_timezone()
-            .ok()
+        localtime_link()
+            .or_else(|| iana_time_zone::get_timezone().ok())
             .and_then(|id| parse_zone(&id))
     };
     from_env.or_else(from_host).unwrap_or_else(TimeZone::utc)
+}
+
+/// The zone id `/etc/localtime` links to (`.../zoneinfo/America/Sao_Paulo`). Tried first
+/// because `iana_time_zone` on macOS goes through CoreFoundation, which keeps ~36 MB of
+/// ICU time zone data allocated for the life of the process.
+fn localtime_link() -> Option<String> {
+    let target = std::fs::read_link("/etc/localtime").ok()?;
+    let (_, id) = target.to_str()?.split_once("zoneinfo/")?;
+    Some(id.to_owned())
 }
 
 struct HostZone(TimeZone);
@@ -58,10 +67,10 @@ impl LocalTimeZone for HostZone {
         offset_from_local(self.0, t)
     }
 
-    /// shortcut: no zone display name (V8 prints the CLDR long name, e.g. `Brasilia
-    /// Standard Time`), so `toString` ends at the offset; add one via ICU4X zone names.
-    fn name(&self, _t: f64) -> Option<String> {
-        None
+    /// The CLDR long name V8 prints, e.g. `Brasilia Standard Time`.
+    fn name(&self, t: f64) -> Option<String> {
+        let id = self.0.identifier().ok()?;
+        crate::intl::zone_long_name(&id, t)
     }
 }
 
@@ -86,5 +95,28 @@ mod tests {
             1_636_263_000_000.0
         );
         assert_eq!(offset_ms(new_york, 0.0), -5.0 * 3_600_000.0);
+    }
+
+    #[test]
+    fn zone_names_follow_the_season() {
+        let name = |id: &str, t: f64| crate::intl::zone_long_name(id, t);
+        // 2024-01-05T15:04:09Z and 2024-07-05T15:04:09Z.
+        let (winter, summer) = (1_704_467_049_000.0, 1_720_191_849_000.0);
+        assert_eq!(
+            name("America/Sao_Paulo", winter).as_deref(),
+            Some("Brasilia Standard Time")
+        );
+        assert_eq!(
+            name("America/New_York", winter).as_deref(),
+            Some("Eastern Standard Time")
+        );
+        assert_eq!(
+            name("America/New_York", summer).as_deref(),
+            Some("Eastern Daylight Time")
+        );
+        assert_eq!(
+            name("UTC", winter).as_deref(),
+            Some("Coordinated Universal Time")
+        );
     }
 }
