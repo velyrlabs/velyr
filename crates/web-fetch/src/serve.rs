@@ -423,8 +423,9 @@ fn op_serve_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
     })
 }
 
-/// `op_serve_respond(id, status, headersJson, body)`: `body` is `null`, bytes, or `true` for a
-/// body fed through `op_serve_write` / `op_serve_end`. A client that already left is an error.
+/// `op_serve_respond(id, status, headersJson, body)`: `body` is `null`, bytes, a string (sent as
+/// UTF-8), or `true` for a body fed through `op_serve_write` / `op_serve_end`. A client that
+/// already left is an error.
 fn op_serve_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let _span = tracing::debug_span!("velyr.ops.serve_respond").entered();
     let req = req_arg(ctx, args, "op_serve_respond")?;
@@ -447,6 +448,11 @@ fn op_serve_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, 
             let bytes = ctx
                 .read_bytes(value)
                 .ok_or_else(|| type_error("op_serve_respond", 3, "bytes, true or null"))?;
+            (BodyReceiver::once(bytes), None)
+        }
+        Some(Value::String(text)) => {
+            let mut bytes = Vec::new();
+            ctx.write_string_utf8(text, &mut bytes);
             (BodyReceiver::once(bytes), None)
         }
         _ => (BodyReceiver::empty(), None),

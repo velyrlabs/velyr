@@ -63,7 +63,12 @@
     static json(data, init = undefined) {
       const text = JSON.stringify(data);
       if (text === undefined) throw new TypeError("The value is not JSON serializable");
-      const response = new Response(encoder.encode(text), init);
+      // Built bodiless, then given the text: a string body would default to text/plain.
+      const response = new Response(null, init);
+      if (NULL_BODY_STATUSES.includes(response.status)) {
+        throw new TypeError(`Response with null body status cannot have a body`);
+      }
+      bodies.set(response, new BodyState(null, null, text));
       if (!response.headers.has("content-type")) response.headers.set("content-type", "application/json");
       return response;
     }

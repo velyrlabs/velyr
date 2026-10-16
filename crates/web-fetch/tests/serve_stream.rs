@@ -1,6 +1,6 @@
 //! A streamed `Velyr.serve` response body on V8 under the real event loop (VELYR-164): chunks that
 //! are ready together leave in one `op_serve_write`; chunks that arrive later still leave one by
-//! one, in order.
+//! one, in order. A string body (VELYR-193) goes to `op_serve_respond` as a string, not encoded in JS.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -24,11 +24,19 @@ static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static SERIAL: Mutex<()> = Mutex::new(());
 static WRITES: AtomicUsize = AtomicUsize::new(0);
 static REAL_WRITE: OnceLock<HostFn> = OnceLock::new();
+static ENCODES: AtomicUsize = AtomicUsize::new(0);
+static REAL_ENCODE: OnceLock<HostFn> = OnceLock::new();
 
 /// `op_serve_write` that counts its calls: one call is one hop through the event loop.
 fn counting_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     WRITES.fetch_add(1, Ordering::SeqCst);
     REAL_WRITE.get().expect("real op registered")(ctx, args)
+}
+
+/// `op_encoding_encode` that counts its calls (`TextEncoder.encode` in JS).
+fn counting_encode(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    ENCODES.fetch_add(1, Ordering::SeqCst);
+    REAL_ENCODE.get().expect("real op registered")(ctx, args)
 }
 
 fn record(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
@@ -47,9 +55,16 @@ fn localhost_resolver() -> Resolver {
 
 /// The log of the script and how many `op_serve_write` calls it made.
 fn run(body: &str) -> (Vec<String>, usize) {
+    let (log, writes, _) = run_counting(body);
+    (log, writes)
+}
+
+/// [`run`] plus how many `op_encoding_encode` calls the script made.
+fn run_counting(body: &str) -> (Vec<String>, usize, usize) {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     LOG.lock().unwrap().clear();
     WRITES.store(0, Ordering::SeqCst);
+    ENCODES.store(0, Ordering::SeqCst);
     let script = format!(
         "(async () => {{ {body} }})().catch((e) => record('FAIL ' + (e && e.name) + ' ' + (e && e.message)));"
     );
@@ -79,7 +94,17 @@ fn run(body: &str) -> (Vec<String>, usize) {
     let mut functions = OpRegistry::builtin().host_functions().to_vec();
     functions.extend(timer_host_functions());
     functions.extend(url_host_functions());
-    functions.extend(encoding_host_functions());
+    for def in encoding_host_functions() {
+        if def.name == "op_encoding_encode" {
+            REAL_ENCODE.get_or_init(|| def.callback);
+            functions.push(HostFunctionDef {
+                callback: counting_encode,
+                ..def
+            });
+        } else {
+            functions.push(def);
+        }
+    }
     functions.extend(flate_host_functions());
     functions.extend(net_host_functions());
     for def in fetch_host_functions() {
@@ -123,7 +148,11 @@ fn run(body: &str) -> (Vec<String>, usize) {
         path,
     );
     result.expect("script runs");
-    (LOG.lock().unwrap().clone(), WRITES.load(Ordering::SeqCst))
+    (
+        LOG.lock().unwrap().clone(),
+        WRITES.load(Ordering::SeqCst),
+        ENCODES.load(Ordering::SeqCst),
+    )
 }
 
 const SERVE: &str = r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, () => new Response(makeBody()));
@@ -157,6 +186,65 @@ fn a_long_ready_run_is_batched_and_stays_in_order() {
     ));
     assert_eq!(log, ["true"]);
     assert!(writes < 100, "1000 ready chunks took {writes} writes");
+}
+
+#[test]
+fn a_string_body_is_sent_as_utf8_without_encoding_in_js() {
+    let (log, _, encodes) = run_counting(
+        r#"const bodies = {
+             "/ascii": () => new Response("x".repeat(100000)),
+             "/text": () => new Response("café €😀 a\ud800b"),
+             "/empty": () => new Response(""),
+             "/json": () => Response.json({ s: "é" }),
+           };
+           const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req) => bodies[new URL(req.url).pathname]());
+           try {
+             for (const path of Object.keys(bodies)) {
+               const res = await fetch(`http://127.0.0.1:${server.addr.port}${path}`);
+               const bytes = new Uint8Array(await res.arrayBuffer());
+               const shown = path === "/ascii" ? String(bytes.every((b) => b === 0x78)) : Array.from(bytes, (b) => b.toString(16)).join(",");
+               record(`${path} ${res.headers.get("content-length")} ${res.headers.get("content-type")} ${bytes.length} ${shown}`);
+             }
+           } finally { await server.shutdown(); }"#,
+    );
+    assert_eq!(
+        log,
+        [
+            "/ascii 100000 text/plain;charset=UTF-8 100000 true",
+            "/text 19 text/plain;charset=UTF-8 19 63,61,66,c3,a9,20,e2,82,ac,f0,9f,98,80,20,61,ef,bf,bd,62",
+            "/empty 0 text/plain;charset=UTF-8 0 ",
+            "/json 10 application/json 10 7b,22,73,22,3a,22,c3,a9,22,7d",
+        ]
+    );
+    assert_eq!(encodes, 0, "string bodies were encoded in JS");
+}
+
+#[test]
+fn a_string_body_still_reads_clones_and_streams_as_utf8() {
+    let (log, _) = run(r#"const r = new Response("hé\ud800");
+           const c = r.clone();
+           record(`${(await r.bytes()).length} ${await c.text()} ${r.bodyUsed} ${c.bodyUsed}`);
+           const { value } = await new Response("éb").body.getReader().read();
+           record(Array.from(value, (b) => b.toString(16)).join(","));
+           const q = new Request("http://127.0.0.1/", { method: "POST", body: "é" });
+           record(String((await new Request(q).arrayBuffer()).byteLength));
+           record(await new Response(new URLSearchParams("a=é")).text());
+           record(Response.json(1, { headers: { "content-type": "x/y" } }).headers.get("content-type"));
+           try { Response.json({}, { status: 204 }); record("no throw"); } catch (e) { record(e.name); }
+           const j = Response.json({ a: "é" });
+           record(`${await j.clone().text()} ${(await j.arrayBuffer()).byteLength}`);"#);
+    assert_eq!(
+        log,
+        [
+            "6 h\u{e9}\u{FFFD} true true",
+            "c3,a9,62",
+            "2",
+            "a=%C3%A9",
+            "x/y",
+            "TypeError",
+            "{\"a\":\"\u{e9}\"} 10",
+        ]
+    );
 }
 
 #[test]

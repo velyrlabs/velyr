@@ -7,13 +7,13 @@
   // Capture the raw ops, then remove them so user code never sees them (ADR-010).
   const setOp = global.op_timer_set;
   const clearOp = global.op_timer_clear;
-  // shortcut: ref/unref has no JS surface yet (ids are plain numbers); node profile adds Timeout objects.
   const refOp = global.op_timer_ref;
   delete global.op_timer_set;
   delete global.op_timer_clear;
   delete global.op_timer_ref;
 
   const apply = Reflect.apply;
+  const ASYNC_CONTEXT = Symbol.for("velyr.asyncContext");
   const timers = new Map();
 
   function define(name, value) {
@@ -36,7 +36,9 @@
     requireCallback(callback);
     // ToInt32 like the HTML `long` conversion; negative and NaN delays mean 0.
     const id = setOp(Math.max(0, delay | 0), repeat);
-    timers.set(id, { callback, args, repeat });
+    // The async context (AsyncLocalStorage's frame) at schedule time; see dispatch.
+    const context = global[ASYNC_CONTEXT];
+    timers.set(id, { callback, args, repeat, frame: context && context.current() });
     return id;
   }
 
@@ -65,10 +67,24 @@
     });
   });
 
+  // Hook for the Node layer's Timeout.ref()/unref(): an unref'd timer fires but does not keep
+  // the loop alive. Under a symbol key so it stays out of the way of user code; unknown ids are no-ops.
+  Object.defineProperty(global, Symbol.for("velyr.timers"), {
+    value: Object.freeze({
+      ref(id, refd) {
+        const key = id | 0;
+        if (timers.has(key)) refOp(key, !!refd);
+      },
+    }),
+  });
+
   return function dispatch(id) {
     const timer = timers.get(id);
     if (timer === undefined) return;
     if (!timer.repeat) timers.delete(id);
-    apply(timer.callback, global, timer.args);
+    // Installed by the Node layer when it is loaded; it puts the frame back around the callback.
+    const context = global[ASYNC_CONTEXT];
+    if (context) context.run(timer.frame, timer.callback, global, timer.args);
+    else apply(timer.callback, global, timer.args);
   };
 })(globalThis);

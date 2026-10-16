@@ -149,7 +149,9 @@ fn op_encoding_encode(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value
             "op_encoding_encode expects (text: string)".into(),
         ));
     };
-    Ok(ctx.create_array_buffer(text.to_string_lossy().as_bytes()))
+    let mut bytes = Vec::new();
+    ctx.write_string_utf8(text, &mut bytes);
+    Ok(ctx.create_array_buffer(&bytes))
 }
 
 /// `op_encoding_encode_into(text, capacity) -> [read, ArrayBuffer]`

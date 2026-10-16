@@ -85,6 +85,26 @@ fn non_function_callback_is_a_type_error() {
 }
 
 #[test]
+fn unref_interval_lets_the_loop_finish() {
+    let log = run(
+        r#"const id = setInterval(() => record("tick"), 1000);
+           globalThis[Symbol.for("velyr.timers")].ref(id, false);
+           record("done");"#,
+    );
+    assert_eq!(log.unwrap(), ["done"]);
+}
+
+#[test]
+fn ref_restores_a_timer_and_ignores_unknown_ids() {
+    let log = run(
+        r#"const t = globalThis[Symbol.for("velyr.timers")];
+           const id = setTimeout(() => record("fired"), 1);
+           t.ref(id, false); t.ref(id, true); t.ref(987654, false);"#,
+    );
+    assert_eq!(log.unwrap(), ["fired"]);
+}
+
+#[test]
 fn timer_ids_are_numbers_and_unique() {
     let log = run(
         r#"const a = setTimeout(() => {}, 1), b = setInterval(() => {}, 1);

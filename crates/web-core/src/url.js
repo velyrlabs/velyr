@@ -215,13 +215,16 @@
 
   // ---- URL ----
 
+  // Node-compatible shape: a TypeError carrying `code` and the offending `input`.
+  const invalidUrl = (input) => Object.assign(new TypeError("Invalid URL"), { code: "ERR_INVALID_URL", input });
+
   class URL {
     #parts;
     #params;
 
     constructor(url, base = undefined) {
       const parts = parseOp(usv(url), base === undefined ? undefined : usv(base));
-      if (parts === null) throw new TypeError("Invalid URL");
+      if (parts === null) throw invalidUrl(usv(url));
       this.#parts = parts;
       this.#params = new URLSearchParams(parts[SEARCH]);
       attachParams(this.#params, (query) => this.#apply("search", query, false));
@@ -241,7 +244,7 @@
 
     #apply(setter, value, syncParams) {
       const parts = reparseOp(this.#parts[HREF], setter, usv(value));
-      if (parts === null) throw new TypeError("Invalid URL");
+      if (parts === null) throw invalidUrl(usv(value));
       this.#parts = parts;
       if (syncParams) replaceParams(this.#params, parts[SEARCH].slice(1));
     }

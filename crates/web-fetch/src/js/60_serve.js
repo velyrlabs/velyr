@@ -94,6 +94,7 @@
     if (empty) return serveOp.respond(rid, response.status, pairs, null);
     if (state.unusable) throw new TypeError("The response body was already read");
     state.used = true;
+    if (state.text !== null) return serveOp.respond(rid, response.status, pairs, state.text);
     if (state.bytes !== null) return serveOp.respond(rid, response.status, pairs, state.bytes);
     serveOp.respond(rid, response.status, pairs, true);
     const reader = state.stream.getReader();

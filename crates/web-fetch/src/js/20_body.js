@@ -1,12 +1,34 @@
 
   // ---- Body ------------------------------------------------------------------------------
 
-  // What backs a Request or Response body: bytes already in memory, or a ReadableStream.
+  // What backs a Request or Response body: bytes already in memory, or a ReadableStream. A string
+  // body stays a string (`text`) until something reads `bytes`, so serving it skips TextEncoder.
   class BodyState {
-    constructor(stream, bytes) {
+    #bytes;
+    #text;
+
+    constructor(stream, bytes, text = null) {
       this.stream = stream;
-      this.bytes = bytes;
+      this.#bytes = bytes;
+      this.#text = text;
       this.used = false;
+    }
+
+    get text() {
+      return this.#text;
+    }
+
+    get bytes() {
+      if (this.#text !== null) {
+        this.#bytes = encoder.encode(this.#text);
+        this.#text = null;
+      }
+      return this.#bytes;
+    }
+
+    set bytes(bytes) {
+      this.#bytes = bytes;
+      this.#text = null;
     }
 
     // "Disturbed": consumed through this API, locked, or read from or cancelled directly.
@@ -57,7 +79,7 @@
     if (init instanceof URLSearchParams) {
       return [new BodyState(null, encoder.encode(init.toString())), "application/x-www-form-urlencoded;charset=UTF-8"];
     }
-    return [new BodyState(null, encoder.encode(String(init))), "text/plain;charset=UTF-8"];
+    return [new BodyState(null, null, String(init)), "text/plain;charset=UTF-8"];
   }
 
   async function readAll(stream) {
@@ -107,6 +129,7 @@
   function cloneBody(state) {
     if (state === null) return null;
     if (state.unusable) throw new TypeError("Cannot clone a body that was already read");
+    if (state.text !== null) return new BodyState(null, null, state.text);
     if (state.bytes !== null) return new BodyState(null, state.bytes);
     const [kept, copy] = state.stream.tee();
     state.stream = kept;

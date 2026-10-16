@@ -63,10 +63,18 @@ fn relative_reference_resolves_against_base() {
 #[test]
 fn invalid_url_throws_type_error() {
     let log = run_ok(
-        r#"try { new URL("not a url"); } catch (e) { record(e.constructor.name); }
-           try { new URL("/path", "also bad"); } catch (e) { record(e.constructor.name); }"#,
+        r#"try { new URL("not a url"); } catch (e) { record(e.constructor.name + " " + e.code + " " + e.input); }
+           try { new URL("/path", "also bad"); } catch (e) { record(e.constructor.name + " " + e.code); }
+           try { new URL("http://a.com").href = "::"; } catch (e) { record(e.constructor.name + " " + e.code); }"#,
     );
-    assert_eq!(log, ["TypeError", "TypeError"]);
+    assert_eq!(
+        log,
+        [
+            "TypeError ERR_INVALID_URL not a url",
+            "TypeError ERR_INVALID_URL",
+            "TypeError ERR_INVALID_URL"
+        ]
+    );
 }
 
 #[test]
