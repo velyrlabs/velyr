@@ -1,0 +1,18 @@
+[package]
+name = "velyr-web-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+url = "2.5"
+encoding_rs = "=0.8.35"
+
+[dev-dependencies]
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-core = { path = "../runtime-core" }
+
+[lints]
+workspace = true

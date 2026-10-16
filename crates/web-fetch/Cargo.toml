@@ -1,0 +1,34 @@
+[package]
+name = "velyr-web-fetch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-io-http = { path = "../io-http" }
+velyr-io-net = { path = "../io-net" }
+velyr-io-tls = { path = "../io-tls" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+brotli-decompressor = "=5.0.3"
+flate2 = "=1.1.10"
+http = "1"
+rustls = { version = "=0.23.46", default-features = false, features = ["aws-lc-rs", "std", "tls12"] }
+rustls-platform-verifier = "=0.7.0"
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-web-core = { path = "../web-core" }
+velyr-web-streams = { path = "../web-streams" }
+
+[lints]
+workspace = true
