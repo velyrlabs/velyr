@@ -2,6 +2,7 @@
 //! [`build`] turns the effective grammar into the `CapabilitySet` and `QuotaConfig` for the runtime.
 
 mod expand;
+mod run_warning;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -148,6 +149,10 @@ pub fn build(
     }
     let mut warnings = Vec::new();
     let mut allow = Vec::new();
+    if !effective.allow_all {
+        // `--allow-all` already warns about everything it grants.
+        warnings.extend(run_warning::warning(&effective.allow_run));
+    }
     if effective.allow_all {
         warnings.push(ALLOW_ALL_WARNING.to_owned());
         for kind in Kind::ALLOW_ALL {

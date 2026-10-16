@@ -15,7 +15,7 @@ use velyr_runtime_resources::QuotaConfig;
 use velyr_web_fetch::ServeInbox;
 
 use crate::permissions::{self, ConfigError, Permissions};
-use crate::{config, profiles, transforms};
+use crate::{config, profiles, transforms, watch_mode};
 
 /// JS engine `velyr run` executes on.
 #[derive(Clone, Copy, Default, clap::ValueEnum)]
@@ -28,41 +28,22 @@ pub enum EngineKind {
 
 pub fn run(file: &Path, flags: Permissions, engine: EngineKind) -> ExitCode {
     let _span = tracing::info_span!("velyr.cli.run").entered();
-    exit_code(prepare(file, flags).and_then(|prepared| match engine {
-        EngineKind::V8 => run_prepared(file, &prepared, None, Worker::default()),
-        EngineKind::Native => run_native(file, &prepared),
-    }))
-}
-
-/// shortcut: only the base op bootstrap; the profile globals need builtins engine-native
-/// lacks (FinalizationRegistry, ...), so install them once it has them.
-#[cfg(feature = "engine-native")]
-fn run_native(file: &Path, prepared: &Prepared) -> Result<(), String> {
-    use velyr_runtime_ops::{OpContext, OpRegistry};
-    use velyr_runtime_resources::QuotaContext;
-
-    let config = runtime_config(prepared, None, None);
-    let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
-    let install = move |isolate: &mut velyr_runtime_core::LoopIsolate<_>, sender, _timers| {
-        let quotas = Arc::new(QuotaContext::new(quotas));
-        isolate.set_slot(OpContext::new(0, sender, permissions, quotas));
-    };
-    let functions = OpRegistry::builtin().host_functions().to_vec();
-    let engine = velyr_engine_native::NativeEngine;
-    let path = file.to_path_buf();
-    run_module_file(engine, config, functions, BOOTSTRAP_JS, install, path).map_err(describe)
-}
-
-#[cfg(not(feature = "engine-native"))]
-fn run_native(_file: &Path, _prepared: &Prepared) -> Result<(), String> {
-    Err("error: --engine native is not compiled in (build velyr-cli with the `engine-native` feature)".into())
+    exit_code(
+        prepare(file, flags)
+            .and_then(|prepared| run_prepared(file, &prepared, None, Worker::default(), engine)),
+    )
 }
 
 /// Runs `file`; `after_install` is a script evaluated once the globals are installed, before
 /// the entry module runs (`velyr serve` uses it to start the server).
 #[cfg(feature = "web")]
-pub fn run_with(file: &Path, flags: Permissions, after_install: Option<String>) -> ExitCode {
-    exit_code(execute(file, flags, after_install))
+pub fn run_with(
+    file: &Path,
+    flags: Permissions,
+    after_install: Option<String>,
+    engine: EngineKind,
+) -> ExitCode {
+    exit_code(execute(file, flags, after_install, engine))
 }
 
 fn exit_code(result: Result<(), String>) -> ExitCode {
@@ -76,9 +57,14 @@ fn exit_code(result: Result<(), String>) -> ExitCode {
 }
 
 #[cfg(feature = "web")]
-fn execute(file: &Path, flags: Permissions, after_install: Option<String>) -> Result<(), String> {
+fn execute(
+    file: &Path,
+    flags: Permissions,
+    after_install: Option<String>,
+    engine: EngineKind,
+) -> Result<(), String> {
     let prepared = prepare(file, flags)?;
-    run_prepared(file, &prepared, after_install, Worker::default())
+    run_prepared(file, &prepared, after_install, Worker::default(), engine)
 }
 
 /// The authority and limits a run is built from; several isolates (`velyr serve --workers`)
@@ -127,11 +113,33 @@ pub fn run_prepared(
     prepared: &Prepared,
     after_install: Option<String>,
     worker: Worker,
+    engine: EngineKind,
+) -> Result<(), String> {
+    match engine {
+        EngineKind::V8 => {
+            let init = Some(V8Engine::init_platform as fn());
+            run_on(V8Engine::new(), init, file, prepared, after_install, worker)
+        }
+        #[cfg(feature = "engine-native")]
+        EngineKind::Native => {
+            let engine = velyr_engine_native::NativeEngine;
+            run_on(engine, None, file, prepared, after_install, worker)
+        }
+        #[cfg(not(feature = "engine-native"))]
+        EngineKind::Native => Err("error: --engine native is not compiled in (build velyr-cli with the `engine-native` feature)".into()),
+    }
+}
+
+fn run_on<E: Engine + Send + 'static>(
+    engine: E,
+    platform_init: Option<fn()>,
+    file: &Path,
+    prepared: &Prepared,
+    after_install: Option<String>,
+    worker: Worker,
 ) -> Result<(), String> {
     let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
-    let platform_init = Some(V8Engine::init_platform as fn());
     let config = runtime_config(prepared, platform_init, worker.shutdown);
-    let engine = V8Engine::new();
     let features = engine.features();
     #[cfg(feature = "web")]
     let mut inbox = worker.inbox;
@@ -180,7 +188,7 @@ fn runtime_config(
         quotas: Some(prepared.quotas.clone()),
         leak_check: std::env::var_os("VELYR_LEAK_CHECK").is_some_and(|value| value == "1"),
         leak_collector: Some(velyr_runtime_ops::take_leak_report),
-        module_resolver: profiles::module_resolver(),
+        module_resolver: watch_mode::recording(profiles::module_resolver()),
         source_transform: transforms::source_transform(&prepared.capabilities),
         shutdown,
         ..RuntimeConfig::default()

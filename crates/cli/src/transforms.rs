@@ -12,6 +12,10 @@ pub fn source_transform(permissions: &Arc<CapabilitySet>) -> Option<Arc<dyn Sour
     #[cfg(not(feature = "node"))]
     let _ = permissions;
     let mut chain: Vec<Arc<dyn SourceTransform>> = Vec::new();
+    // Before TypeScript: it rewrites `.tsx` (types and JSX) in one pass, the TypeScript step then
+    // sees plain JavaScript.
+    #[cfg(feature = "jsx")]
+    chain.push(Arc::new(jsx_transform()));
     #[cfg(feature = "typescript")]
     chain.push(Arc::new(
         velyr_tooling_typescript::TypeScriptTransform::with_platform_cache(),
@@ -25,6 +29,17 @@ pub fn source_transform(permissions: &Arc<CapabilitySet>) -> Option<Arc<dyn Sour
         1 => chain.pop(),
         _ => Some(Arc::new(Chain(chain))),
     }
+}
+
+/// JSX settings from the `velyr.json`/`tsconfig.json` above the working directory; a broken config
+/// is reported and the defaults apply (this hook cannot fail).
+#[cfg(feature = "jsx")]
+fn jsx_transform() -> velyr_tooling_jsx::JsxTransform {
+    let dir = std::env::current_dir().unwrap_or_default();
+    velyr_tooling_jsx::JsxTransform::discover(&dir).unwrap_or_else(|error| {
+        eprintln!("warning: ignoring JSX config: {error}");
+        velyr_tooling_jsx::JsxTransform::default()
+    })
 }
 
 /// Runs each transform in order on the previous one's output.

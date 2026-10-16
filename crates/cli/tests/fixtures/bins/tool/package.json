@@ -1,0 +1,6 @@
+{
+  "name": "tool",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "bin": { "tool": "cli.js" }
+}

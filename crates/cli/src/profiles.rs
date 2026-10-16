@@ -15,6 +15,7 @@ use velyr_io_fs::{fs_host_functions, install_fs};
 #[cfg(feature = "web")]
 use velyr_io_http::{HttpMetrics, set_http_metrics};
 use velyr_io_net::{install_net, net_host_functions};
+use velyr_io_process::{install_command, process_host_functions};
 #[cfg(feature = "web")]
 use velyr_io_tls::{install_tls, tls_host_functions};
 use velyr_runtime_core::metrics::{self, install_metrics, metrics_host_functions};
@@ -70,6 +71,7 @@ pub fn host_functions(features: EngineFeatures) -> Vec<HostFunctionDef> {
     functions.extend(crypto_host_functions());
     functions.extend(fs_host_functions());
     functions.extend(net_host_functions());
+    functions.extend(process_host_functions());
     #[cfg(feature = "web")]
     {
         functions.extend(tls_host_functions());
@@ -171,6 +173,8 @@ fn install_globals<I: velyr_engine_api::Isolate>(
     install_fs(isolate).expect("fs bootstrap is valid JS");
     // After streams: Conn.readable/writable use its native stream hooks.
     install_net(isolate).expect("net bootstrap is valid JS");
+    // After streams: ChildProcess.stdout/stderr/stdin use its native stream hooks.
+    install_command(isolate).expect("command bootstrap is valid JS");
     #[cfg(feature = "web")]
     {
         // After net: Velyr.connectTls/listenTls wrap its Conn.
@@ -207,6 +211,13 @@ fn install_node<I: velyr_engine_api::Isolate>(
     use velyr_compat_node as node;
     if let Some(script) = script {
         node::configure_process(isolate, crate::node::process_config(script));
+    } else if let Some(on_exit) = velyr_runtime_workers::worker_exit_hook() {
+        // A worker's `process.exit(n)` ends that worker with code n, not the whole process.
+        let config = node::ProcessConfig {
+            on_exit: Some(on_exit),
+            ..node::ProcessConfig::default()
+        };
+        node::configure_process(isolate, config);
     }
     node::install_compat_node(isolate).expect("node bootstrap is valid JS");
     node::install_buffer_global(isolate).expect("buffer bootstrap is valid JS");
@@ -225,9 +236,10 @@ pub fn module_resolver() -> Option<ModuleResolverHandle> {
         use velyr_runtime_modules::StrategyResolver;
         let resolver = velyr_compat_npm::resolve::NpmResolver::new();
         // With the CommonJS transform linked (node, full) packages may resolve to CommonJS files;
-        // without it the resolver keeps rejecting them with a clear error.
+        // without it the resolver keeps rejecting them with a clear error. Node compat also matches
+        // the `node` condition, as Node does (rxjs hides its working build behind it).
         #[cfg(feature = "node")]
-        let resolver = resolver.allow_commonjs();
+        let resolver = resolver.allow_commonjs().with_node_condition();
         let npm: ModuleResolverHandle = Arc::new(StrategyResolver::new(Arc::new(resolver)));
         #[cfg(feature = "node")]
         let npm = crate::node::resolver(npm);
@@ -273,7 +285,8 @@ fn spawn_worker(
     let options = WorkerOptions {
         entry: request.entry,
         requested: requested.clone(),
-        heap_limit_bytes: None,
+        // `velyr.heapLimitMb`, capped at the parent's limit by `WorkerHandle::spawn`.
+        heap_limit_bytes: request.heap_limit_bytes,
         config: RuntimeConfig {
             platform_init: Some(V8Engine::init_platform),
             quotas: Some(quotas),

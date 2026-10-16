@@ -3,11 +3,14 @@ mod config;
 mod metrics_server;
 #[cfg(feature = "node")]
 mod node;
+#[cfg(feature = "node")]
+mod node_shim;
 mod permissions;
 mod profiles;
 mod run;
 mod telemetry;
 mod transforms;
+mod watch_mode;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -50,9 +53,45 @@ enum Command {
         #[arg(long, value_enum, default_value_t)]
         engine: run::EngineKind,
 
+        /// Used by the `node` shim: permissions come from VELYR_NODE_SHIM_FLAGS (none when
+        /// unset), the permission flags of this command line are ignored.
+        #[arg(long, hide = true)]
+        node_shim: bool,
+
+        /// Restart the script when a module it imported changes; `--watch=a,b` also restarts on
+        /// changes under those paths. Flags and permissions are kept across restarts.
+        #[arg(long, num_args = 0..=1, require_equals = true, value_delimiter = ',', value_name = "PATHS")]
+        watch: Option<Vec<String>>,
+
         #[command(flatten)]
         permissions: Permissions,
+
+        /// Arguments for the script (`process.argv`), after `--`.
+        #[arg(last = true)]
+        args: Vec<String>,
     },
+    /// Run `node_modules/.bin/<bin>` with velyr's Node compat layer.
+    // clap would take `--help` meant for the bin; `velyr --help` still documents this command.
+    #[command(disable_help_flag = true)]
+    X {
+        #[command(flatten)]
+        permissions: Permissions,
+
+        /// Name of a bin in node_modules/.bin (not a path).
+        bin: String,
+
+        /// Arguments for the bin.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Run the tests (`velyr:test`, `node:test`), one isolate per file.
+    Test(commands::test::TestArgs),
+    /// Benchmark `Velyr.bench(name, fn)` calls: mean, p50, p99 and ops/s.
+    Bench(commands::bench::BenchArgs),
+    /// Type check with the project's own TypeScript (`tsc --noEmit`).
+    Check(commands::check::CheckArgs),
+    /// Report which Node APIs and packages the project uses and how Velyr supports them.
+    Compat(commands::compat::CompatArgs),
     /// Serve the module's `export default { fetch }` over HTTP.
     Serve {
         /// Path to the module.
@@ -71,6 +110,10 @@ enum Command {
         /// worker). Overrides `workers` in velyr.json; the default is 1.
         #[arg(long, value_name = "N|auto")]
         workers: Option<Workers>,
+
+        /// JS engine to run on.
+        #[arg(long, value_enum, default_value_t)]
+        engine: run::EngineKind,
 
         #[command(flatten)]
         permissions: Permissions,
@@ -133,15 +176,31 @@ fn main() -> ExitCode {
         Some(Command::Run {
             file,
             engine,
+            node_shim,
+            watch,
             permissions,
-        }) => run::run(&file, permissions, engine),
+            args,
+        }) => match watch {
+            Some(paths) => watch_mode::supervise(&file, &paths),
+            None => run_script(&file, &args, node_shim, permissions, engine),
+        },
+        Some(Command::X {
+            permissions,
+            bin,
+            args,
+        }) => x(&bin, &args, permissions),
+        Some(Command::Test(args)) => commands::test::test(args),
+        Some(Command::Bench(args)) => commands::bench::bench(args),
+        Some(Command::Check(args)) => commands::check::check(args),
+        Some(Command::Compat(args)) => commands::compat::compat(args),
         Some(Command::Serve {
             file,
             hostname,
             port,
             workers,
+            engine,
             permissions,
-        }) => serve(&file, &hostname, port, workers, permissions),
+        }) => serve(&file, &hostname, port, workers, permissions, engine),
         Some(Command::Add {
             packages,
             dev,
@@ -156,6 +215,44 @@ fn main() -> ExitCode {
         }) => install(frozen, production, allow_scripts, allow_all_scripts),
         None => ExitCode::SUCCESS,
     }
+}
+
+fn run_script(
+    file: &std::path::Path,
+    args: &[String],
+    node_shim: bool,
+    permissions: Permissions,
+    engine: run::EngineKind,
+) -> ExitCode {
+    if !node_shim && args.is_empty() {
+        return run::run(file, permissions, engine);
+    }
+    #[cfg(feature = "node")]
+    {
+        if node_shim {
+            node_shim::run_shim(file, args, engine)
+        } else {
+            node_shim::run_with_args(file, args, permissions, engine)
+        }
+    }
+    #[cfg(not(feature = "node"))]
+    {
+        let _ = (args, permissions);
+        eprintln!("error: script arguments and --node-shim need the node profile");
+        ExitCode::FAILURE
+    }
+}
+
+#[cfg(feature = "node")]
+fn x(bin: &str, args: &[String], permissions: Permissions) -> ExitCode {
+    let argv: Vec<String> = std::env::args().collect();
+    let raw = node_shim::raw_flags_of_x(&argv, args.len());
+    commands::x::x(bin, args, permissions, raw)
+}
+#[cfg(not(feature = "node"))]
+fn x(_: &str, _: &[String], _: Permissions) -> ExitCode {
+    eprintln!("error: `velyr x` needs the node profile");
+    ExitCode::FAILURE
 }
 
 /// The profile a binary lacking `command` was built for, for the "not available" error.
@@ -173,7 +270,14 @@ fn unavailable(command: &str) -> ExitCode {
 #[cfg(feature = "web")]
 use commands::serve::serve;
 #[cfg(not(feature = "web"))]
-fn serve(_: &std::path::Path, _: &str, _: u16, _: Option<Workers>, _: Permissions) -> ExitCode {
+fn serve(
+    _: &std::path::Path,
+    _: &str,
+    _: u16,
+    _: Option<Workers>,
+    _: Permissions,
+    _: run::EngineKind,
+) -> ExitCode {
     unavailable("serve")
 }
 

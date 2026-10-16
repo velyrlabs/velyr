@@ -16,7 +16,7 @@ use velyr_web_fetch::ServeInbox;
 
 use crate::config::Workers;
 use crate::permissions::Permissions;
-use crate::run::{self, Worker};
+use crate::run::{self, EngineKind, Worker};
 
 /// How the started server learns about its address and its peers.
 enum Listen<'a> {
@@ -156,6 +156,7 @@ pub fn serve(
     port: u16,
     workers: Option<Workers>,
     flags: Permissions,
+    engine: EngineKind,
 ) -> ExitCode {
     let _span = tracing::info_span!("velyr.cli.serve").entered();
     let file = file.canonicalize().unwrap_or_else(|_| file.to_path_buf());
@@ -176,9 +177,9 @@ pub fn serve(
     if count == 1 {
         stop_on_signals(Target::Single, deadline);
         let script = start_script(&file, &Listen::Alone { hostname, port }, deadline);
-        return run::run_with(&file, flags, Some(script));
+        return run::run_with(&file, flags, Some(script), engine);
     }
-    match serve_multicore(&file, hostname, port, count, flags, deadline) {
+    match serve_multicore(&file, hostname, port, count, flags, deadline, engine) {
         Ok(code) => code,
         Err(message) => {
             eprintln!("error: {message}");
@@ -204,6 +205,7 @@ fn serve_multicore(
     count: usize,
     flags: Permissions,
     deadline: Duration,
+    engine: EngineKind,
 ) -> Result<ExitCode, String> {
     let prepared = run::prepare(file, flags)?;
     let ip = velyr_web_fetch::resolve_listen_host(hostname).map_err(|err| err.to_string())?;
@@ -235,7 +237,7 @@ fn serve_multicore(
             inbox: Some(inbox),
             shutdown: Some(ctx.shutdown.clone()),
         };
-        let result = run::run_prepared(&file, &prepared, Some(script), worker);
+        let result = run::run_prepared(&file, &prepared, Some(script), worker, engine);
         match (result, ctx.shutdown.is_cancelled()) {
             (_, true) => Ok(()),
             // SIGINT/SIGTERM drained this worker's servers: finishing is the expected exit.
