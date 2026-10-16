@@ -1,0 +1,169 @@
+name: Test262 (engine-native)
+
+# ADR-015: the gate for engine-native conformance. Every push to main and every PR that touches
+# an engine crate runs Test262 against `--engine native` in four shards. The job fails on an
+# unexpected fail (regression), an unexpected pass (stale manifest), a timeout or a crash.
+#
+# An unexpected pass is fixed in the same PR:
+#   scripts/update-expectations.sh native
+# and committing compat/test262/expectations/native.txt.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "crates/engine-*/**"
+      - "crates/qa-test262/**"
+      - "compat/test262/**"
+      - "compat/test262.lock"
+      - ".github/workflows/test262-native.yml"
+
+concurrency:
+  group: test262-native-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  shard:
+    name: shard ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: language
+            paths: test/language
+          - name: builtins-large
+            paths: test/built-ins/Temporal test/built-ins/Object test/built-ins/Array test/built-ins/RegExp
+          - name: builtins-typed
+            paths: >-
+              test/built-ins/TypedArray test/built-ins/TypedArrayConstructors test/built-ins/String
+              test/built-ins/Promise test/built-ins/Iterator test/built-ins/Date
+              test/built-ins/DataView test/built-ins/Function test/built-ins/Atomics
+              test/built-ins/Set
+          # Everything else, computed so a new Test262 directory is never left out.
+          - name: rest
+            paths: rest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache Test262
+        uses: actions/cache@v4
+        with:
+          path: compat/vendor/test262
+          key: test262-${{ hashFiles('compat/test262.lock') }}
+      - name: Fetch Test262
+        run: bash scripts/fetch-test262.sh
+
+      - name: Build velyr-test262
+        run: cargo build --release -p velyr-qa-test262
+
+      - name: Resolve shard paths
+        id: paths
+        env:
+          SHARD_PATHS: ${{ matrix.paths }}
+        run: |
+          set -euo pipefail
+          if [ "$SHARD_PATHS" = "rest" ]; then
+            named='Temporal|Object|Array|RegExp|TypedArray|TypedArrayConstructors|String|Promise|Iterator|Date|DataView|Function|Atomics|Set'
+            list=""
+            for dir in $(ls compat/vendor/test262/test/built-ins | grep -Ev "^($named)$"); do
+              list="$list test/built-ins/$dir"
+            done
+            SHARD_PATHS="$list test/annexB test/harness test/intl402 test/staging"
+          fi
+          echo "list=$SHARD_PATHS" >> "$GITHUB_OUTPUT"
+
+      # GitHub runners have 4 cores: fewer threads keep the 5 s per-test timeout honest.
+      - name: Run Test262 against engine-native
+        env:
+          SHARD_PATHS: ${{ steps.paths.outputs.list }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          target/release/velyr-test262 --engine native --threads 4 \
+            --results-dir "compat/results/${{ matrix.name }}" $SHARD_PATHS
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test262-native-${{ matrix.name }}
+          path: compat/results/${{ matrix.name }}/*.json
+          if-no-files-found: warn
+
+  report:
+    name: pass rate
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test262-native-*
+          path: shards
+
+      - name: Summarize the pass rate
+        run: |
+          python3 - <<'PY' > summary.md
+          import glob, json
+
+          total = passed = 0
+          unexpected = {"unexpected_fail": 0, "unexpected_pass": 0, "timeout": 0, "crash": 0}
+          for path in sorted(glob.glob("shards/*/*.json")):
+              summary = json.load(open(path))["summary"]
+              total += sum(summary.values())
+              passed += summary.get("pass", 0) + summary.get("unexpected_pass", 0)
+              for key in unexpected:
+                  unexpected[key] += summary.get(key, 0)
+
+          # The manifest lists every test that is not expected to pass: skipped ones included.
+          with open("compat/test262/expectations/native.txt") as f:
+              listed = sum(1 for line in f if line.strip() and not line.startswith("#"))
+          baseline = 100.0 * (total - listed) / total if total else 0.0
+          now = 100.0 * passed / total if total else 0.0
+
+          print("### Test262 on engine-native")
+          print()
+          print(f"- tests run: {total}")
+          print(f"- pass rate: **{now:.2f}%** (manifest: {baseline:.2f}%, variation {now - baseline:+.2f} points)")
+          for key, value in unexpected.items():
+              print(f"- {key}: {value}")
+          if unexpected["unexpected_pass"]:
+              print()
+              print("Unexpected passes: run `scripts/update-expectations.sh native` and commit `compat/test262/expectations/native.txt`.")
+          if total == 0:
+              print()
+              print("No shard produced results; see the shard jobs.")
+          PY
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request'
+        # Fork PRs get a read-only token: the summary above is still on the run page.
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('summary.md', 'utf8');
+            const marker = '<!-- test262-native -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            const text = `${marker}\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: text });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: text });
+            }

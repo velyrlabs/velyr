@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      # rustup honors rust-toolchain.toml (pinned version + components) on the first cargo call.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Build velyr-cli (profile-minimal)
+        run: cargo build -p velyr-cli --no-default-features --features profile-minimal
+      - name: Build velyr-cli (profile-full)
+        run: cargo build -p velyr-cli --no-default-features --features profile-full
+
+      - name: Check dependency boundaries
+        if: runner.os == 'Linux'
+        run: bash scripts/ci/check-deps.sh
+      - name: Check unsafe boundaries
+        if: runner.os == 'Linux'
+        run: bash scripts/ci/check-unsafe.sh
+      - name: CI script tests
+        if: runner.os == 'Linux'
+        run: bash scripts/ci/tests/run.sh
+
+  # SO_REUSEPORT only exists on Linux: this job runs the multicore paths that use it.
+  reuseport:
+    name: linux reuseport
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test velyr-runtime-workers
+        run: cargo test -p velyr-runtime-workers
+      - name: Test serve --workers (reuseport) and aggregated /metrics
+        run: cargo test -p velyr-cli --test serve_multicore

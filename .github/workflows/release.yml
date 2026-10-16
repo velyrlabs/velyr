@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  push:
+    tags: ["v*"]
+  # Manual runs build and attest everything but never publish.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, archive: tar.gz }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm, archive: tar.gz }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, archive: tar.gz, musl: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, archive: tar.gz, musl: true }
+          - { target: x86_64-apple-darwin, os: macos-15-intel, archive: tar.gz }
+          - { target: aarch64-apple-darwin, os: macos-latest, archive: tar.gz }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, archive: zip }
+    steps:
+      - uses: actions/checkout@v4
+      # rustup honors rust-toolchain.toml (pinned version + components) on the first cargo call.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-auditable
+      - name: Install musl toolchain
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      # Runs inside the repo so the target is added to the pinned toolchain.
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+      - name: Build (cargo auditable)
+        run: cargo auditable build --release --locked -p velyr-cli --target ${{ matrix.target }}
+      - name: Package
+        env:
+          TARGET: ${{ matrix.target }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          bin=velyr
+          if [ "$ARCHIVE" = zip ]; then bin=velyr.exe; fi
+          mkdir dist
+          cp "target/$TARGET/release/$bin" "dist/$bin"
+          if [ "$ARCHIVE" = zip ]; then
+            (cd dist && 7z a "velyr-$TARGET.zip" "$bin")
+          else
+            tar -czf "velyr-$TARGET.tar.gz" -C dist "$bin"
+            mv "velyr-$TARGET.tar.gz" dist/
+          fi
+          rm "dist/$bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx
+      - name: Generate CycloneDX SBOM
+        working-directory: crates/cli
+        run: cargo cyclonedx --format json --override-filename velyr.cdx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: crates/cli/velyr.cdx.json
+          if-no-files-found: error
+
+  attest:
+    needs: [build, sbom]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: collected
+      - name: Collect files and write SHA256SUMS
+        run: |
+          mkdir release
+          cp collected/*/* release/
+          cd release
+          sha256sum velyr-* velyr.cdx.json > SHA256SUMS
+          cat SHA256SUMS
+      # TODO(VELYR-128): sign release artifacts (signing is out of scope for VELYR-127).
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release/velyr-*
+            release/velyr.cdx.json
+            release/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: attest
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = schedule ]; then
+            tag="nightly-$(date -u +%Y%m%d)"
+            flags="--prerelease --target $SHA"
+          else
+            tag="$REF_NAME"
+            flags="--generate-notes"
+          fi
+          if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$tag" release/* --repo "$REPO" --clobber
+          else
+            # shellcheck disable=SC2086
+            gh release create "$tag" release/* --repo "$REPO" --title "$tag" $flags
+          fi
