@@ -1,0 +1,36 @@
+# cargo-deny policy (PLANS section 4 merge gate). Velyr crates are "MIT OR Apache-2.0".
+
+[graph]
+all-features = true
+
+[advisories]
+yanked = "deny"
+ignore = [
+  # paste is unmaintained (no vulnerability); pulled in only by v8 (velyr-engine-v8). No upgrade
+  # available. Revisit when the v8 crate drops it.
+  "RUSTSEC-2024-0436",
+]
+
+[licenses]
+confidence-threshold = 0.8
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "MPL-2.0", # dependency use only; never copy MPL code into velyr crates
+  "CC0-1.0",
+]
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
