@@ -1,0 +1,26 @@
+[package]
+name = "velyr-compat-npm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nodejs-semver = "7.0.0"
+serde.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha1 = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+directories = "6"
+flate2 = "1"
+tar = "0.4"
+tempfile = "3"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+
+[lints]
+workspace = true
