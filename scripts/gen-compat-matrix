@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Regenerates docs/COMPATIBILITY-MATRIX.md from the Test262, node-behavior-* and node-packages-*
+# result JSON in compat/results/ (ADR-015). A status is never edited by hand. Read-only on the
+# results; the newest result of each test, module and package wins.
+# docs/compat-matrix.md (VELYR-180 output) is obsolete and no longer written.
+#
+#   bash scripts/gen-compat-matrix
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# Debug build: it only reads JSON, and it leaves target/release alone.
+cargo run -q -p velyr-qa-test262 --bin gen-compat-matrix -- "$@"

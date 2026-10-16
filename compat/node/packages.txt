@@ -1,0 +1,28 @@
+# Node compatibility package list (M7, ADR-015): popular server-side packages, smoke-tested only.
+# Format: <package> [no-server]
+# `no-server` marks packages whose real use needs an external server (database, cache): the smoke
+# covers import and client construction without connecting, and the status is "partial (no server)".
+# Nothing native, and lifecycle scripts stay denied. Each package has a smoke script
+# compat/node/smoke/<package>.mjs (`@scope/name` -> `scope-name.mjs`) that prints `ok` on success.
+# The package test suites are a follow-up. Run: bash scripts/node-compat.sh packages
+express
+fastify
+koa
+hono
+lodash
+axios
+pino
+ws
+zod
+pg no-server
+mysql2 no-server
+ioredis no-server
+jsonwebtoken
+bcryptjs
+dotenv
+commander
+yargs
+chalk
+undici
+socket.io
+@nestjs/core
