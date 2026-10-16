@@ -14,6 +14,12 @@ pub trait Trace {
     fn clear_dead_refs(&mut self, _liveness: &Liveness) -> bool {
         false
     }
+
+    /// Bytes a heap cell owns outside itself that it never resizes (fixed buffers);
+    /// charged with the cell. Storage that grows is charged through `external` instead.
+    fn owned_bytes(&self) -> usize {
+        0
+    }
 }
 
 /// A heap cell: traceable and downcastable to its concrete type.

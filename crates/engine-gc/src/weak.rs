@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use crate::external::{Charge, Kind};
 use crate::{GcRef, Liveness, Trace, Tracer};
 
 /// Holds its target without keeping it alive; cleared once the target is collected.
@@ -36,12 +37,15 @@ impl Trace for WeakRef {
 #[derive(Debug)]
 pub struct WeakMap<V> {
     entries: HashMap<GcRef, V>,
+    /// The table by capacity, as `Kind::Tables` (it only grows on insert).
+    charge: Charge,
 }
 
 impl<V> Default for WeakMap<V> {
     fn default() -> Self {
         Self {
             entries: HashMap::new(),
+            charge: Charge::new(Kind::Tables, 0),
         }
     }
 }
@@ -52,7 +56,11 @@ impl<V> WeakMap<V> {
     }
 
     pub fn insert(&mut self, key: GcRef, value: V) -> Option<V> {
-        self.entries.insert(key, value)
+        let previous = self.entries.insert(key, value);
+        // A map entry costs its pair plus a control byte.
+        self.charge
+            .set(self.entries.capacity() * (size_of::<(GcRef, V)>() + 1));
+        previous
     }
 
     pub fn get(&self, key: GcRef) -> Option<&V> {
@@ -109,6 +117,12 @@ impl<V> FinalizationRegistry<V> {
 
     pub fn register(&mut self, target: GcRef, held: V) {
         self.registrations.push((target, held));
+    }
+
+    /// Drops registrations and pending cleanups whose held value fails `keep`.
+    pub fn retain(&mut self, mut keep: impl FnMut(&V) -> bool) {
+        self.registrations.retain(|(_, held)| keep(held));
+        self.cleanups.retain(|held| keep(held));
     }
 
     /// Held values whose targets were collected, in collection order.

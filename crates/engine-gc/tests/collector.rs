@@ -187,6 +187,27 @@ fn finalization_registry_queues_cleanup_for_dead_targets() {
 }
 
 #[test]
+fn finalization_registry_retain_drops_registrations_and_pending_cleanups() {
+    let mut heap = heap();
+    let registry = heap
+        .alloc(FinalizationRegistry::<GcRef>::new(), &NO_ROOTS)
+        .unwrap();
+    let (one, two) = (node(&mut heap, vec![]).raw(), node(&mut heap, vec![]).raw());
+    let dead = node(&mut heap, vec![]);
+    let live = node(&mut heap, vec![]);
+    let cell = heap.get_mut(registry).unwrap();
+    cell.register(dead.raw(), one);
+    cell.register(dead.raw(), two);
+    cell.register(live.raw(), one);
+    heap.collect(&vec![registry.raw(), live.raw()]);
+
+    heap.get_mut(registry).unwrap().retain(|held| *held != one);
+    assert_eq!(heap.get_mut(registry).unwrap().take_cleanups(), vec![two]);
+    heap.collect(&vec![registry.raw()]);
+    assert!(heap.get_mut(registry).unwrap().take_cleanups().is_empty());
+}
+
+#[test]
 fn pending_finalization_keeps_registry_alive_until_drained() {
     let mut heap = heap();
     let registry = heap

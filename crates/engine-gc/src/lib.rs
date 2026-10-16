@@ -4,6 +4,7 @@
 //! slot index plus generation, so it stays valid for the cell's whole life and a reused
 //! slot never resurrects a stale handle.
 
+pub mod external;
 mod heap;
 mod roots;
 mod trace;
