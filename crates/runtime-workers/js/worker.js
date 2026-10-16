@@ -3,6 +3,7 @@
   "use strict";
 
   const { op, MessageEvent, ErrorEvent, send, startPump, defineHandler } = toolkit;
+  const { Event } = globalThis;
   const states = new WeakMap();
 
   function workerState(worker) {
@@ -21,7 +22,14 @@
     if (permissions !== undefined && (permissions === null || typeof permissions !== "object")) {
       throw new TypeError("velyr.permissions must be an object");
     }
-    return permissions === undefined ? undefined : JSON.stringify(permissions);
+    const heapMb = options.velyr?.heapLimitMb;
+    if (heapMb !== undefined && !(Number.isFinite(heapMb) && heapMb >= 1)) {
+      throw new TypeError("velyr.heapLimitMb must be a number of at least 1");
+    }
+    return {
+      permissions: permissions === undefined ? undefined : JSON.stringify(permissions),
+      heapBytes: heapMb === undefined ? undefined : Math.floor(heapMb) * 1024 * 1024,
+    };
   }
 
   // The module that ran `new Worker`, to resolve relative URLs against.
@@ -34,17 +42,23 @@
   class Worker extends EventTarget {
     constructor(url, options = {}) {
       if (arguments.length === 0) throw new TypeError("Worker requires 1 argument");
-      const permissions = checkOptions(options);
+      const { permissions, heapBytes } = checkOptions(options);
       super();
       const href = url instanceof URL ? url.href : String(url);
-      const [workerId, id] = op.worker_spawn(href, String(options.name ?? ""), permissions, callerUrl());
+      const [workerId, id] = op.worker_spawn(href, String(options.name ?? ""), permissions, callerUrl(), heapBytes);
       const state = { workerId, id, refd: true, pumping: false, terminated: false };
       states.set(this, state);
       startPump(this, state, {
         message: (item) => {
-          if (item.kind === 1) {
-            const { message, filename, lineno, colno } = item.value;
+          if (item.kind === 2) {
+            // Internal, not a web event: the worker's isolate is gone. Always after any `error`.
+            const ended = new Event("ended");
+            Object.defineProperty(ended, "code", { value: item.value, enumerable: true });
+            this.dispatchEvent(ended);
+          } else if (item.kind === 1) {
+            const { message, filename, lineno, colno, quota } = item.value;
             const error = new Error(message);
+            if (quota !== undefined) Object.assign(error, { code: "VELYR_QUOTA_EXCEEDED", quota });
             this.dispatchEvent(new ErrorEvent("error", { message, filename, lineno, colno, error, cancelable: true }));
           } else {
             this.dispatchEvent(new MessageEvent("message", { data: item.value, ports: item.ports }));

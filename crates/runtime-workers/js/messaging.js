@@ -149,12 +149,13 @@
     return visit(value);
   }
 
-  // Next packet of endpoint `id`: { kind: 0, value, ports } or { kind: 1, value: { message, filename, lineno, colno } }.
+  // Next packet of endpoint `id`: { kind: 0, value, ports }, { kind: 1, value: { message, filename,
+  // lineno, colno, quota? } } (an error) or { kind: 2, value: exitCode } (the worker's end).
   function take(id) {
     const raw = op.port_take(id);
     if (raw === undefined) return undefined;
     const [kind, value, ids] = raw;
-    if (kind === 1) return { kind, value };
+    if (kind !== 0) return { kind, value };
     const ports = ids.map(newPort);
     return { kind, value: ports.length > 0 ? revive(value, ports) : value, ports };
   }

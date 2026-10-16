@@ -65,7 +65,7 @@ fn host(permissions: &Arc<CapabilitySet>) -> WorkerHost {
             let options = WorkerOptions {
                 entry: request.entry,
                 requested: parent.capabilities.clone(),
-                heap_limit_bytes: None,
+                heap_limit_bytes: request.heap_limit_bytes,
                 config: config(&parent.capabilities),
                 host_functions: functions(),
                 bootstrap_js: BOOTSTRAP_JS,
@@ -170,4 +170,60 @@ fn terminate_stops_a_busy_worker_and_the_main_isolate_goes_on() {
         ),
     );
     assert_eq!(log, ["terminated"]);
+}
+
+#[test]
+fn ended_follows_the_error_and_carries_the_exit_code() {
+    let dir = temp_dir();
+    std::fs::write(dir.join("ok.js"), "self.postMessage('hi');").unwrap();
+    std::fs::write(dir.join("throws.js"), "throw new Error('boom');").unwrap();
+    std::fs::write(dir.join("closes.js"), "self.close();").unwrap();
+    let log = run(
+        &dir,
+        "ended",
+        &format!(
+            "for (const name of ['ok', 'throws', 'closes']) {{
+               const worker = new Worker('file://{}/' + name + '.js');
+               const seen = [];
+               worker.addEventListener('error', () => seen.push('error'));
+               const code = await new Promise((resolve) => {{
+                 worker.addEventListener('ended', (event) => resolve(event.code));
+               }});
+               record(name + ' [' + seen + '] ' + code);
+             }}",
+            dir.display()
+        ),
+    );
+    assert_eq!(log, ["ok [] 0", "throws [error] 1", "closes [] 0"]);
+}
+
+#[test]
+fn a_heap_limit_ends_the_worker_with_a_quota_error_and_the_parent_goes_on() {
+    let dir = temp_dir();
+    std::fs::write(
+        dir.join("hog.js"),
+        "const keep = []; for (;;) keep.push(new Array(100000).fill(1));",
+    )
+    .unwrap();
+    let log = run(
+        &dir,
+        "heap",
+        &format!(
+            "const worker = new Worker('file://{}/hog.js', {{ velyr: {{ heapLimitMb: 16 }} }});
+             worker.addEventListener('error', (e) => record(e.error.code + ' ' + e.error.quota));
+             const code = await new Promise((resolve) => {{
+               worker.addEventListener('ended', (event) => resolve(event.code));
+             }});
+             record('ended ' + code);
+             let bad = '';
+             try {{ new Worker('file://{}/hog.js', {{ velyr: {{ heapLimitMb: 0 }} }}); }} catch (e) {{ bad = e.name; }}
+             record('bad ' + bad);",
+            dir.display(),
+            dir.display()
+        ),
+    );
+    assert_eq!(
+        log,
+        ["VELYR_QUOTA_EXCEEDED heap", "ended 1", "bad TypeError"]
+    );
 }

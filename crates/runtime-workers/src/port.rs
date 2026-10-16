@@ -1,5 +1,7 @@
 //! Worker side of the message channel: an isolate slot plus the `op_worker_*` host functions.
 
+use std::sync::{Arc, Mutex};
+
 use tokio_util::sync::CancellationToken;
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
 use velyr_runtime_errors::VelyrError;
@@ -15,6 +17,18 @@ pub(crate) struct WorkerPort {
     pub(crate) inbox: Inbox,
     pub(crate) outbox: Tx,
     pub(crate) shutdown: CancellationToken,
+    /// Exit code the worker asked for (`self.close()`, `process.exit`); read when the thread ends.
+    pub(crate) exit: ExitCode,
+}
+
+/// Shared between the worker's isolate thread and the thread wrapper that reports its end.
+pub(crate) type ExitCode = Arc<Mutex<Option<i32>>>;
+
+/// Records `code` unless the worker already asked for another.
+pub(crate) fn request_exit(exit: &ExitCode, code: i32) {
+    exit.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_insert(code);
 }
 
 impl WorkerPort {

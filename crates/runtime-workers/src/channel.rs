@@ -25,6 +25,8 @@ pub(crate) enum Packet {
     Message(Message),
     /// An error the worker reported (`reportError`, uncaught exception); parent side only.
     Error(ErrorReport),
+    /// The worker's isolate is gone, with its exit code; always the last packet, parent side only.
+    Ended(i32),
 }
 
 impl Packet {

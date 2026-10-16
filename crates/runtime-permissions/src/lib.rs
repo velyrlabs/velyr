@@ -220,6 +220,30 @@ impl CapabilitySet {
         }
         denied
     }
+
+    /// Process spawn by identity: `name` is the program as requested (only a bare name, one
+    /// without `/`, counts as an identity) and `paths` are the absolute resolved paths of the
+    /// executable. Any identity matching a deny rule denies; otherwise any identity matching an
+    /// allow rule allows. So `allow-run=echo` lets `echo` run wherever it resolves, while
+    /// `allow-run=/bin/echo` also covers it by path, and a deny on either form wins.
+    pub fn check_spawn(&self, name: &str, paths: &[&str]) -> Decision {
+        let denied = Decision::denied("process-spawn");
+        if !self.bounds.is_empty() {
+            let allowed = self.bounds.iter().all(|b| b.check_spawn(name, paths).is_allow());
+            return if allowed { Decision::Allow } else { denied };
+        }
+        let bare = (!name.contains('/')).then_some(name);
+        let identities: Vec<&str> = bare.into_iter().chain(paths.iter().copied()).collect();
+        let covers = |c: &Capability| {
+            identities
+                .iter()
+                .any(|id| c.covers(&Request::ProcessSpawn(id), None))
+        };
+        if !self.deny.iter().any(covers) && self.allow.iter().any(covers) {
+            return Decision::Allow;
+        }
+        denied
+    }
 }
 
 #[derive(Debug, Default)]
@@ -315,6 +339,40 @@ mod tests {
         assert!(set.check(&Request::ImportRemote("esm.sh")).is_allow());
         assert!(set.check(&Request::NativeLoad("/opt/lib.so")).is_allow());
         assert!(set.check(&Request::InspectorBind("127.0.0.1")).is_allow());
+    }
+
+    fn run(pattern: &str) -> Arc<CapabilitySet> {
+        CapabilitySet::builder()
+            .allow(Capability::ProcessSpawn(ProgramPattern::new(pattern)))
+            .build()
+    }
+
+    #[test]
+    fn spawn_is_decided_by_bare_name_or_resolved_path() {
+        let by_name = run("echo");
+        assert!(by_name.check_spawn("echo", &["/bin/echo"]).is_allow());
+        assert!(!by_name.check_spawn("ls", &["/bin/ls"]).is_allow());
+        // A name with a slash is never an identity: only the resolved path counts.
+        assert!(!by_name.check_spawn("./echo", &["/tmp/echo"]).is_allow());
+        assert!(!by_name.check_spawn("/tmp/echo", &["/tmp/echo"]).is_allow());
+        let by_path = run("/bin/echo");
+        assert!(by_path.check_spawn("echo", &["/bin/echo"]).is_allow());
+        assert!(by_path.check_spawn("/bin/echo", &["/bin/echo"]).is_allow());
+        assert!(!by_path.check_spawn("echo", &["/tmp/echo"]).is_allow());
+        assert!(!by_path.check_spawn("echo", &[]).is_allow());
+    }
+
+    #[test]
+    fn spawn_deny_on_either_identity_wins() {
+        let set = CapabilitySet::builder()
+            .allow(Capability::ProcessSpawn(ProgramPattern::new("*")))
+            .deny(Capability::ProcessSpawn(ProgramPattern::new("/bin/rm")))
+            .deny(Capability::ProcessSpawn(ProgramPattern::new("sudo")))
+            .build();
+        assert!(set.check_spawn("echo", &["/bin/echo"]).is_allow());
+        assert!(!set.check_spawn("rm", &["/bin/rm"]).is_allow());
+        assert!(!set.check_spawn("sudo", &["/usr/bin/sudo"]).is_allow());
+        assert!(!set.check_spawn("/usr/bin/sudo", &["/bin/rm"]).is_allow());
     }
 
     fn fs_read_set(pattern: &str) -> Arc<CapabilitySet> {

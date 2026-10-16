@@ -7,6 +7,8 @@ pub(crate) struct ErrorReport {
     pub(crate) filename: String,
     pub(crate) lineno: u32,
     pub(crate) colno: u32,
+    /// The quota class (`heap`, `cpu`) that stopped the worker, when one did.
+    pub(crate) quota: Option<&'static str>,
 }
 
 impl ErrorReport {
@@ -17,6 +19,14 @@ impl ErrorReport {
             filename,
             lineno,
             colno,
+            quota: None,
+        }
+    }
+
+    pub(crate) fn quota(message: String, class: &'static str) -> Self {
+        Self {
+            quota: Some(class),
+            ..Self::new(message, None)
         }
     }
 }

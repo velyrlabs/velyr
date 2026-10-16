@@ -15,9 +15,13 @@ pub enum QuotaClass {
     BodyBytes,
     /// Requests being handled by `Velyr.serve`. The connection itself is a `Sockets` unit.
     Requests,
+    /// Live zlib/brotli contexts (each holds native compressor state).
+    Compression,
+    /// Live child processes spawned by `Velyr.Command` / `node:child_process`.
+    Processes,
 }
 
-const CLASS_COUNT: usize = 7;
+const CLASS_COUNT: usize = 9;
 
 impl QuotaClass {
     pub fn name(self) -> &'static str {
@@ -29,6 +33,8 @@ impl QuotaClass {
             Self::Timers => "timers",
             Self::BodyBytes => "body_bytes",
             Self::Requests => "requests",
+            Self::Compression => "compression",
+            Self::Processes => "processes",
         }
     }
 }
@@ -45,11 +51,16 @@ pub struct QuotaConfig {
     pub body_bytes: Option<u64>,
     /// Defaults to the `sockets` limit: one request per connection at a time.
     pub requests: Option<u64>,
+    pub compression: Option<u64>,
+    pub processes: Option<u64>,
 }
 
 pub struct QuotaContext {
     limits: [u64; CLASS_COUNT],
     used: [AtomicU64; CLASS_COUNT],
+    /// A worker's context: `Processes` units are also reserved here, so the limit covers the whole
+    /// process instead of multiplying by the number of isolates.
+    process_pool: Option<Arc<QuotaContext>>,
 }
 
 impl Default for QuotaContext {
@@ -70,8 +81,20 @@ impl QuotaContext {
                 config.timers.unwrap_or(1_000_000),
                 config.body_bytes.unwrap_or(1 << 30),
                 config.requests.unwrap_or(sockets),
+                config.compression.unwrap_or(1024),
+                config.processes.unwrap_or(64),
             ],
             used: Default::default(),
+            process_pool: None,
+        }
+    }
+
+    /// A context with its own limits whose `Processes` reservations also count against `parent`
+    /// (and its limit). `used` stays per context, so summing isolates does not double count.
+    pub fn child_of(config: QuotaConfig, parent: &Arc<Self>) -> Self {
+        Self {
+            process_pool: Some(parent.clone()),
+            ..Self::new(config)
         }
     }
 
@@ -89,6 +112,10 @@ impl QuotaContext {
         class: QuotaClass,
         amount: u64,
     ) -> Result<QuotaGuard, VelyrError> {
+        let pooled = match (&self.process_pool, class) {
+            (Some(parent), QuotaClass::Processes) => Some(Box::new(parent.reserve(class, amount)?)),
+            _ => None,
+        };
         let limit = self.limit(class);
         let reserved =
             self.used[class as usize].try_update(Ordering::AcqRel, Ordering::Acquire, |used| {
@@ -107,6 +134,7 @@ impl QuotaContext {
             context: self.clone(),
             class,
             amount,
+            _pooled: pooled,
         })
     }
 }
@@ -116,6 +144,8 @@ pub struct QuotaGuard {
     context: Arc<QuotaContext>,
     class: QuotaClass,
     amount: u64,
+    /// The reservation in the parent's pool, released together with this one.
+    _pooled: Option<Box<QuotaGuard>>,
 }
 
 impl Drop for QuotaGuard {
@@ -148,6 +178,30 @@ mod tests {
     }
 
     #[test]
+    fn child_contexts_share_the_process_quota_but_nothing_else() {
+        let parent = Arc::new(QuotaContext::new(QuotaConfig {
+            processes: Some(3),
+            files: Some(1),
+            ..Default::default()
+        }));
+        let child = || Arc::new(QuotaContext::child_of(QuotaConfig::default(), &parent));
+        let (a, b) = (child(), child());
+        let held = a.reserve(QuotaClass::Processes, 2).unwrap();
+        let err = b.reserve(QuotaClass::Processes, 2).err().unwrap();
+        assert_eq!(err.code(), ErrorCode::QuotaExceeded);
+        let _one = b.reserve(QuotaClass::Processes, 1).unwrap();
+        assert_eq!(parent.used(QuotaClass::Processes), 3);
+        // Each child still reports only its own units (metrics sum them per isolate).
+        assert_eq!(a.used(QuotaClass::Processes), 2);
+        assert_eq!(b.used(QuotaClass::Processes), 1);
+        drop(held);
+        assert_eq!(parent.used(QuotaClass::Processes), 1);
+        assert_eq!(a.used(QuotaClass::Processes), 0);
+        // Other classes keep their own limits.
+        assert!(a.reserve(QuotaClass::Files, 2).is_ok());
+    }
+
+    #[test]
     fn classes_are_independent_and_overflow_is_denied() {
         let quota = ctx(1);
         let _f = quota.reserve(QuotaClass::Files, 1).unwrap();
@@ -168,6 +222,14 @@ mod tests {
         assert_eq!(quota.limit(QuotaClass::Timers), 1_000_000);
         assert_eq!(quota.limit(QuotaClass::BodyBytes), 1 << 30);
         assert_eq!(quota.limit(QuotaClass::Requests), 16384);
+        assert_eq!(quota.limit(QuotaClass::Compression), 1024);
+        assert_eq!(QuotaClass::Compression.name(), "compression");
+        let cfg: QuotaConfig = serde_json::from_str(r#"{"compression": 5}"#).unwrap();
+        assert_eq!(QuotaContext::new(cfg).limit(QuotaClass::Compression), 5);
+        assert_eq!(quota.limit(QuotaClass::Processes), 64);
+        assert_eq!(QuotaClass::Processes.name(), "processes");
+        let cfg: QuotaConfig = serde_json::from_str(r#"{"processes": 2}"#).unwrap();
+        assert_eq!(QuotaContext::new(cfg).limit(QuotaClass::Processes), 2);
         let cfg: QuotaConfig = serde_json::from_str(r#"{"sockets": 3}"#).unwrap();
         assert_eq!(QuotaContext::new(cfg).limit(QuotaClass::Requests), 3);
         let cfg: QuotaConfig = serde_json::from_str(r#"{"sockets": 3, "requests": 9}"#).unwrap();

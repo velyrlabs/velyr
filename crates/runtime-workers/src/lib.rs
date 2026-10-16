@@ -10,6 +10,7 @@
 //! cancelled, running JS is interrupted, the event loop stops and discards late completions,
 //! the op context closes every resource, then the engine isolate is destroyed.
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,7 +23,7 @@ use velyr_engine_api::{Engine, HostFunctionDef, Isolate, SerializedValue, Termin
 use velyr_runtime_core::{LoopIsolate, RunError, RuntimeConfig, run_module_file};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, TimerHandle};
-use velyr_runtime_ops::{install_op_context, take_leak_report};
+use velyr_runtime_ops::{OpContext, take_leak_report};
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::{QuotaClass, QuotaContext};
 
@@ -35,8 +36,8 @@ pub mod supervisor;
 mod web_api;
 
 use channel::{Endpoint, Fill, Inbox, Packet, Tx};
-use port::WorkerPort;
 pub use port::worker_host_functions;
+use port::{WorkerPort, request_exit};
 use report::ErrorReport;
 pub use web_api::{
     SpawnFn, SpawnRequest, WorkerHost, WorkerScope, install_web_api, web_api_host_functions,
@@ -44,6 +45,20 @@ pub use web_api::{
 
 /// Isolate ids handed to worker op contexts; 0 is the host's main isolate.
 static NEXT_WORKER_ID: AtomicU64 = AtomicU64::new(1);
+
+/// What a host's `process.exit` calls to end the worker it runs in.
+pub type ExitHook = Arc<dyn Fn(i32) + Send + Sync>;
+
+thread_local! {
+    static EXIT_HOOK: RefCell<Option<ExitHook>> = const { RefCell::new(None) };
+}
+
+/// Ends the calling worker with `code`: the parent sees it in the `ended` event. Only meaningful
+/// inside the `install` closure of [`WorkerHandle::spawn`] (it runs on the isolate's thread);
+/// `None` anywhere else, including on a main isolate.
+pub fn worker_exit_hook() -> Option<ExitHook> {
+    EXIT_HOOK.with(|hook| hook.borrow().clone())
+}
 
 /// What a worker inherits from the isolate that spawns it.
 pub struct ParentContext {
@@ -105,21 +120,36 @@ impl WorkerHandle {
         let (termination_tx, termination) = mpsc::channel();
         let (result_tx, result) = mpsc::channel();
 
-        let quotas = options.config.quotas.clone().unwrap_or_default();
+        // Own limits, but `processes` is drawn from the parent's pool: one limit per process.
+        let quotas = Arc::new(QuotaContext::child_of(
+            options.config.quotas.clone().unwrap_or_default(),
+            &parent.quotas,
+        ));
         let heap_limit_bytes = capped_heap(options.heap_limit_bytes, parent.heap_limit_bytes);
         let port = WorkerPort {
             inbox,
             outbox,
             shutdown: shutdown.clone(),
+            exit: Arc::default(),
         };
         let (worker_caps, token) = (capabilities.clone(), shutdown.clone());
+        let exit = port.exit.clone();
         let setup = move |isolate: &mut LoopIsolate<E::Isolate>,
                           sender: CompletionSender,
                           timers: TimerHandle| {
             let id = NEXT_WORKER_ID.fetch_add(1, Ordering::Relaxed);
-            install_op_context(isolate, id, sender.clone(), worker_caps, quotas);
+            isolate.set_slot(OpContext::new(id, sender.clone(), worker_caps, quotas));
+            let (exit, shutdown) = (port.exit.clone(), port.shutdown.clone());
             isolate.set_slot(port);
             let handle = isolate.termination_handle();
+            let stopper = handle.clone();
+            EXIT_HOOK.with(|hook| {
+                *hook.borrow_mut() = Some(Arc::new(move |code| {
+                    request_exit(&exit, code);
+                    shutdown.cancel();
+                    stopper.terminate();
+                }));
+            });
             // Sent before the check: either the parent receives it or we see the cancel.
             let _ = termination_tx.send(handle.clone());
             if token.is_cancelled() {
@@ -147,10 +177,14 @@ impl WorkerHandle {
                     run_module_file(engine, config, host_functions, bootstrap_js, setup, entry);
                 // Free the slot before reporting, so a joined worker never still holds it.
                 drop(quota);
-                // Ordered after every message the worker posted: the parent's `error` event.
-                if let Some(report) = failure_report(&outcome) {
+                // Ordered after every message the worker posted: the parent's `error` event,
+                // then `ended`. An exit the worker asked for is not an error.
+                let requested = *exit.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                if let Some(report) = failure_report(&outcome).filter(|_| requested.is_none()) {
                     let _ = exit_outbox.send(Packet::Error(report));
                 }
+                let code = requested.unwrap_or(i32::from(outcome.is_err()));
+                let _ = exit_outbox.send(Packet::Ended(code));
                 drop(exit_outbox);
                 let _ = result_tx.send(outcome);
             })
@@ -245,6 +279,10 @@ fn failure_report(outcome: &Result<(), RunError>) -> Option<ErrorReport> {
             exception.stack.as_deref(),
         )),
         Err(RunError::UnhandledRejection(reason)) => Some(ErrorReport::new(reason.clone(), None)),
+        Err(RunError::QuotaExceeded { class }) => Some(ErrorReport::quota(
+            RunError::QuotaExceeded { class }.to_string(),
+            class,
+        )),
         Err(other) => Some(ErrorReport::new(other.to_string(), None)),
     }
 }

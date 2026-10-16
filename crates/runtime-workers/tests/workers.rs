@@ -118,6 +118,61 @@ fn effective_authority_is_the_intersection_with_the_parent() {
     }
 }
 
+static PROCESS_GUARDS: std::sync::Mutex<Vec<velyr_runtime_resources::QuotaGuard>> =
+    std::sync::Mutex::new(Vec::new());
+static PROCESS_OUTCOMES: std::sync::Mutex<Vec<bool>> = std::sync::Mutex::new(Vec::new());
+
+/// `testReserveProcesses(n)`: reserves `n` `processes` units from the calling isolate's quota
+/// and keeps them, as a spawned child would.
+fn test_reserve_processes(
+    ctx: &mut dyn velyr_engine_api::CallContext,
+    args: &[Value],
+) -> Result<Value, velyr_engine_api::HostError> {
+    let Some(Value::Number(n)) = args.first() else {
+        return Err(velyr_engine_api::HostError::TypeError("a count".into()));
+    };
+    let op_ctx = ctx
+        .isolate_slot::<velyr_runtime_ops::OpContext>()
+        .ok_or_else(|| velyr_engine_api::HostError::TypeError("no OpContext".into()))?;
+    let reserved = op_ctx.quotas.reserve(QuotaClass::Processes, *n as u64);
+    let ok = reserved.is_ok();
+    PROCESS_GUARDS.lock().unwrap().extend(reserved.ok());
+    PROCESS_OUTCOMES.lock().unwrap().push(ok);
+    Ok(Value::Undefined)
+}
+
+#[test]
+fn the_processes_quota_covers_all_workers_together() {
+    let parent = ParentContext {
+        quotas: Arc::new(QuotaContext::new(QuotaConfig {
+            processes: Some(3),
+            ..QuotaConfig::default()
+        })),
+        ..parent(caps(vec![]), 4)
+    };
+    let entry = module("processes", &format!("testReserveProcesses(2); {PENDING}"));
+    let open = || {
+        let mut opts = options(entry.clone(), caps(vec![]), false);
+        opts.host_functions.push(velyr_engine_api::HostFunctionDef {
+            name: "testReserveProcesses",
+            arity: 1,
+            callback: test_reserve_processes,
+        });
+        opts
+    };
+    let mut first = spawn(&parent, open());
+    recv(&mut first);
+    let mut second = spawn(&parent, open());
+    recv(&mut second);
+    // Two workers asking for two units each: with a per-isolate quota both would succeed.
+    assert_eq!(*PROCESS_OUTCOMES.lock().unwrap(), [true, false]);
+    assert_eq!(parent.quotas.used(QuotaClass::Processes), 2);
+    PROCESS_GUARDS.lock().unwrap().clear();
+    let _ = first.terminate(WAIT);
+    let _ = second.terminate(WAIT);
+    std::fs::remove_file(entry).unwrap();
+}
+
 #[test]
 fn third_worker_exceeds_a_quota_of_two() {
     let parent = parent(caps(vec![]), 2);

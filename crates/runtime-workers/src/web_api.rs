@@ -17,7 +17,7 @@ use velyr_runtime_ops::{OpContext, authorize, op_async};
 use velyr_runtime_permissions::{CapabilitySet, Request};
 
 use crate::channel::{Endpoint, Fill, Inbox, Message, Packet, new_group};
-use crate::port::{port, transfer_list};
+use crate::port::{port, request_exit, transfer_list};
 use crate::report::ErrorReport;
 use crate::{ParentContext, WorkerHandle};
 
@@ -38,6 +38,9 @@ pub struct SpawnRequest {
     /// Isolate group of the spawning isolate; pass it to [`install_web_api`] so the worker's
     /// `BroadcastChannel`s stay in the family.
     pub group: u64,
+    /// `velyr.heapLimitMb` in bytes; `None` keeps the host's default. Pass it as
+    /// `WorkerOptions::heap_limit_bytes`, which caps it at the parent's limit.
+    pub heap_limit_bytes: Option<usize>,
 }
 
 /// Worker identity for [`install_web_api`].
@@ -131,7 +134,7 @@ pub fn web_api_host_functions() -> Vec<HostFunctionDef> {
         def!(op_port_interrupt, 1),
         def!(op_port_close, 1),
         def!(op_bc_open, 1),
-        def!(op_worker_spawn, 4),
+        def!(op_worker_spawn, 5),
         def!(op_worker_terminate, 1),
         def!(op_worker_scope_port, 0),
         def!(op_worker_close, 0),
@@ -280,6 +283,7 @@ fn op_port_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
     let (kind, value, arrived) = match packet {
         None => return Ok(Value::Undefined),
         Some(Packet::Error(report)) => (1, error_object(ctx, &report)?, Vec::new()),
+        Some(Packet::Ended(code)) => (2, Value::Number(f64::from(code)), Vec::new()),
         Some(Packet::Message(message)) => (0, ctx.deserialize(&message.value)?, message.ports),
     };
     let table = ports(ctx)?;
@@ -299,6 +303,10 @@ fn error_object(ctx: &mut dyn CallContext, report: &ErrorReport) -> Result<Value
     ctx.set_property(&object, "filename", filename)?;
     ctx.set_property(&object, "lineno", Value::Number(f64::from(report.lineno)))?;
     ctx.set_property(&object, "colno", Value::Number(f64::from(report.colno)))?;
+    if let Some(class) = report.quota {
+        let class = ctx.create_string(JsString::from(class));
+        ctx.set_property(&object, "quota", class)?;
+    }
     Ok(object)
 }
 
@@ -352,7 +360,20 @@ fn text_arg(args: &[Value], index: usize) -> Option<String> {
     }
 }
 
-/// `op_worker_spawn(url, name, permissionsJson?, callerUrl?) -> [workerId, portId]`
+/// The optional heap limit argument, in bytes: a positive integer a `usize` can hold.
+fn heap_arg(args: &[Value], index: usize) -> Result<Option<usize>, HostError> {
+    match args.get(index) {
+        None | Some(Value::Undefined) => Ok(None),
+        Some(Value::Number(bytes)) if bytes.fract() == 0.0 && (1.0..=1e15).contains(bytes) => {
+            Ok(Some(*bytes as usize))
+        }
+        _ => Err(HostError::TypeError(
+            "the worker heap limit must be a positive integer of bytes".into(),
+        )),
+    }
+}
+
+/// `op_worker_spawn(url, name, permissionsJson?, callerUrl?, heapLimitBytes?) -> [workerId, portId]`
 fn op_worker_spawn(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let (Some(url), Some(name)) = (text_arg(args, 0), text_arg(args, 1)) else {
         return Err(HostError::TypeError(
@@ -363,6 +384,7 @@ fn op_worker_spawn(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
         .isolate_slot::<Host>()
         .and_then(|host| host.0.clone())
         .ok_or_else(|| VelyrError::unsupported("workers are not available here"))?;
+    let heap_limit_bytes = heap_arg(args, 4)?;
     let entry = resolve_entry(&url, text_arg(args, 3).as_deref())?;
     authorize_entry(ctx, &entry.to_string_lossy())?;
     let group = ctx.isolate_slot::<Group>().map_or(0, |group| group.0);
@@ -380,6 +402,7 @@ fn op_worker_spawn(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
         name,
         permissions_json: text_arg(args, 2),
         group,
+        heap_limit_bytes,
     };
     let handle = (host.spawn)(&parent, request)?;
     let port_id = ports(ctx)?.insert(handle.endpoint());
@@ -412,7 +435,9 @@ fn op_worker_scope_port(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value,
 
 /// Worker side: `self.close()`. The current task finishes, then the event loop stops.
 fn op_worker_close(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value, HostError> {
-    port(ctx)?.shutdown.cancel();
+    let port = port(ctx)?;
+    request_exit(&port.exit, 0);
+    port.shutdown.cancel();
     Ok(Value::Undefined)
 }
 
