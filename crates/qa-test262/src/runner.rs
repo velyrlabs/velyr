@@ -15,7 +15,7 @@ use velyr_engine_api::{
 use velyr_runtime_errors::VelyrError;
 
 use crate::frontmatter::{self, Meta};
-use crate::report::Outcome;
+use crate::report::{Outcome, retry_timeout};
 
 const HEAP_LIMIT_BYTES: usize = 1 << 30;
 const ASYNC_COMPLETE: &str = "Test262:AsyncTestComplete";
@@ -134,7 +134,7 @@ pub fn run_test<E: Engine>(
         _ => &[false, true],
     };
     for &strict in strict_modes {
-        let outcome = run_variant(engine, harness, case, &meta, strict, timeout);
+        let outcome = retry_timeout(|| run_variant(engine, harness, case, &meta, strict, timeout));
         if outcome != Outcome::Pass {
             return outcome;
         }

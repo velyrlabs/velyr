@@ -4,6 +4,7 @@
 mod frontmatter;
 mod report;
 mod runner;
+mod shard;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -22,6 +23,7 @@ use velyr_engine_v8::V8Engine;
 
 use report::{Class, Expectations, Outcome, classify};
 use runner::{Harness, TestCase, run_test};
+use shard::Shard;
 
 const MAX_THREADS: usize = 8;
 const TEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -50,6 +52,10 @@ struct Args {
     /// Worker threads (one isolate each), at most 8.
     #[arg(long, default_value_t = MAX_THREADS)]
     threads: usize,
+    /// Run only shard N of M (1 <= N <= M): a test belongs to the shard its path hashes to, so
+    /// the split is the same on every machine.
+    #[arg(long, value_name = "N/M")]
+    shard: Option<Shard>,
     /// Rewrite the engine's expectation manifest from this run.
     #[arg(long)]
     update_expectations: bool,
@@ -97,6 +103,9 @@ fn run(args: Args) -> Result<ExitCode, String> {
     }
     files.sort();
     files.dedup();
+    if let Some(shard) = args.shard {
+        files.retain(|file| shard.contains(&relative(&args.root, file)));
+    }
 
     panic::set_hook(Box::new(|_| {}));
     let outcomes = match args.engine {

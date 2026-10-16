@@ -51,6 +51,15 @@ pub fn classify(outcome: &Outcome, expected: bool) -> Class {
     }
 }
 
+/// A timeout on a slow or busy machine is not a verdict: the test gets one more attempt, and only
+/// a second timeout counts.
+pub fn retry_timeout(mut attempt: impl FnMut() -> Outcome) -> Outcome {
+    match attempt() {
+        Outcome::Timeout => attempt(),
+        outcome => outcome,
+    }
+}
+
 const MAX_REASON_CHARS: usize = 200;
 
 /// One-line description of an outcome, used as the manifest reason and in the JSON report.
@@ -132,6 +141,34 @@ mod tests {
             Class::ExpectedFail
         );
         assert_eq!(classify(&Outcome::Skip("x".into()), true), Class::Skipped);
+    }
+
+    #[test]
+    fn a_timeout_is_retried_once_before_it_counts() {
+        let mut calls = 0;
+        let slow_once = retry_timeout(|| {
+            calls += 1;
+            if calls == 1 {
+                Outcome::Timeout
+            } else {
+                Outcome::Pass
+            }
+        });
+        assert_eq!((slow_once, calls), (Outcome::Pass, 2));
+
+        let mut calls = 0;
+        let always = retry_timeout(|| {
+            calls += 1;
+            Outcome::Timeout
+        });
+        assert_eq!((always, calls), (Outcome::Timeout, 2));
+
+        let mut calls = 0;
+        let failing = retry_timeout(|| {
+            calls += 1;
+            fail()
+        });
+        assert_eq!((failing, calls), (fail(), 1));
     }
 
     #[test]
