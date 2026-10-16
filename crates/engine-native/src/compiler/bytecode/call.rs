@@ -26,7 +26,15 @@ impl FunctionCompiler<'_> {
             MemberExpression::StaticMemberExpression(m) => {
                 let object = self.member_object(&m.object, m.optional)?;
                 let name = self.e.string(&m.property.name);
-                self.e.emit_at(m.span, I::GetNamed { object, name });
+                let cache = 0;
+                self.e.emit_at(
+                    m.span,
+                    I::GetNamed {
+                        object,
+                        name,
+                        cache,
+                    },
+                );
             }
             MemberExpression::ComputedMemberExpression(m) => {
                 let object = self.member_object(&m.object, m.optional)?;
@@ -107,7 +115,15 @@ impl FunctionCompiler<'_> {
             Expression::StaticMemberExpression(m) => {
                 let object = self.member_object(&m.object, m.optional)?;
                 let name = self.e.string(&m.property.name);
-                self.e.emit_at(m.span, I::GetNamed { object, name });
+                let cache = 0;
+                self.e.emit_at(
+                    m.span,
+                    I::GetNamed {
+                        object,
+                        name,
+                        cache,
+                    },
+                );
                 Some(object)
             }
             Expression::ComputedMemberExpression(m) => {

@@ -205,10 +205,10 @@ fn isolate_call_invokes_host_function() {
 }
 
 #[test]
-fn features_are_promises_and_modules_and_stale_handles_do_not_panic() {
+fn features_are_promises_modules_and_continuation_context_and_stale_handles_do_not_panic() {
     assert_eq!(
         NativeEngine.features(),
-        EngineFeatures::PROMISES | EngineFeatures::MODULES
+        EngineFeatures::PROMISES | EngineFeatures::MODULES | EngineFeatures::CONTINUATION_CONTEXT
     );
     let mut iso = isolate();
     assert!(iso.compile_module(&src("export {}")).is_ok());

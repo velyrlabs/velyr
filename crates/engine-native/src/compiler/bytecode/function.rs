@@ -4,12 +4,11 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use oxc_ast::ast::{
-    ArrowFunctionBody, ArrowFunctionExpression, BindingIdentifier, BindingPattern, Expression,
-    FormalParameter, FormalParameters, Function, Program, Statement,
+    ArrowFunctionExpression, BindingIdentifier, BindingPattern, Expression, FormalParameter,
+    FormalParameters, Function, Program, Statement,
 };
 use oxc_semantic::{ScopeId, SymbolFlags, SymbolId};
 use oxc_span::{GetSpan, Span};
-use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::{
     ConstIndex, Constant, CoroutineKind, FunctionCode, FunctionKind, GlobalDeclarations,
     Instruction as I, Reg,
@@ -18,8 +17,9 @@ use velyr_engine_vm::exception::Script;
 
 use super::control::Control;
 use super::emitter::{Emitter, Header, Label};
-use super::generators::{Coroutine, coroutine_kind};
-use super::scope::{Location, ScopeAnalysis, is_lexical, is_simple};
+use super::generators::Coroutine;
+use super::outer::OuterScope;
+use super::scope::{Location, ScopeAnalysis, bound_identifiers, is_lexical, is_simple};
 use super::unsupported;
 use crate::compiler::JsResult;
 
@@ -47,20 +47,30 @@ pub struct FunctionCompiler<'s> {
     pub script: Rc<Script>,
     /// Set by the `CreateGenerator` prologue of generators and async functions.
     pub coroutine: Option<Coroutine>,
+    /// Compile nested function expressions and arrows now instead of on their first call:
+    /// code that runs once (script and module top level, and what it compiles eagerly)
+    /// tends to call them right away (IIFEs, callbacks), which would re-parse the text.
+    pub eager: bool,
+    /// Contexts around a lazy body, below `contexts` (see `outer.rs`).
+    pub outer: Option<Rc<OuterScope>>,
+    /// Set while compiling parameter expressions, which do not see the body's bindings.
+    pub parameters_end: Option<u32>,
 }
 
-enum Body<'b, 'a> {
+pub(super) enum Body<'b, 'a> {
     Statements(&'b [Statement<'a>]),
     Expression(&'b Expression<'a>),
 }
 
-struct FunctionSource<'b, 'a> {
-    scope: ScopeId,
-    params: Option<&'b FormalParameters<'a>>,
-    body: Body<'b, 'a>,
-    span: Span,
-    self_name: Option<&'b BindingIdentifier<'a>>,
-    coroutine: Option<CoroutineKind>,
+pub(super) struct FunctionSource<'b, 'a> {
+    pub scope: ScopeId,
+    pub params: Option<&'b FormalParameters<'a>>,
+    pub body: Body<'b, 'a>,
+    pub span: Span,
+    /// End of the function node itself (`span` may be its class's).
+    pub end: u32,
+    pub self_name: Option<&'b BindingIdentifier<'a>>,
+    pub coroutine: Option<CoroutineKind>,
 }
 
 pub fn compile_program(
@@ -114,6 +124,9 @@ impl<'s> FunctionCompiler<'s> {
             classes: Vec::new(),
             script,
             coroutine: None,
+            eager: kind == FunctionKind::Script,
+            outer: None,
+            parameters_end: None,
         }
     }
 
@@ -125,7 +138,7 @@ impl<'s> FunctionCompiler<'s> {
         span: Span,
     ) -> Header {
         Header {
-            name: JsStr::from_str(name),
+            name: self.e.intern(name),
             kind: self.kind,
             is_strict: self.is_strict,
             parameter_count,
@@ -164,26 +177,32 @@ impl<'s> FunctionCompiler<'s> {
         kind: FunctionKind,
         source: Option<Span>,
     ) -> JsResult<FunctionCode> {
-        let coroutine = coroutine_kind(function.generator, function.r#async);
+        let source = FunctionSource::function(function, source)?;
+        let is_expression = kind == FunctionKind::Normal && function.is_expression();
         // Generator and async functions are not constructors, like methods.
         let kind = match kind {
-            FunctionKind::Normal if coroutine.is_some() => FunctionKind::Method,
+            FunctionKind::Normal if source.coroutine.is_some() => FunctionKind::Method,
             kind => kind,
         };
-        let Some(body) = &function.body else {
-            return Err(unsupported("function without body"));
-        };
         let name = function.id.as_ref().map_or(name, |id| id.name.as_str());
-        let source = FunctionSource {
-            scope: function.scope_id(),
-            params: Some(&function.params),
-            body: Body::Statements(&body.statements),
-            span: source.unwrap_or(function.span),
-            self_name: function.id.as_ref().filter(|_| function.is_expression()),
-            coroutine,
-        };
-        self.inner(source.scope, kind)
-            .compile_function(&source, name)
+        self.nested_code(&source, name, kind, is_expression)
+    }
+
+    /// The code of a nested function: compiled now (an expression in eager code), else a
+    /// stub compiled on its first call.
+    fn nested_code(
+        &mut self,
+        source: &FunctionSource,
+        name: &str,
+        kind: FunctionKind,
+        is_expression: bool,
+    ) -> JsResult<FunctionCode> {
+        if !(self.eager && is_expression) {
+            return Ok(self.lazy_stub(source, name, kind, is_expression));
+        }
+        let mut inner = self.inner(source.scope, kind);
+        inner.eager = true;
+        inner.compile_function(source, name)
     }
 
     /// A class static block as a parameterless method called with the class as `this`.
@@ -198,6 +217,7 @@ impl<'s> FunctionCompiler<'s> {
             params: None,
             body: Body::Statements(statements),
             span,
+            end: span.end,
             self_name: None,
             coroutine: None,
         };
@@ -206,16 +226,23 @@ impl<'s> FunctionCompiler<'s> {
     }
 
     /// A field initializer: a function of the class scope returning the field value.
+    /// With `named_by_key` it takes the field key as its argument and names the value
+    /// (an anonymous function definition) after it.
     pub fn initializer_code(
         &mut self,
         class_scope: ScopeId,
         value: &Expression,
         name: Option<&str>,
+        named_by_key: bool,
     ) -> JsResult<FunctionCode> {
         let mut inner = self.inner(class_scope, FunctionKind::ClassField);
+        let key = named_by_key.then(|| inner.e.alloc());
         inner.expression_named(value, name)?;
+        if let Some(key) = key {
+            inner.e.emit(I::NameFunction(key));
+        }
         inner.e.emit(I::Return);
-        let header = inner.header("", 0, 0, value.span());
+        let header = inner.header("", u32::from(named_by_key), 0, value.span());
         Ok(inner.e.finish(header))
     }
 
@@ -223,40 +250,25 @@ impl<'s> FunctionCompiler<'s> {
         let mut inner = FunctionCompiler::new(self.analysis, scope, kind, self.script.clone());
         inner.contexts = self.contexts.clone();
         inner.classes = self.classes.clone();
+        inner.outer = self.outer.clone();
+        inner.e.pool = self.e.pool.clone();
+        inner.e.shift = self.e.shift;
         inner
     }
 
     pub fn arrow(&mut self, arrow: &ArrowFunctionExpression, name: &str) -> JsResult<()> {
-        let body = match &arrow.body {
-            ArrowFunctionBody::FunctionBody(body) => Body::Statements(&body.statements),
-            expression => Body::Expression(expression.to_expression()),
-        };
-        let source = FunctionSource {
-            scope: arrow.scope_id(),
-            params: Some(&arrow.params),
-            body,
-            span: arrow.span,
-            self_name: None,
-            coroutine: coroutine_kind(false, arrow.r#async),
-        };
-        self.emit_closure(source, name, FunctionKind::Arrow)
-    }
-
-    fn emit_closure(
-        &mut self,
-        source: FunctionSource,
-        name: &str,
-        kind: FunctionKind,
-    ) -> JsResult<()> {
-        let code = self
-            .inner(source.scope, kind)
-            .compile_function(&source, name)?;
+        let source = FunctionSource::arrow(arrow);
+        let code = self.nested_code(&source, name, FunctionKind::Arrow, true)?;
         let index: ConstIndex = self.e.constant(Constant::Function(Rc::new(code)));
         self.e.emit(I::CreateClosure(index));
         Ok(())
     }
 
-    fn compile_function(mut self, source: &FunctionSource, name: &str) -> JsResult<FunctionCode> {
+    pub(super) fn compile_function(
+        mut self,
+        source: &FunctionSource,
+        name: &str,
+    ) -> JsResult<FunctionCode> {
         let items = source.params.map_or(&[][..], |params| &params.items[..]);
         let is_simple = source.params.is_none_or(is_simple);
         let arguments = self.e.alloc_range(items.len() as u32);
@@ -374,6 +386,10 @@ impl<'s> FunctionCompiler<'s> {
     }
 
     fn bind_parameters(&mut self, params: &FormalParameters, first: Reg) -> JsResult<()> {
+        self.parameters_end = Some(params.span.end);
+        for id in bound_identifiers(params) {
+            self.put_in_tdz(id.symbol_id())?;
+        }
         for (index, param) in params.items.iter().enumerate() {
             self.e.emit(I::Ldar(Reg(first.0 + index as u32)));
             if let Some(initializer) = &param.initializer {
@@ -386,6 +402,7 @@ impl<'s> FunctionCompiler<'s> {
                 .emit(I::CreateRestParameter(params.items.len() as u32));
             self.bind_pattern(&rest.rest.argument)?;
         }
+        self.parameters_end = None;
         Ok(())
     }
 
@@ -462,6 +479,12 @@ impl<'s> FunctionCompiler<'s> {
 
 /// Whether `code` (or an arrow inside it) reads or writes a `super` property.
 pub(super) fn uses_super_property(code: &FunctionCode) -> bool {
+    if code.lazy.is_some() {
+        // Not compiled yet: any `super` in its text (an unneeded [[HomeObject]] is unused).
+        let script = code.script.as_ref();
+        let text = script.map(|s| s.slice(code.source_start, code.source_end));
+        return text.is_some_and(|text| text.contains("super"));
+    }
     code.instructions
         .iter()
         .any(|i| matches!(i, I::GetSuper | I::SetSuper(_)))

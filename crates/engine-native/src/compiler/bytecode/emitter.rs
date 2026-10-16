@@ -1,9 +1,11 @@
 //! Instruction buffer, constant pool, labels, registers and line table of one function.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use oxc_span::Span;
+use velyr_engine_gc::external::{Charge, Kind};
 use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::{
     ConstIndex, Constant, FunctionCode, HandlerEntry, Instruction, Reg, RegRange, SourcePosition,
@@ -64,10 +66,22 @@ pub struct Emitter {
     span: Option<Span>,
     next_register: u32,
     register_count: u32,
+    /// Inline caches handed out so far.
+    caches: u32,
+    /// String constants of the whole compilation (a script or module): the functions of a
+    /// module repeat the same property names, and each copy would be its own allocation.
+    pub(super) pool: Rc<RefCell<HashMap<Box<str>, JsStr>>>,
+    /// Added (wrapping) to AST offsets: a lazy body is parsed out of its script's text.
+    pub(super) shift: u32,
 }
 
 impl Emitter {
-    pub fn emit(&mut self, instruction: Instruction) {
+    /// Appends `instruction`; a named property access gets the next inline cache index.
+    pub fn emit(&mut self, mut instruction: Instruction) {
+        if let Some(cache) = instruction.cache_mut() {
+            *cache = self.caches;
+            self.caches += 1;
+        }
         if let Some(span) = self.span {
             let is_new = self
                 .positions
@@ -86,7 +100,13 @@ impl Emitter {
 
     /// Following instructions belong to `span` in the line table.
     pub fn position(&mut self, span: Span) {
-        self.span = Some(span);
+        self.span = Some(self.shifted(span));
+    }
+
+    /// `span` of the AST being compiled as offsets into the script's text.
+    pub fn shifted(&self, span: Span) -> Span {
+        let start = span.start.wrapping_add(self.shift);
+        Span::new(start, span.end.wrapping_add(self.shift))
     }
 
     pub fn emit_at(&mut self, span: Span, instruction: Instruction) {
@@ -148,11 +168,23 @@ impl Emitter {
         ConstIndex(self.constants.len() as u32 - 1)
     }
 
+    /// One `JsStr` per distinct text across every function sharing this pool (see `pool`).
+    pub fn intern(&self, text: &str) -> JsStr {
+        let mut pool = self.pool.borrow_mut();
+        if let Some(s) = pool.get(text) {
+            return s.clone();
+        }
+        let s = JsStr::from_str(text);
+        pool.insert(text.into(), s.clone());
+        s
+    }
+
     pub fn string(&mut self, text: &str) -> ConstIndex {
         if let Some(&index) = self.strings.get(text) {
             return index;
         }
-        let index = self.constant(Constant::String(JsStr::from_str(text)));
+        let s = self.intern(text);
+        let index = self.constant(Constant::String(s));
         self.strings.insert(text.to_owned(), index);
         index
     }
@@ -209,7 +241,12 @@ impl Emitter {
                 context: h.context,
             })
             .collect();
-        FunctionCode {
+        // Code lives as long as its module: drop the growth slack (up to half of each Vec).
+        self.instructions.shrink_to_fit();
+        self.constants.shrink_to_fit();
+        self.positions.shrink_to_fit();
+        let span = self.shifted(header.span);
+        let mut code = FunctionCode {
             name: header.name,
             kind: header.kind,
             is_strict: header.is_strict,
@@ -220,9 +257,14 @@ impl Emitter {
             constants: self.constants,
             handlers,
             positions: self.positions,
-            source_start: header.span.start,
-            source_end: header.span.end,
+            source_start: span.start,
+            source_end: span.end,
             script: header.script,
-        }
+            charge: Charge::new(Kind::Code, 0),
+            lazy: None,
+        };
+        let bytes = code.owned_bytes();
+        code.charge.set(bytes);
+        code
     }
 }

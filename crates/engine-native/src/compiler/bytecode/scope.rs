@@ -1,13 +1,16 @@
 //! Where each binding lives, decided once per script from `oxc_semantic`.
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use oxc_ast::AstKind;
-use oxc_ast::ast::{BindingPattern, FormalParameters};
+use oxc_ast::ast::{BindingIdentifier, BindingPattern, FormalParameters};
 use oxc_semantic::{AstNodes, ReferenceId, ScopeFlags, ScopeId, Scoping, SymbolFlags, SymbolId};
 use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::GlobalDeclarations;
 
+use super::outer::OuterScope;
 use super::unsupported;
 use crate::compiler::JsResult;
 
@@ -31,6 +34,8 @@ pub const DEFAULT_SLOT: u32 = 1;
 /// A class body: its scope and the private names it declares (getter/setter pairs once).
 pub struct ClassInfo {
     pub scope: ScopeId,
+    /// The outer binding of a class declaration (Oxc creates no inner one).
+    pub declaration: Option<SymbolId>,
     pub private_names: Vec<String>,
 }
 
@@ -45,6 +50,11 @@ pub struct ScopeAnalysis<'s> {
     context_sizes: HashMap<ScopeId, u32>,
     class_scopes: HashSet<ScopeId>,
     private_slots: HashMap<(ScopeId, String), u32>,
+    /// Inner name binding of class declarations referenced from their own body: the class
+    /// scope and the context slot holding it.
+    inner_names: HashMap<SymbolId, (ScopeId, u32)>,
+    /// Parameters of non-simple lists (see `tdz_parameters`).
+    tdz_parameters: HashSet<SymbolId>,
     /// Functions that read their `arguments` object.
     arguments_users: HashSet<ScopeId>,
     /// Context slot of `arguments` for functions whose arrows (or class keys) read it.
@@ -52,6 +62,8 @@ pub struct ScopeAnalysis<'s> {
     /// Sloppy functions with simple parameters that read `arguments`: its indices alias
     /// the parameters, which therefore live in context slots.
     mapped_arguments: HashSet<ScopeId>,
+    /// Outer chain entries handed to lazy stubs, one per context scope.
+    pub(super) outer_cache: RefCell<HashMap<ScopeId, Rc<OuterScope>>>,
 }
 
 /// IsSimpleParameterList: identifiers only, no defaults or rest.
@@ -85,11 +97,43 @@ pub fn simple_parameters(nodes: &AstNodes) -> HashMap<ScopeId, Vec<SymbolId>> {
         .collect()
 }
 
+/// Bindings of every non-simple parameter list: they start in the TDZ, so a default value
+/// reading a later (or its own) parameter throws.
+pub fn tdz_parameters(nodes: &AstNodes) -> HashSet<SymbolId> {
+    let mut symbols = HashSet::new();
+    for node in nodes.iter() {
+        let params = match node.kind() {
+            AstKind::Function(function) => &function.params,
+            AstKind::ArrowFunctionExpression(arrow) => &arrow.params,
+            _ => continue,
+        };
+        if !is_simple(params) {
+            for id in bound_identifiers(params) {
+                symbols.insert(id.symbol_id());
+            }
+        }
+    }
+    symbols
+}
+
+/// Every identifier bound by a parameter list, in source order.
+pub fn bound_identifiers<'p, 'a>(
+    params: &'p FormalParameters<'a>,
+) -> Vec<&'p BindingIdentifier<'a>> {
+    let patterns = params.items.iter().map(|param| &param.pattern);
+    let rest = params.rest.iter().map(|rest| &rest.rest.argument);
+    patterns
+        .chain(rest)
+        .flat_map(|pattern| pattern.get_binding_identifiers())
+        .collect()
+}
+
 impl<'s> ScopeAnalysis<'s> {
     pub fn new(
         scoping: &'s Scoping,
         classes: Vec<ClassInfo>,
         simple_parameters: &HashMap<ScopeId, Vec<SymbolId>>,
+        tdz_parameters: HashSet<SymbolId>,
         module: bool,
     ) -> JsResult<Self> {
         for scope in scoping.scope_descendants_from_root() {
@@ -109,9 +153,12 @@ impl<'s> ScopeAnalysis<'s> {
             context_sizes: HashMap::new(),
             class_scopes: classes.iter().map(|class| class.scope).collect(),
             private_slots: HashMap::new(),
+            inner_names: HashMap::new(),
+            tdz_parameters,
             arguments_users: HashSet::new(),
             arguments_slots: HashMap::new(),
             mapped_arguments: HashSet::new(),
+            outer_cache: RefCell::default(),
         };
         analysis.collect_arguments_users();
         // Unreferenced parameters are only observable through `arguments`: no aliasing.
@@ -146,6 +193,12 @@ impl<'s> ScopeAnalysis<'s> {
             *size += if module && is_import { 2 } else { 1 };
         }
         for class in classes {
+            if let Some(symbol) = class.declaration
+                && analysis.is_referenced_inside(symbol, class.scope)
+            {
+                let slot = analysis.new_slot(class.scope);
+                analysis.inner_names.insert(symbol, (class.scope, slot));
+            }
             for name in class.private_names {
                 let slot = analysis.new_slot(class.scope);
                 analysis.private_slots.insert((class.scope, name), slot);
@@ -153,6 +206,31 @@ impl<'s> ScopeAnalysis<'s> {
         }
         analysis.allocate_arguments_slots();
         Ok(analysis)
+    }
+
+    fn is_referenced_inside(&self, symbol: SymbolId, class: ScopeId) -> bool {
+        let mut references = self.scoping.get_resolved_references(symbol);
+        references.any(|reference| {
+            let mut ancestors = self.scoping.scope_ancestors(reference.scope_id());
+            ancestors.any(|scope| scope == class)
+        })
+    }
+
+    pub fn is_tdz_parameter(&self, symbol: SymbolId) -> bool {
+        self.tdz_parameters.contains(&symbol)
+    }
+
+    /// The class scope and slot of the inner name binding of a class declaration.
+    pub fn inner_name(&self, symbol: SymbolId) -> Option<(ScopeId, u32)> {
+        self.inner_names.get(&symbol).copied()
+    }
+
+    /// Inner name bindings living in `scope`, with their slots.
+    pub fn inner_names_of(&self, scope: ScopeId) -> impl Iterator<Item = (SymbolId, u32)> + '_ {
+        let declared = self.inner_names.iter();
+        declared
+            .filter(move |(_, (class, _))| *class == scope)
+            .map(|(&symbol, &(_, slot))| (symbol, slot))
     }
 
     fn new_slot(&mut self, scope: ScopeId) -> u32 {
@@ -250,6 +328,19 @@ impl<'s> ScopeAnalysis<'s> {
 
     pub fn private_slot(&self, class: ScopeId, name: &str) -> Option<u32> {
         self.private_slots.get(&(class, name.to_owned())).copied()
+    }
+
+    /// Private names declared by `scope` (a class) with their context slots.
+    pub fn private_entries(&self, scope: ScopeId) -> Vec<(Box<str>, u32)> {
+        let entries = self.private_slots.iter();
+        let declared = entries.filter(|((class, _), _)| *class == scope);
+        declared
+            .map(|((_, name), &slot)| (name.as_str().into(), slot))
+            .collect()
+    }
+
+    pub fn is_class_scope(&self, scope: ScopeId) -> bool {
+        self.class_scopes.contains(&scope)
     }
 
     /// Private names of a class with their context slots, in declaration order.

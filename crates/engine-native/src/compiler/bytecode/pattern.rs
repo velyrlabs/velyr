@@ -235,6 +235,7 @@ impl FunctionCompiler<'_> {
             Key::Named(name) => self.e.emit(I::GetNamed {
                 object: source,
                 name,
+                cache: 0,
             }),
             Key::Computed(register) => {
                 self.e.emit(I::Ldar(register));

@@ -33,7 +33,7 @@ c2: "f"
   22: Ldar(r8)
   23: Star(r9)
   24: CheckObjectCoercible
-  25: GetNamed { object: r9, name: c1 }
+  25: GetNamed { object: r9, name: c1, cache: 0 }
   26: Star(r1)
   27: Ldar(r1)
   28: Throw

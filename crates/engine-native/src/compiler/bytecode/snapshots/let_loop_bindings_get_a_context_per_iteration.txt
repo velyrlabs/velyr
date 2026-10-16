@@ -32,7 +32,7 @@ c2: "f"
   21: JumpIfFalse(@43)
   22: Ldar(r0)
   23: Star(r2)
-  24: GetNamed { object: r2, name: c0 }
+  24: GetNamed { object: r2, name: c0, cache: 0 }
   25: Star(r3)
   26: CreateClosure(c1)
   27: Star(r4)

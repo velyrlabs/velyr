@@ -96,9 +96,19 @@ impl FunctionCompiler<'_> {
             Expression::AwaitExpression(a) => self.await_expression(a)?,
             Expression::YieldExpression(y) => self.yield_expression(y)?,
             Expression::ImportExpression(i) => {
-                // shortcut: the options argument is not evaluated (import attributes).
                 self.expression(&i.source)?;
-                self.e.emit_at(i.span, I::DynamicImport);
+                let options = match &i.options {
+                    Some(options) => {
+                        let (specifier, options_reg) = (self.e.alloc(), self.e.alloc());
+                        self.e.emit(I::Star(specifier));
+                        self.expression(options)?;
+                        self.e.emit(I::Star(options_reg));
+                        self.e.emit(I::Ldar(specifier));
+                        Some(options_reg)
+                    }
+                    None => None,
+                };
+                self.e.emit_at(i.span, I::DynamicImport { options });
             }
             Expression::ImportMeta(_) => self.import_meta()?,
             Expression::NewTarget(_) => self.e.emit(I::LdaNewTarget),

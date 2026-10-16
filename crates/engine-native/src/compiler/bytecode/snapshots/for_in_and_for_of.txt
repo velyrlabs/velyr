@@ -58,7 +58,7 @@ c2: "f"
   47: Ldar(r0)
   48: Star(r8)
   49: Ldar(r7)
-  50: SetNamed { object: r8, name: c2 }
+  50: SetNamed { object: r8, name: c2, cache: 0 }
   51: Jump(@45)
   52: Star(r7)
   53: IteratorCloseAfterThrow { record: r3 }

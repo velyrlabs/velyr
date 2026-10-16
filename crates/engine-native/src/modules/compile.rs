@@ -8,14 +8,12 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Declaration, ExportDefaultDeclarationKind, Function, ImportDeclarationSpecifier,
     ModuleExportName, Program, Statement,
 };
-use oxc_parser::{ParseOptions, Parser};
-use oxc_semantic::{SemanticBuilder, SymbolFlags, SymbolId};
-use oxc_span::{GetSpan, SourceType};
+use oxc_semantic::{SymbolFlags, SymbolId};
+use oxc_span::GetSpan;
 use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::{CoroutineKind, FunctionCode, FunctionKind, Instruction as I};
 use velyr_engine_vm::exception::Script;
@@ -23,40 +21,28 @@ use velyr_engine_vm::interpreter::{ExportTarget, ImportName, ModuleCode, ModuleI
 
 use super::function::FunctionCompiler;
 use super::scope::{self, DEFAULT_SLOT, Location, META_SLOT, ScopeAnalysis};
-use super::{class, unsupported};
+use super::unsupported;
 use crate::compiler::{JsResult, throw};
 
 pub fn compile_module(name: &str, text: &str) -> JsResult<ModuleCode> {
-    let allocator = Allocator::default();
-    let options = ParseOptions {
-        preserve_parens: false,
-        ..ParseOptions::default()
-    };
-    let parsed = Parser::new(&allocator, text, SourceType::mjs())
-        .with_options(options)
-        .parse();
-    if let Some(error) = parsed.diagnostics.first() {
-        return Err(throw("SyntaxError", &error.message));
-    }
-    let semantic = SemanticBuilder::new()
-        .with_build_nodes(true)
-        .with_check_syntax_error(true)
-        .build(&parsed.program);
-    if let Some(error) = semantic.diagnostics.first() {
-        return Err(throw("SyntaxError", &error.message));
-    }
-    let classes = class::collect_classes(semantic.semantic.nodes());
-    let parameters = scope::simple_parameters(semantic.semantic.nodes());
-    let scoping = semantic.semantic.into_scoping();
-    let analysis = ScopeAnalysis::new(&scoping, classes, &parameters, true)?;
+    super::analyze(text, true, true, |program, _, analysis| {
+        module_code(name, text, program, analysis)
+    })
+}
+
+fn module_code(
+    name: &str,
+    text: &str,
+    program: &Program,
+    analysis: &ScopeAnalysis,
+) -> JsResult<ModuleCode> {
     let script = Rc::new(Script::new(name, text));
-    let program = &parsed.program;
-    let entries = Entries::collect(program, &analysis)?;
-    let init = init_code(program, &analysis, script.clone())?;
+    let entries = Entries::collect(program, analysis)?;
+    let init = init_code(program, analysis, script.clone())?;
     // The body is an async function only if it awaits at the top level.
-    let body = match body_code(program, &analysis, script.clone(), None) {
+    let body = match body_code(program, analysis, script.clone(), None) {
         Err(error) if error.message == unsupported(AWAIT_OUTSIDE_ASYNC).message => {
-            body_code(program, &analysis, script, Some(CoroutineKind::Async))?
+            body_code(program, analysis, script, Some(CoroutineKind::Async))?
         }
         result => result?,
     };
@@ -310,6 +296,11 @@ fn body_code(
 impl FunctionCompiler<'_> {
     /// `import.meta`: slot `META_SLOT` of the module context.
     pub fn import_meta(&mut self) -> JsResult<()> {
+        if let Some(depth) = self.outer_module() {
+            let slot = META_SLOT;
+            self.e.emit(I::LdaContextSlot { depth, slot });
+            return Ok(());
+        }
         if !self.analysis.module {
             return Err(unsupported("import.meta outside a module"));
         }

@@ -15,6 +15,8 @@ mod intl;
 mod isolate;
 #[path = "builtins/iterator_helpers.rs"]
 pub mod iterator_helpers;
+#[path = "builtins/temporal/mod.rs"]
+mod temporal;
 mod modules;
 mod number;
 mod value_bridge;
@@ -31,13 +33,14 @@ impl Engine for NativeEngine {
     type Isolate = NativeIsolate;
 
     fn features(&self) -> EngineFeatures {
-        EngineFeatures::PROMISES | EngineFeatures::MODULES
+        EngineFeatures::PROMISES | EngineFeatures::MODULES | EngineFeatures::CONTINUATION_CONTEXT
     }
 
     /// `heap_limit_bytes` bounds the GC heap, BigInt sizes and ArrayBuffer backing stores.
     fn create_isolate(&self, opts: IsolateOptions) -> Result<NativeIsolate, EngineError> {
-        let mut isolate = NativeIsolate::new(opts.heap_limit_bytes);
+        let mut isolate = NativeIsolate::new();
         if let Some(bytes) = opts.heap_limit_bytes {
+            isolate.vm.limit_heap(bytes);
             isolate.vm.limit_bigints_to_heap_budget(bytes);
             isolate.vm.limit_buffers_to_heap_budget(bytes);
         }

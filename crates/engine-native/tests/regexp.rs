@@ -139,12 +139,19 @@ fn terminate_stops_a_catastrophic_backtracking_regexp() {
         let mut vm = Interpreter::new();
         flag_tx.send(vm.termination_flag()).unwrap();
         let completion = vm.run_script(&code);
-        done_tx.send(matches!(completion, Err(Abrupt::Terminated))).unwrap();
+        done_tx
+            .send(matches!(completion, Err(Abrupt::Terminated)))
+            .unwrap();
     });
     let flag = flag_rx.recv().unwrap();
     std::thread::sleep(Duration::from_millis(20));
     flag.store(true, Ordering::Relaxed);
     let raised = Instant::now();
     let terminated = done_rx.recv_timeout(Duration::from_millis(100));
-    assert_eq!(terminated, Ok(true), "after terminate(): {:?}", raised.elapsed());
+    assert_eq!(
+        terminated,
+        Ok(true),
+        "after terminate(): {:?}",
+        raised.elapsed()
+    );
 }

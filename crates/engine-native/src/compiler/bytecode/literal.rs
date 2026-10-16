@@ -220,10 +220,11 @@ pub fn static_key(key: &PropertyKey, computed: bool) -> JsResult<Option<String>>
     }))
 }
 
-fn is_anonymous_function(value: &Expression) -> bool {
+pub(super) fn is_anonymous_function(value: &Expression) -> bool {
     match value {
         Expression::FunctionExpression(function) => function.id.is_none(),
         Expression::ArrowFunctionExpression(_) => true,
+        Expression::ClassExpression(class) => class.id.is_none(),
         _ => false,
     }
 }

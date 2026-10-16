@@ -171,6 +171,35 @@ fn api_promises_are_usable_from_js() {
     assert_eq!(eval(&mut iso, "String(log)"), text("8"));
 }
 
+thread_local! {
+    static PENDING: std::cell::Cell<Option<velyr_engine_api::ResolverId>> = const { std::cell::Cell::new(None) };
+}
+
+fn start_op(
+    ctx: &mut dyn velyr_engine_api::CallContext,
+    _args: &[Value],
+) -> Result<Value, velyr_engine_api::HostError> {
+    let (promise, resolver) = ctx.create_promise();
+    PENDING.with(|pending| pending.set(Some(resolver)));
+    Ok(promise)
+}
+
+#[test]
+fn host_functions_return_promises_the_isolate_settles_later() {
+    let mut iso = isolate();
+    iso.register_host_function(velyr_engine_api::HostFunctionDef {
+        name: "startOp",
+        arity: 0,
+        callback: start_op,
+    })
+    .unwrap();
+    eval(&mut iso, "var log = []; startOp().then(v => log.push(v));");
+    let resolver = PENDING.with(|pending| pending.take()).expect("op started");
+    iso.resolve(resolver, text("done"));
+    drain(&mut iso);
+    assert_eq!(eval(&mut iso, "String(log)"), text("done"));
+}
+
 #[test]
 fn rejection_tracker_reports_unhandled_until_handled() {
     let mut iso = isolate();

@@ -6,9 +6,9 @@
    4: LdaGlobal(c0)
    5: JumpIfNullish(@11)
    6: Star(r1)
-   7: GetNamed { object: r1, name: c1 }
+   7: GetNamed { object: r1, name: c1, cache: 0 }
    8: Star(r1)
-   9: GetNamed { object: r1, name: c2 }
+   9: GetNamed { object: r1, name: c2, cache: 1 }
   10: Jump(@12)
   11: LdaUndefined
   12: Star(r0)
@@ -36,10 +36,10 @@
   34: Star(r0)
   35: LdaGlobal(c5)
   36: Star(r1)
-  37: GetNamed { object: r1, name: c6 }
+  37: GetNamed { object: r1, name: c6, cache: 2 }
   38: JumpIfFalse(@41)
   39: LdaSmi(2)
-  40: SetNamed { object: r1, name: c6 }
+  40: SetNamed { object: r1, name: c6, cache: 3 }
   41: Star(r0)
   42: LdaGlobal(c5)
   43: Star(r1)
@@ -57,7 +57,7 @@
   55: Star(r0)
   56: LdaGlobal(c0)
   57: Star(r1)
-  58: GetNamed { object: r1, name: c1 }
+  58: GetNamed { object: r1, name: c1, cache: 4 }
   59: TypeOf
   60: Star(r0)
   61: LdaGlobal(c5)
@@ -91,11 +91,11 @@
   89: Star(r0)
   90: LdaGlobal(c5)
   91: Star(r1)
-  92: GetNamed { object: r1, name: c9 }
+  92: GetNamed { object: r1, name: c9, cache: 5 }
   93: ToNumeric
   94: Star(r2)
   95: Inc
-  96: SetNamed { object: r1, name: c9 }
+  96: SetNamed { object: r1, name: c9, cache: 6 }
   97: Ldar(r2)
   98: Star(r0)
   99: LdaGlobal(c4)

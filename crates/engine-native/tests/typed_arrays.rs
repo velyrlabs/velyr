@@ -451,6 +451,8 @@ fn shared_array_buffers_and_atomics() {
 
 #[test]
 fn bigint_increment_and_complement_respect_the_size_limit() {
+    // A 1 KiB limit is far below the realm's own footprint, so this also covers
+    // isolate creation with a tiny heap limit not panicking.
     // 1 KiB budget = 8192 bits; `a` is 2^8192 - 1, the largest BigInt that fits.
     let a = "let a = (1n << 8191n) - 1n + (1n << 8191n)";
     expect_errors(

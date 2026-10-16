@@ -3,6 +3,7 @@
 //!
 //! Snapshot expectations live in `src/compiler/bytecode/snapshots/<test name>.txt`.
 
+use velyr_engine_gc::external::{Charge, Kind};
 use velyr_engine_native::bytecode_compiler::compile_script;
 use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::{
@@ -184,8 +185,8 @@ fn strict_functions_are_marked_and_reject_writes_to_their_name() {
 
 #[test]
 fn unsupported_constructs_are_explicit_syntax_errors() {
+    // Inside a lazy body they throw on its first call instead (tests/lazy.rs).
     for (source, construct) in [
-        ("class A { m() { delete super.x; } }", "super"),
         ("with ({}) {}", "with statement"),
         ("function f() { eval('1'); }", "direct eval"),
         ("{ function f() {} }", "block-level function in sloppy mode"),
@@ -286,6 +287,8 @@ fn code_with_positions(positions: Vec<SourcePosition>) -> FunctionCode {
         source_start: 0,
         source_end: 10,
         script: None,
+        charge: Charge::new(Kind::Code, 0),
+        lazy: None,
     }
 }
 

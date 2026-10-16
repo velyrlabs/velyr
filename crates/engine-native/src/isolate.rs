@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use velyr_engine_api::*;
-use velyr_engine_gc::{Heap, HeapConfig};
 use velyr_engine_vm::Value as Val;
 use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, NativeFn, PromiseStatus};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
@@ -30,14 +29,8 @@ pub struct NativeIsolate {
 }
 
 impl NativeIsolate {
-    /// `heap_limit_bytes` caps the GC heap: past it an allocation fails with the `heap`
-    /// quota error.
-    pub(crate) fn new(heap_limit_bytes: Option<usize>) -> Self {
-        let config = HeapConfig {
-            hard_limit_bytes: heap_limit_bytes,
-            ..HeapConfig::default()
-        };
-        let mut vm = Interpreter::with_heap(Heap::new(config));
+    pub(crate) fn new() -> Self {
+        let mut vm = Interpreter::new();
         // `Function(...)` and indirect `eval` compile their source text through this hook.
         vm.set_compile_hook(Rc::new(|source: &str| {
             compile_named_script("<anonymous>", source).map_err(|error| error.message)
@@ -45,6 +38,7 @@ impl NativeIsolate {
         crate::iterator_helpers::install(&mut vm).expect("the iterator helpers prelude runs");
         crate::date::install(&mut vm);
         crate::intl::install(&mut vm).expect("the Intl prelude runs");
+        crate::temporal::install(&mut vm).expect("the Temporal prelude runs");
         let terminated = vm.termination_flag();
         Self {
             vm,
@@ -148,7 +142,7 @@ fn host_function(def: HostFunctionDef, slots: Rc<RefCell<Slots>>) -> NativeFn {
             .collect::<JsResult<Vec<_>>>();
         let result = exported.map(|exported| {
             let mut slots = slots.borrow_mut();
-            (def.callback)(&mut HostContext(&mut slots), &exported)
+            (def.callback)(&mut HostContext(&mut slots, vm), &exported)
         });
         let result = match result {
             Ok(result) => result.map(|value| import_value(vm, &value)),
@@ -163,9 +157,9 @@ fn host_function(def: HostFunctionDef, slots: Rc<RefCell<Slots>>) -> NativeFn {
                 Ok(value) => Err(Abrupt::Throw(value)),
                 Err(error) => Err(vm.error(ErrorKind::Type, strip_kind(&error.message))),
             },
+            // Same shape as engine-v8: the message, with the code on `error.code`.
             Err(HostError::Velyr(error)) => {
-                let message = format!("{}: {}", error.code(), error.message());
-                Err(vm.error(ErrorKind::Error, &message))
+                Err(vm.error_with_code(error.message(), error.code().as_str()))
             }
         }
     })
@@ -177,6 +171,8 @@ fn strip_kind(message: &str) -> &str {
 
 impl Isolate for NativeIsolate {
     fn eval_script(&mut self, source: &Source) -> Result<Value, JsException> {
+        // Compiling interns atoms, which this isolate's heap must be charged for.
+        self.vm.enter_heap();
         match compile_named_script(&source.name, &source.text) {
             Ok(code) => {
                 let result = self.vm.run_script(&code);
@@ -188,6 +184,7 @@ impl Isolate for NativeIsolate {
     }
 
     fn compile_module(&mut self, source: &Source) -> Result<Handle, JsException> {
+        self.vm.enter_heap();
         self.compile_module_source(source)
     }
 
@@ -200,10 +197,12 @@ impl Isolate for NativeIsolate {
     }
 
     fn evaluate_module(&mut self, module: Handle) -> Result<Value, JsException> {
+        self.vm.enter_heap();
         self.evaluate(module)
     }
 
     fn call(&mut self, func: &Value, this: &Value, args: &[Value]) -> Result<Value, JsException> {
+        self.vm.enter_heap();
         let func = import_value(&self.vm, func)?;
         let this = import_value(&self.vm, this)?;
         let args = args
@@ -255,6 +254,18 @@ impl Isolate for NativeIsolate {
         self.settle(resolver, &reason, true);
     }
 
+    fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
+        HostContext(&mut self.slots.borrow_mut(), &mut self.vm).create_array_buffer(bytes)
+    }
+
+    fn set_continuation_context(&mut self, value: Value) {
+        HostContext(&mut self.slots.borrow_mut(), &mut self.vm).set_continuation_context(value);
+    }
+
+    fn get_continuation_context(&mut self) -> Value {
+        HostContext(&mut self.slots.borrow_mut(), &mut self.vm).get_continuation_context()
+    }
+
     fn promise_state(&mut self, promise: &Value) -> Option<PromiseState> {
         let promise = import_value(&self.vm, promise).ok()?;
         let export = |vm: &mut Interpreter, value: Val| export_value(vm, &value).ok();
@@ -268,6 +279,7 @@ impl Isolate for NativeIsolate {
     }
 
     fn perform_microtask_checkpoint(&mut self) -> MicrotaskProgress {
+        self.vm.enter_heap();
         match self.vm.perform_microtask_checkpoint() {
             Ok(false) => MicrotaskProgress::Idle,
             Ok(true) => MicrotaskProgress::Progressed,
@@ -288,10 +300,33 @@ impl Isolate for NativeIsolate {
     }
 
     fn heap_stats(&self) -> HeapStats {
-        HeapStats::default()
+        let (used_bytes, limit_bytes) = self.vm.heap_usage();
+        let gc = self.vm.gc_stats();
+        HeapStats {
+            used_bytes,
+            total_bytes: used_bytes,
+            limit_bytes,
+            external_bytes: Some(gc.external_bytes),
+            cells: Some(gc.live_cells),
+            gc_count: Some(gc.collections),
+            gc_time: Some(gc.total_pause),
+            breakdown: Some(MemoryBreakdown {
+                cells: gc.live_bytes,
+                heap_tables: gc.table_bytes,
+                strings: gc.breakdown.strings,
+                storage: gc.breakdown.storage,
+                code: gc.breakdown.code,
+                source: gc.breakdown.source,
+                shapes: gc.breakdown.shapes,
+                interner: gc.breakdown.interner,
+                tables: gc.breakdown.tables,
+            }),
+        }
     }
 
-    fn request_gc(&mut self, _reason: GcReason) {}
+    fn request_gc(&mut self, _reason: GcReason) {
+        self.vm.collect_garbage();
+    }
 
     fn termination_handle(&self) -> TerminationHandle {
         let flag = self.terminated.clone();
@@ -310,10 +345,10 @@ impl Isolate for NativeIsolate {
     }
 }
 
-/// `CallContext` for host functions: strings, slots and `TypeError`s.
-/// shortcut: objects, arrays, buffers and promises are not exposed to hosts yet; the
+/// `CallContext` for host functions: strings, arrays, slots and `TypeError`s.
+/// shortcut: plain objects are not exposed to hosts yet; the
 /// infallible constructors return `undefined`, the fallible ones `VELYR_UNSUPPORTED`.
-struct HostContext<'a>(&'a mut Slots);
+struct HostContext<'a>(&'a mut Slots, &'a mut Interpreter);
 
 fn unsupported_host(what: &str) -> HostError {
     HostError::Velyr(VelyrError::unsupported(format!(
@@ -328,11 +363,29 @@ impl CallContext for HostContext<'_> {
     fn create_object(&mut self) -> Value {
         Value::Undefined
     }
-    fn create_array(&mut self, _items: &[Value]) -> Value {
-        Value::Undefined
+    /// `undefined` when an item is not live here or the heap quota is hit.
+    fn create_array(&mut self, items: &[Value]) -> Value {
+        let vm = &mut *self.1;
+        let items = items.iter().map(|item| import_value(vm, item));
+        let array = items
+            .collect::<JsResult<Vec<_>>>()
+            .ok()
+            .and_then(|items| vm.create_array(&items).ok());
+        array
+            .and_then(|array| export_value(vm, &array).ok())
+            .unwrap_or(Value::Undefined)
     }
-    fn create_array_buffer(&mut self, _bytes: &[u8]) -> Value {
-        Value::Undefined
+    /// `undefined` when the heap quota is hit.
+    fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
+        let vm = &mut *self.1;
+        vm.create_array_buffer(bytes)
+            .ok()
+            .and_then(|buffer| export_value(vm, &buffer).ok())
+            .unwrap_or(Value::Undefined)
+    }
+    fn read_bytes(&mut self, value: &Value) -> Option<Vec<u8>> {
+        let value = import_value(self.1, value).ok()?;
+        self.1.with_buffer_bytes(&value, <[u8]>::to_vec)
     }
     fn get_property(&mut self, _object: &Value, _key: &str) -> Result<Value, HostError> {
         Err(unsupported_host("property access"))
@@ -345,13 +398,33 @@ impl CallContext for HostContext<'_> {
     ) -> Result<(), HostError> {
         Err(unsupported_host("property access"))
     }
+    /// Async ops return this promise and settle it later through `Isolate::resolve`.
     fn create_promise(&mut self) -> (Value, ResolverId) {
-        (Value::Undefined, ResolverId(0))
+        let vm = &mut *self.1;
+        let created = vm.create_promise().ok().and_then(|(promise, id)| {
+            let promise = export_value(vm, &promise).ok()?;
+            Some((promise, ResolverId(id)))
+        });
+        // shortcut: the trait is infallible, so a heap failure yields an inert promise.
+        created.unwrap_or((Value::Undefined, ResolverId(u64::MAX)))
     }
+    // shortcut: no op settles inside its own call; they settle through `Isolate::resolve`.
     fn resolve(&mut self, _resolver: ResolverId, _value: Value) {}
     fn reject(&mut self, _resolver: ResolverId, _reason: Value) {}
     fn throw_type_error(&mut self, message: &str) -> HostError {
         HostError::TypeError(message.into())
+    }
+    /// A stale handle leaves the context as it was, as on engine-v8.
+    fn set_continuation_context(&mut self, value: Value) {
+        if let Ok(value) = import_value(self.1, &value) {
+            self.1.set_continuation_context(value);
+        }
+    }
+    /// `undefined` when the heap quota is hit.
+    fn get_continuation_context(&mut self) -> Value {
+        let vm = &mut *self.1;
+        let context = vm.continuation_context();
+        export_value(vm, &context).unwrap_or(Value::Undefined)
     }
     fn slot(&mut self, type_id: TypeId) -> Option<&mut dyn Any> {
         self.0.get_mut(&type_id).map(|slot| &mut **slot)

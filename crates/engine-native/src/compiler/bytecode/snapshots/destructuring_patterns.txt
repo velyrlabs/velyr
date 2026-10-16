@@ -21,11 +21,11 @@ c2: "f"
   10: CheckObjectCoercible
   11: LdaConstant(c0)
   12: Star(r7)
-  13: GetNamed { object: r6, name: c0 }
+  13: GetNamed { object: r6, name: c0, cache: 0 }
   14: Star(r2)
   15: LdaConstant(c1)
   16: Star(r8)
-  17: GetNamed { object: r6, name: c1 }
+  17: GetNamed { object: r6, name: c1, cache: 1 }
   18: GetIterator { record: r9 }
   19: Ldar(r11)
   20: JumpIfTrue(@23)
@@ -76,7 +76,7 @@ c2: "f"
   65: IteratorStep { record: r7, done: @67 }
   66: Jump(@68)
   67: LdaUndefined
-  68: SetNamed { object: r10, name: c2 }
+  68: SetNamed { object: r10, name: c2, cache: 2 }
   69: IteratorClose { record: r7 }
   70: Jump(@75)
   71: Star(r11)

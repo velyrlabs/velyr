@@ -5,10 +5,11 @@
 //! the read runs the initializer first). Global lexical bindings are checked by the VM.
 
 use oxc_ast::ast::IdentifierReference;
-use oxc_semantic::{ScopeId, SymbolFlags, SymbolId};
+use oxc_semantic::{ReferenceId, ScopeId, SymbolFlags, SymbolId};
 use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 
 use super::function::FunctionCompiler;
+use super::outer::{OuterBindingSlot, OuterRef};
 use super::scope::{Location, is_lexical};
 use crate::compiler::{JsResult, throw};
 
@@ -41,6 +42,24 @@ impl FunctionCompiler<'_> {
                 slot,
             }),
         }
+    }
+
+    /// The inner name binding of a class declaration, for a reference made inside its body.
+    fn inner_class_slot(
+        &self,
+        symbol: Option<SymbolId>,
+        reference: ReferenceId,
+    ) -> JsResult<Option<Slot>> {
+        let Some((class, slot)) = symbol.and_then(|symbol| self.analysis.inner_name(symbol)) else {
+            return Ok(None);
+        };
+        let scope = self.analysis.scoping.get_reference(reference).scope_id();
+        let mut ancestors = self.analysis.scoping.scope_ancestors(scope);
+        if !ancestors.any(|ancestor| ancestor == class) {
+            return Ok(None);
+        }
+        let depth = self.context_depth(class)?;
+        Ok(Some(Slot::Context { depth, slot }))
     }
 
     /// Hops from the current context to `scope`'s.
@@ -93,9 +112,9 @@ impl FunctionCompiler<'_> {
     }
 
     fn needs_tdz_check(&self, symbol: SymbolId) -> bool {
-        if !is_lexical(self.analysis.flags(symbol))
-            || self.analysis.location(symbol) == Location::Global
-        {
+        let has_tdz =
+            is_lexical(self.analysis.flags(symbol)) || self.analysis.is_tdz_parameter(symbol);
+        if !has_tdz || self.analysis.location(symbol) == Location::Global {
             return false;
         }
         let home = self.analysis.scoping.symbol_scope_id(symbol);
@@ -114,10 +133,19 @@ impl FunctionCompiler<'_> {
             if let Some(owner) = self.arguments_owner(id) {
                 return self.load_arguments(owner);
             }
+            if let Some(found) = self.outer_reference(name) {
+                self.load_outer(found, name);
+                return Ok(());
+            }
             if name == "undefined" {
                 self.e.emit(I::LdaUndefined);
                 return Ok(());
             }
+        }
+        if let Some(slot) = self.inner_class_slot(symbol, id.reference_id())? {
+            self.load_slot(slot, name);
+            self.emit_tdz_check(name);
+            return Ok(());
         }
         let slot = self.slot_of(symbol)?;
         self.load_slot(slot, name);
@@ -134,12 +162,56 @@ impl FunctionCompiler<'_> {
         let symbol = self.analysis.symbol_of(id.reference_id());
         let name = id.name.as_str();
         let is_arguments_object = self.arguments_owner(id).is_some();
-        if symbol.is_some() || is_arguments_object || name == "undefined" {
+        let is_outer = self.outer_reference(name).is_some();
+        if symbol.is_some() || is_arguments_object || is_outer || name == "undefined" {
             return self.load_identifier(id);
         }
         let index = self.e.string(name);
         self.e.emit(I::LdaGlobalInsideTypeof(index));
         Ok(())
+    }
+
+    /// Load of a binding (TDZ-checked: its initializer is outside) or `arguments` object
+    /// around a lazy body.
+    fn load_outer(&mut self, (depth, found): (u32, OuterRef), name: &str) {
+        let binding = match found {
+            OuterRef::Arguments(slot) => {
+                return self.e.emit(I::LdaContextSlot { depth, slot });
+            }
+            OuterRef::Binding(binding) => binding,
+        };
+        self.load_slot(outer_slot(depth, binding), name);
+        if is_lexical(binding.flags) {
+            self.emit_tdz_check(name);
+        }
+    }
+
+    /// `store_identifier` on a binding around a lazy body.
+    fn store_outer(&mut self, depth: u32, binding: OuterBindingSlot, name: &str) {
+        let slot = outer_slot(depth, binding);
+        let flags = binding.flags;
+        if flags.contains(SymbolFlags::FunctionExpression) {
+            if self.is_strict {
+                let index = self.e.string(name);
+                self.e.emit(I::ThrowConstAssignment(index));
+            }
+            return;
+        }
+        if is_lexical(flags) {
+            let mark = self.e.mark();
+            let value = self.e.alloc();
+            self.e.emit(I::Star(value));
+            self.load_slot(slot, name);
+            self.emit_tdz_check(name);
+            self.e.emit(I::Ldar(value));
+            self.e.release(mark);
+        }
+        if flags.contains(SymbolFlags::ConstVariable) || binding.class_name {
+            let index = self.e.string(name);
+            self.e.emit(I::ThrowConstAssignment(index));
+            return;
+        }
+        self.store_slot(slot, name);
     }
 
     fn load_arguments(&mut self, owner: ScopeId) -> JsResult<()> {
@@ -159,6 +231,25 @@ impl FunctionCompiler<'_> {
     pub fn store_identifier(&mut self, id: &IdentifierReference) -> JsResult<()> {
         let symbol = self.analysis.symbol_of(id.reference_id());
         let name = id.name.as_str();
+        if symbol.is_none()
+            && let Some((depth, binding)) = self.outer_binding(name)
+        {
+            self.store_outer(depth, binding, name);
+            return Ok(());
+        }
+        if let Some(slot) = self.inner_class_slot(symbol, id.reference_id())? {
+            // TDZ first, then the immutable binding rejects the write.
+            let mark = self.e.mark();
+            let value = self.e.alloc();
+            self.e.emit(I::Star(value));
+            self.load_slot(slot, name);
+            self.emit_tdz_check(name);
+            self.e.emit(I::Ldar(value));
+            self.e.release(mark);
+            let index = self.e.string(name);
+            self.e.emit(I::ThrowConstAssignment(index));
+            return Ok(());
+        }
         let slot = self.slot_of(symbol)?;
         if let Some(symbol) = symbol
             && self.analysis.location(symbol) != Location::Global
@@ -197,6 +288,14 @@ impl FunctionCompiler<'_> {
         Ok(())
     }
 
+    /// Puts a binding in the TDZ.
+    pub fn put_in_tdz(&mut self, symbol: SymbolId) -> JsResult<()> {
+        let slot = self.slot_of(Some(symbol))?;
+        self.e.emit(I::LdaTheHole);
+        self.store_slot(slot, self.analysis.name(symbol));
+        Ok(())
+    }
+
     /// InitializeBinding (or PutValue for `var`) of `acc` on a declared binding.
     pub fn initialize_binding(&mut self, symbol: SymbolId) -> JsResult<()> {
         let name = self.analysis.name(symbol);
@@ -213,6 +312,14 @@ impl FunctionCompiler<'_> {
             self.initialized.insert(symbol);
         }
         Ok(())
+    }
+}
+
+fn outer_slot(depth: u32, binding: OuterBindingSlot) -> Slot {
+    let slot = binding.slot;
+    match binding.import {
+        true => Slot::Import { depth, slot },
+        false => Slot::Context { depth, slot },
     }
 }
 

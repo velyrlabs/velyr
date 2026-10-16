@@ -3,9 +3,8 @@
 //! (`AddInstanceElement`), and static fields/blocks run, as closures called with the class
 //! as `this`, after the class binding is initialized. Private names live in the class
 //! scope's context, one fresh name per evaluation.
-//! shortcut: inside a class declaration the class name resolves to the outer binding
-//! (Oxc has no inner binding); it is initialized before static elements run, so the only
-//! difference is that reassigning the outer name is visible to the class body.
+//! A class declaration's inner name binding (Oxc creates none) is a slot of the class
+//! scope's context, allocated when the body references the name.
 
 use std::rc::Rc;
 
@@ -21,7 +20,7 @@ use velyr_engine_vm::exception::Script;
 
 use super::emitter::{Emitter, Header};
 use super::function::{FunctionCompiler, uses_super_property};
-use super::literal::static_key;
+use super::literal::{is_anonymous_function, static_key};
 use super::scope::ClassInfo;
 use super::unsupported;
 use crate::compiler::JsResult;
@@ -33,6 +32,11 @@ pub fn collect_classes(nodes: &AstNodes) -> Vec<ClassInfo> {
         .filter_map(|node| match node.kind() {
             AstKind::Class(class) => Some(ClassInfo {
                 scope: class.scope_id(),
+                declaration: class
+                    .id
+                    .as_ref()
+                    .filter(|_| class.is_declaration())
+                    .map(|id| id.symbol_id()),
                 private_names: private_names(class),
             }),
             _ => None,
@@ -63,6 +67,8 @@ struct StaticElement {
     key: Option<Reg>,
     /// Closure register; `None` for a field without initializer.
     closure: Option<Reg>,
+    /// The initializer takes the key as its argument, to name its value.
+    named_by_key: bool,
 }
 
 impl FunctionCompiler<'_> {
@@ -115,12 +121,20 @@ impl FunctionCompiler<'_> {
             if class.is_declaration() || is_referenced {
                 self.e.emit(I::Ldar(constructor));
                 self.initialize_binding(symbol)?;
+                if let Some((class_scope, slot)) = self.analysis.inner_name(symbol) {
+                    let depth = self.context_depth(class_scope)?;
+                    self.e.emit(I::StaContextSlot { depth, slot });
+                }
             }
         }
         for element in statics {
             match element.closure {
                 Some(callee) => {
-                    let args = self.e.alloc_range(0);
+                    let args = self.e.alloc_range(u32::from(element.named_by_key));
+                    if let Some(key) = element.key.filter(|_| element.named_by_key) {
+                        self.e.emit(I::Ldar(key));
+                        self.e.emit(I::Star(args.first));
+                    }
                     let this = constructor;
                     self.e.emit(I::Call { callee, this, args });
                 }
@@ -150,7 +164,10 @@ impl FunctionCompiler<'_> {
         });
         match explicit {
             Some(method) => self.function_code(&method.value, name, kind, Some(class.span)),
-            None => Ok(default_constructor(kind, name, class.span, &self.script)),
+            None => {
+                let span = self.e.shifted(class.span);
+                Ok(default_constructor(kind, name, span, &self.script))
+            }
         }
     }
 
@@ -178,6 +195,7 @@ impl FunctionCompiler<'_> {
                 statics.push(StaticElement {
                     key: None,
                     closure: Some(closure),
+                    named_by_key: false,
                 });
                 Ok(true)
             }
@@ -223,7 +241,8 @@ impl FunctionCompiler<'_> {
         if !method.r#static {
             return span;
         }
-        let text = self.script.slice(span.start, span.end);
+        let text = self.e.shifted(span);
+        let text = self.script.slice(text.start, text.end);
         let mut rest = text.strip_prefix("static").unwrap_or(text);
         loop {
             let trimmed = rest.trim_start();
@@ -248,6 +267,8 @@ impl FunctionCompiler<'_> {
     ) -> JsResult<bool> {
         let key = self.element_key(&field.key, field.computed)?;
         let home = if field.r#static { constructor } else { proto };
+        let named_by_key =
+            field.computed && field.value.as_ref().is_some_and(is_anonymous_function);
         let closure = match &field.value {
             Some(value) => {
                 let name = match &field.key {
@@ -255,7 +276,8 @@ impl FunctionCompiler<'_> {
                     key => static_key(key, field.computed)?,
                 };
                 let class_scope = *self.classes.last().expect("fields are inside a class");
-                let code = self.initializer_code(class_scope, value, name.as_deref())?;
+                let code =
+                    self.initializer_code(class_scope, value, name.as_deref(), named_by_key)?;
                 Some(self.element_closure(code, home))
             }
             None => None,
@@ -264,6 +286,7 @@ impl FunctionCompiler<'_> {
             statics.push(StaticElement {
                 key: Some(key),
                 closure,
+                named_by_key,
             });
             return Ok(true);
         }
@@ -315,6 +338,10 @@ impl FunctionCompiler<'_> {
                 self.e.emit(I::LdaContextSlot { depth, slot });
                 return Ok(());
             }
+        }
+        if let Some((depth, slot)) = self.outer_private(name) {
+            self.e.emit(I::LdaContextSlot { depth, slot });
+            return Ok(());
         }
         Err(unsupported("undeclared private name"))
     }

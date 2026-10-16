@@ -82,7 +82,11 @@ impl FunctionCompiler<'_> {
     pub fn load_place(&mut self, place: &Place) -> JsResult<()> {
         match *place {
             Place::Binding(id) => return self.load_identifier(id),
-            Place::Named { object, name } => self.e.emit(I::GetNamed { object, name }),
+            Place::Named { object, name } => self.e.emit(I::GetNamed {
+                object,
+                name,
+                cache: 0,
+            }),
             Place::Keyed { object, key } => {
                 self.e.emit(I::Ldar(key));
                 self.e.emit(I::GetKeyed { object });
@@ -99,7 +103,11 @@ impl FunctionCompiler<'_> {
     pub fn store_place(&mut self, place: &Place) -> JsResult<()> {
         match *place {
             Place::Binding(id) => return self.store_identifier(id),
-            Place::Named { object, name } => self.e.emit(I::SetNamed { object, name }),
+            Place::Named { object, name } => self.e.emit(I::SetNamed {
+                object,
+                name,
+                cache: 0,
+            }),
             Place::Keyed { object, key } => self.e.emit(I::SetKeyed { object, key }),
             Place::Super { key } => self.e.emit(I::SetSuper(key)),
         }
@@ -170,7 +178,8 @@ impl FunctionCompiler<'_> {
     pub fn delete(&mut self, argument: &Expression) -> JsResult<()> {
         match argument {
             Expression::Identifier(id) => {
-                let is_unresolved = self.analysis.symbol_of(id.reference_id()).is_none();
+                let is_unresolved = self.analysis.symbol_of(id.reference_id()).is_none()
+                    && self.outer_binding(&id.name).is_none();
                 if is_unresolved && !self.is_strict {
                     let index = self.e.string(&id.name);
                     self.e.emit(I::DeleteGlobal(index));
