@@ -1,0 +1,34 @@
+# VELYR-183: memory and performance of a large project (2,000 ESM/CJS modules, 50k live objects,
+# routes with real work) on velyr V8 and node, 1 and 4 workers. Server mode: the harness runs the
+# driver and reads the flat metrics it writes (<runtime>_w<workers>_<metric>, medians of the rounds).
+#   python3 -I benches/large-app/gen.py        # once, writes benches/fixtures/large-app
+#   velyr-bench run benches/suites/footprint-large.toml --out-dir benches/results
+# Needs a release velyr at $VELYR_BIN (default target/release/velyr, profile full), node and oha on
+# PATH. Quick check that the fixture boots: python3 benches/large-app/run.py --smoke
+#
+# Native engine: `velyr serve` has no engine switch, so it runs in-process (`velyr run --engine
+# native`) and only when $VELYR_NATIVE_BIN points to a velyr built with the engine-native feature.
+# Then add velyr_native_inproc_w1_{startup_first_response_ms,graph_load_ms,idle_rss_mb,peak_rss_mb,
+# requests_per_sec,requests_per_sec_per_mb} to metrics below.
+name = "footprint-large"
+mode = "server"
+command = ["python3", "benches/large-app/run.py", "--rounds", "3", "--out-dir", "benches/results"]
+driver_json = "benches/results/footprint-large-latest.json"
+iterations = 1
+warmup = 0
+metrics = [
+  "velyr_v8_w1_startup_first_response_ms", "velyr_v8_w1_graph_load_ms", "velyr_v8_w1_idle_rss_mb",
+  "velyr_v8_w1_load_rss_mb", "velyr_v8_w1_peak_rss_mb", "velyr_v8_w1_requests_per_sec", "velyr_v8_w1_p99_ms",
+  "velyr_v8_w1_cpu_ms_per_request", "velyr_v8_w1_requests_per_sec_per_mb",
+  "velyr_v8_w4_startup_first_response_ms", "velyr_v8_w4_graph_load_ms", "velyr_v8_w4_idle_rss_mb",
+  "velyr_v8_w4_load_rss_mb", "velyr_v8_w4_peak_rss_mb", "velyr_v8_w4_requests_per_sec", "velyr_v8_w4_p99_ms",
+  "velyr_v8_w4_cpu_ms_per_request", "velyr_v8_w4_requests_per_sec_per_mb",
+  "node_w1_startup_first_response_ms", "node_w1_graph_load_ms", "node_w1_idle_rss_mb",
+  "node_w1_load_rss_mb", "node_w1_peak_rss_mb", "node_w1_requests_per_sec", "node_w1_p99_ms",
+  "node_w1_cpu_ms_per_request", "node_w1_requests_per_sec_per_mb",
+  "node_w4_startup_first_response_ms", "node_w4_graph_load_ms", "node_w4_idle_rss_mb",
+  "node_w4_load_rss_mb", "node_w4_peak_rss_mb", "node_w4_requests_per_sec", "node_w4_p99_ms",
+  "node_w4_cpu_ms_per_request", "node_w4_requests_per_sec_per_mb",
+  "velyr_v8_inproc_w1_idle_rss_mb", "velyr_v8_inproc_w1_peak_rss_mb", "velyr_v8_inproc_w1_graph_load_ms",
+  "node_inproc_w1_idle_rss_mb", "node_inproc_w1_peak_rss_mb", "node_inproc_w1_graph_load_ms",
+]
