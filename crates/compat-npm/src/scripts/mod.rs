@@ -2,8 +2,8 @@
 //!
 //! Only `preinstall`, `install`, `postinstall` and `prepare` are considered,
 //! and only for packages the caller explicitly allows. Scripts run through the
-//! system shell with a minimal environment; `node` on `PATH` is a shim that
-//! re-enters the current `velyr` binary.
+//! system shell with a minimal environment; `node` on `PATH` is a shim
+//! (`node_modules/.velyr/bin/node`) that re-enters the current `velyr` binary.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -111,23 +111,49 @@ fn events_of(dir: &Path) -> Vec<(&'static str, String)> {
         .collect()
 }
 
+/// Env var the shim's `velyr run --node-shim` reads its permission flags from (joined by
+/// `\x1f`). Absent means no permissions: the shim never grants authority by itself.
+pub const SHIM_FLAGS_ENV: &str = "VELYR_NODE_SHIM_FLAGS";
+
+/// Where the `node` shim of `project` lives; `velyr x` and lifecycle scripts put it on `PATH`.
+pub fn shim_dir(project: &Path) -> PathBuf {
+    project.join("node_modules").join(".velyr").join("bin")
+}
+
+/// Writes the `node` shim (`node` and `node.cmd` on Windows) re-entering `exe` as
+/// `velyr run --node-shim <script> -- <args>`; returns its directory.
+pub fn ensure_shim(project: &Path, exe: &Path) -> std::io::Result<PathBuf> {
+    let dir = shim_dir(project);
+    std::fs::create_dir_all(&dir)?;
+    write_shim(&dir, exe)?;
+    Ok(dir)
+}
+
 #[cfg(unix)]
 fn write_shim(dir: &Path, exe: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let path = dir.join("node");
-    // `-A`: the script already runs with the user's full shell authority.
-    std::fs::write(
-        &path,
-        format!("#!/bin/sh\nexec '{}' run -A \"$@\"\n", exe.display()),
-    )?;
+    let exe = exe.display().to_string().replace('\'', r"'\''");
+    let body = format!(
+        "#!/bin/sh\n[ $# -gt 0 ] || {{ echo 'node: missing script' >&2; exit 1; }}\n\
+         f=\"$1\"\nshift\nexec '{exe}' run --node-shim \"$f\" -- \"$@\"\n"
+    );
+    if std::fs::read_to_string(&path).is_ok_and(|current| current == body) {
+        return Ok(());
+    }
+    std::fs::write(&path, body)?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
 }
 
 #[cfg(windows)]
 fn write_shim(dir: &Path, exe: &Path) -> std::io::Result<()> {
+    // shortcut: cmd forwards at most 8 script arguments; upgrade with a real launcher.
     std::fs::write(
         dir.join("node.cmd"),
-        format!("@\"{}\" run -A %*\r\n", exe.display()),
+        format!(
+            "@\"{}\" run --node-shim %1 -- %2 %3 %4 %5 %6 %7 %8 %9\r\n",
+            exe.display()
+        ),
     )
 }
 
@@ -171,6 +197,9 @@ fn exec(
         .env("npm_package_name", &target.name)
         .env("npm_lifecycle_event", event)
         .env("PATH", path)
+        // The script already runs with the user's full shell authority, so `node` in it gets
+        // `-A`; this is the only place the shim is handed flags (an explicit grant).
+        .env(SHIM_FLAGS_ENV, "-A")
         .stdin(Stdio::null());
     if let Some(home) = std::env::var_os("HOME") {
         cmd.env("HOME", home);
@@ -202,7 +231,7 @@ pub fn run(
 ) -> Result<Report, VelyrError> {
     let mut state = load_state(project);
     let mut report = Report::default();
-    let mut shim_dir: Option<tempfile::TempDir> = None;
+    let mut shim: Option<PathBuf> = None;
     for target in targets {
         let label = target.label();
         if !target.root && state.contains(&label) {
@@ -220,23 +249,14 @@ pub fn run(
             });
             continue;
         }
-        if let (None, Some(exe)) = (&shim_dir, velyr_exe) {
-            let dir = tempfile::Builder::new()
-                .prefix("velyr-node-shim")
-                .tempdir()
-                .map_err(|e| VelyrError::internal("cannot create node shim").with_cause(e))?;
-            write_shim(dir.path(), exe)
-                .map_err(|e| VelyrError::internal("cannot write node shim").with_cause(e))?;
-            shim_dir = Some(dir);
+        if let (None, Some(exe)) = (&shim, velyr_exe) {
+            shim = Some(
+                ensure_shim(project, exe)
+                    .map_err(|e| VelyrError::internal("cannot write node shim").with_cause(e))?,
+            );
         }
         for (event, command) in &events {
-            exec(
-                project,
-                target,
-                event,
-                command,
-                shim_dir.as_ref().map(|d| d.path()),
-            )?;
+            exec(project, target, event, command, shim.as_deref())?;
         }
         if !target.root {
             state.insert(label.clone());

@@ -470,6 +470,24 @@ fn commonjs_packages_resolve_when_allowed() {
 }
 
 #[test]
+fn commonjs_resolution_matches_the_node_condition_like_node_does() {
+    // The shape of rxjs: a `node` build and extensionless browser builds behind other conditions.
+    let manifest = json!({"type": "commonjs", "exports": {"./operators": {
+        "node": "./cjs/operators.js", "es2015": "./esm/operators.js", "default": "./esm5/operators.js"}}});
+    let t = tree(vec![pkg(
+        "rx",
+        manifest,
+        &["cjs/operators.js", "esm/operators.js", "esm5/operators.js"],
+    )]);
+    let referrer = t.at("main.mjs");
+    let linked = NpmResolver::new().allow_commonjs().with_node_condition();
+    assert!(same(
+        &linked.resolve_bare("rx/operators", &referrer).unwrap(),
+        &t.at("node_modules/rx/cjs/operators.js")
+    ));
+}
+
+#[test]
 fn conditions_are_configurable() {
     let t = tree(vec![pkg(
         "dual",

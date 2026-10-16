@@ -120,6 +120,7 @@ fn the_environment_is_minimal() {
         "npm_lifecycle_event",
         "PATH",
         "HOME",
+        SHIM_FLAGS_ENV,
         "PWD",
         "SHLVL",
         "OLDPWD",
@@ -153,7 +154,27 @@ fn path_has_node_modules_bin_and_node_is_the_shim() {
         "{path}"
     );
     let node = std::fs::read_to_string(t.dir.join("node.txt")).unwrap();
-    assert!(node.contains("velyr-node-shim"), "{node}");
+    let shim = dir.path().join("node_modules/.velyr/bin/node");
+    assert_eq!(node.trim(), shim.display().to_string());
+    let body = std::fs::read_to_string(shim).unwrap();
+    assert!(body.contains("run --node-shim"), "{body}");
+    assert!(
+        !body.contains(" -A"),
+        "the shim must not grant -A itself: {body}"
+    );
+}
+
+#[test]
+fn scripts_hand_the_shim_explicit_flags_and_nothing_else_does() {
+    let dir = tmp();
+    let t = package(
+        dir.path(),
+        "a",
+        r#"{"postinstall":"echo $VELYR_NODE_SHIM_FLAGS > flags.txt"}"#,
+    );
+    run(dir.path(), std::slice::from_ref(&t), &Allow::All, None).unwrap();
+    let flags = std::fs::read_to_string(t.dir.join("flags.txt")).unwrap();
+    assert_eq!(flags.trim(), "-A");
 }
 
 #[test]
