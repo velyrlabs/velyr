@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use serde_json::Value;
+use crate::fscache::{self, Kind};
 use velyr_compat_npm::resolve::exports::{match_exports, match_imports};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::Result;
@@ -38,22 +38,29 @@ fn real(path: PathBuf) -> PathBuf {
     fs::canonicalize(&path).unwrap_or_else(|_| normalize(&path))
 }
 
+fn is_file(path: &Path) -> bool {
+    fscache::global().kind(path) == Kind::File
+}
+
+fn is_dir(path: &Path) -> bool {
+    fscache::global().kind(path) == Kind::Dir
+}
+
 fn load_as_file(base: &Path) -> Option<PathBuf> {
-    if base.is_file() {
+    if is_file(base) {
         return Some(base.to_owned());
     }
     EXTENSIONS.iter().find_map(|ext| {
         let mut name = base.as_os_str().to_owned();
         name.push(format!(".{ext}"));
         let candidate = PathBuf::from(name);
-        candidate.is_file().then_some(candidate)
+        is_file(&candidate).then_some(candidate)
     })
 }
 
 fn load_as_directory(dir: &Path) -> Option<PathBuf> {
-    let main = fs::read_to_string(dir.join("package.json"))
-        .ok()
-        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+    let main = fscache::global()
+        .manifest(dir)
         .and_then(|manifest| manifest.get("main")?.as_str().map(str::to_owned));
     if let Some(main) = main {
         let target = dir.join(main);
@@ -92,17 +99,16 @@ fn resolve_package(request: &str, from_dir: &Path, conditions: &[String]) -> Opt
             continue;
         }
         let package = ancestor.join("node_modules").join(name);
-        if !package.is_dir() {
+        if !is_dir(&package) {
             continue;
         }
-        let exports = fs::read_to_string(package.join("package.json"))
-            .ok()
-            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+        let exports = fscache::global()
+            .manifest(&package)
             .and_then(|manifest| manifest.get("exports").cloned());
         return match exports {
             Some(exports) => {
                 let file = match_exports(&exports, &subpath, conditions, &package).ok()??;
-                file.is_file().then_some(file)
+                is_file(&file).then_some(file)
             }
             None if subpath == "." => load_as_directory(&package),
             None => load_path(&package.join(subpath)),
@@ -113,16 +119,15 @@ fn resolve_package(request: &str, from_dir: &Path, conditions: &[String]) -> Opt
 
 /// `#name` through the `imports` of the nearest `package.json`.
 fn resolve_imports(request: &str, from_dir: &Path, conditions: &[String]) -> Option<PathBuf> {
-    let (dir, manifest) = from_dir.ancestors().find_map(|dir| {
-        let raw = fs::read_to_string(dir.join("package.json")).ok()?;
-        Some((dir, serde_json::from_str::<Value>(&raw).ok()?))
-    })?;
+    let (dir, manifest) = from_dir
+        .ancestors()
+        .find_map(|dir| Some((dir, fscache::global().manifest(dir)?)))?;
     let imports = manifest.get("imports")?;
     let external = |target: &str| {
         resolve_package(target, dir, conditions).ok_or_else(|| not_found(target, dir))
     };
     let file = match_imports(imports, request, conditions, dir, &external).ok()??;
-    file.is_file().then_some(file)
+    is_file(&file).then_some(file)
 }
 
 /// Canonical path `require(request)` loads from the file `from`.

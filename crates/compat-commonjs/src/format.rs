@@ -1,9 +1,9 @@
 //! Which loader a file goes through: ES module, CommonJS or JSON.
 
-use std::fs;
 use std::path::Path;
 
 use crate::analysis::has_module_syntax;
+use crate::fscache;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
@@ -26,8 +26,7 @@ impl Format {
 fn package_type(dir: &Path) -> Option<String> {
     let manifest = dir
         .ancestors()
-        .find_map(|d| fs::read_to_string(d.join("package.json")).ok())?;
-    let manifest: serde_json::Value = serde_json::from_str(&manifest).ok()?;
+        .find_map(|d| fscache::global().manifest(d))?;
     manifest.get("type")?.as_str().map(str::to_owned)
 }
 

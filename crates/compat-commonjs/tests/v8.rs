@@ -434,6 +434,30 @@ fn packages_resolve_through_exports_conditions() {
 }
 
 #[test]
+fn parent_relative_requires_resolve_from_the_real_file_behind_an_exports_subpath() {
+    // The shape of rxjs: `exports` maps `./operators` to a nested file that requires `../internal/..`.
+    let files = [
+        (
+            "node_modules/rx/package.json",
+            r#"{"name":"rx","exports":{"./operators":{"node":"./dist/cjs/operators/index.js","default":"./dist/esm5/operators/index.js"}}}"#,
+        ),
+        (
+            "node_modules/rx/dist/cjs/operators/index.js",
+            "var audit = require('../internal/operators/audit'); exports.audit = audit.audit;",
+        ),
+        (
+            "node_modules/rx/dist/cjs/internal/operators/audit.js",
+            "exports.audit = function audit() { return 'audited'; };",
+        ),
+        (
+            "main.cjs",
+            "globalThis.out = require('rx/operators').audit();",
+        ),
+    ];
+    assert_eq!(run_out(&files, "main.cjs"), r#""audited""#);
+}
+
+#[test]
 fn missing_module_reports_the_require_stack_and_failures_are_not_cached() {
     let files = [
         ("broken.js", "exports.ok = 1; throw new Error('boom');"),

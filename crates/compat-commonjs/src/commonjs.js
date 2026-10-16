@@ -13,6 +13,8 @@
   const cache = Object.create(null);
   // Name -> exports for host-provided modules (`node:fs` and friends); empty until one registers.
   const builtins = new Map();
+  // Builtins that exist only as `node:<name>` (a bare name is an npm package), such as `test`.
+  const prefixOnly = new Set();
 
   const failure = (Class, code, message) => {
     const error = new Class(message);
@@ -61,7 +63,7 @@
       throw failure(TypeError, "ERR_INVALID_ARG_VALUE", "The argument 'id' must be a non-empty string.");
     }
     const bare = request.startsWith("node:") ? request.slice(5) : request;
-    if (builtins.has(bare)) return { builtin: bare };
+    if (builtins.has(bare) && !(bare === request && prefixOnly.has(bare))) return { builtin: bare };
     try {
       return JSON.parse(resolveOp(request, parent.filename));
     } catch (error) {
@@ -162,6 +164,7 @@
     // `require` for code that is not CommonJS (ESM, tests): resolves relative to `filename`.
     createRequire: (filename) => makeRequire(new Module(filename, undefined)),
     builtins,
+    prefixOnly,
   });
   Object.defineProperty(global, Symbol.for("velyr.commonjs"), { value: hook });
 })(globalThis);

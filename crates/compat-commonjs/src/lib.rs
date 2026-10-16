@@ -15,6 +15,7 @@
 
 mod analysis;
 mod format;
+mod fscache;
 mod ops;
 mod resolve;
 
@@ -33,6 +34,7 @@ use format::{Format, detect};
 use ops::CommonJsState;
 
 pub use format::Format as ModuleFormat;
+pub use fscache::clear_fs_caches;
 
 /// Bootstrap script: installs `require` machinery behind `Symbol.for("velyr.commonjs")`.
 pub const COMMONJS_JS: &str = include_str!("commonjs.js");
