@@ -1,0 +1,30 @@
+[package]
+name = "velyr-runtime-workers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+socket2 = { version = "0.6", features = ["all"] }
+
+[dev-dependencies]
+tempfile = "3"
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-ops = { path = "../runtime-ops", features = ["test-ops"] }
+velyr-web-core = { path = "../web-core" }
+
+[lints]
+workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "velyr-runtime-event-loop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

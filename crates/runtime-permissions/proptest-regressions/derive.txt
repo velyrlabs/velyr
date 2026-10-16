@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 87bfb6beb8c7ee89a8b2ac180592c3885f307d2431d7786e2143e8589f8069c8 # shrinks to parent = CapabilitySet { allow: [ProcessSpawn(ProgramPattern("*"))], deny: [], base: Some("/Users/lucasbrito/dev/wdt/velyr-core/crates/runtime-permissions"), bounds: [] }, requested = CapabilitySet { allow: [], deny: [], base: Some("/Users/lucasbrito/dev/wdt/velyr-core/crates/runtime-permissions"), bounds: [] }, policy = CapabilitySet { allow: [], deny: [], base: Some("/Users/lucasbrito/dev/wdt/velyr-core/crates/runtime-permissions"), bounds: [] }, (kind, text, port) = (10, "/velyr-prop/", 0)
