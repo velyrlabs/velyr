@@ -1,0 +1,6 @@
+# "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+name = "startup"
+command = ["velyr", "--version"]
+iterations = 30
+warmup = 5
+metrics = ["wall_ms", "rss_mb", "cpu_seconds"]

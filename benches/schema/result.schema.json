@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Velyr benchmark result",
+  "type": "object",
+  "required": ["benchmark", "commit", "profile", "platform", "cpu", "memory", "rustc", "os", "timestamp", "metrics"],
+  "additionalProperties": false,
+  "properties": {
+    "benchmark": { "type": "string", "minLength": 1 },
+    "commit": { "type": "string", "minLength": 1 },
+    "profile": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "cpu": { "type": "string" },
+    "memory": { "type": "string" },
+    "rustc": { "type": "string" },
+    "os": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    }
+  }
+}

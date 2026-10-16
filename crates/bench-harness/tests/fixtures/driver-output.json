@@ -1,0 +1,1 @@
+{"benchmark":"http-json","commit":"a","profile":"web","platform":"macos-aarch64","cpu":"c","memory":"m","rustc":"r","os":"o","timestamp":"2026-01-01T00:00:00Z","metrics":{"requests_per_sec":40000.5,"p99_ms":2.5,"rss_mb":100.0}}

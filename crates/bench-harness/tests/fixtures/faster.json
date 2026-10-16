@@ -1,0 +1,1 @@
+{"benchmark":"http-json","commit":"a","profile":"release","platform":"p","cpu":"c","memory":"m","rustc":"r","os":"o","timestamp":"2026-01-01T00:00:00Z","metrics":{"requests_per_sec":1100,"p99_ms":10,"rss_mb":50}}

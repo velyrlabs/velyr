@@ -1,0 +1,10 @@
+# Server mode: the harness runs the load driver (starts the servers, runs oha) and reads the
+# result JSON it writes, so requests_per_sec and p99_ms enter the comparable result.
+# Needs a release velyr (profile-web) at $VELYR_BIN or target/release/velyr, and oha on PATH.
+name = "http-json"
+mode = "server"
+command = ["python3", "benches/http/run.py", "json", "--out-dir", "benches/results/http"]
+driver_json = "benches/results/http/m4-json-{platform}.json"
+iterations = 1
+warmup = 0
+metrics = ["requests_per_sec", "p99_ms", "rss_mb", "wall_ms"]

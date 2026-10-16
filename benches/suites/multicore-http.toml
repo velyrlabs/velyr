@@ -1,0 +1,10 @@
+# Wraps benches/multicore/run.py: `velyr serve --workers 1/2/4/8` (16 when there are cores), with
+# and without --experimental-shared-code-cache. The harness times the driver (one run); req/s, p99,
+# RSS and CPU live in benches/baselines/m5-multicore-*.json.
+# Needs a release velyr (profile-full) at $VELYR_BIN (absolute path) or target/release/velyr, and
+# oha on PATH. macOS measures the acceptor distribution; SO_REUSEPORT is pending (Linux CI job).
+name = "multicore-http"
+command = ["python3", "benches/multicore/run.py"]
+iterations = 1
+warmup = 0
+metrics = ["wall_ms"]

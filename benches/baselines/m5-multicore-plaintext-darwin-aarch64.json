@@ -1,0 +1,125 @@
+{
+  "scenario": "plaintext",
+  "timestamp": "2026-10-16T09:02:21Z",
+  "machine": {
+    "platform": "darwin-aarch64",
+    "cpu": "Apple M4 Pro",
+    "os": "macOS-27.0-arm64-arm-64bit-Mach-O"
+  },
+  "cores": 12,
+  "distribution": "handoff (acceptor)",
+  "reuseport": "pending: Linux only, covered by the reuseport CI job (VELYR-156)",
+  "load_generator": "oha",
+  "connections": 64,
+  "duration_s": 6,
+  "velyr": "velyr 0.1.0",
+  "load_average": [
+    8.39892578125,
+    8.92041015625,
+    8.2314453125
+  ],
+  "note": "indicative numbers from a machine that runs other work; oha shares the cores",
+  "runs": {
+    "baseline": [
+      {
+        "workers": 1,
+        "shared_code_cache": false,
+        "requests_per_sec": 36010.29972228495,
+        "p99_ms": 4.035375,
+        "idle_rss_mb": 26.96875,
+        "peak_rss_mb": 105.34375,
+        "cpu_percent": 95.21242656998955,
+        "peak_rss_mb_per_worker_total": 105.34375
+      },
+      {
+        "workers": 2,
+        "shared_code_cache": false,
+        "requests_per_sec": 45396.33248300099,
+        "p99_ms": 3.5448329999999997,
+        "idle_rss_mb": 31.984375,
+        "peak_rss_mb": 175.265625,
+        "cpu_percent": 180.69427724455514,
+        "idle_rss_mb_per_extra_worker": 5.015625,
+        "peak_rss_mb_per_extra_worker": 69.921875,
+        "peak_rss_mb_per_worker_total": 87.6328125
+      },
+      {
+        "workers": 4,
+        "shared_code_cache": false,
+        "requests_per_sec": 53567.207093666126,
+        "p99_ms": 3.357916,
+        "idle_rss_mb": 46.390625,
+        "peak_rss_mb": 182.375,
+        "cpu_percent": 309.67984631868177,
+        "idle_rss_mb_per_extra_worker": 6.473958333333333,
+        "peak_rss_mb_per_extra_worker": 25.677083333333332,
+        "peak_rss_mb_per_worker_total": 45.59375
+      },
+      {
+        "workers": 8,
+        "shared_code_cache": false,
+        "requests_per_sec": 65852.71681011419,
+        "p99_ms": 7.401,
+        "idle_rss_mb": 63.078125,
+        "peak_rss_mb": 327.78125,
+        "cpu_percent": 456.9622783725645,
+        "idle_rss_mb_per_extra_worker": 5.158482142857143,
+        "peak_rss_mb_per_extra_worker": 31.776785714285715,
+        "peak_rss_mb_per_worker_total": 40.97265625
+      }
+    ],
+    "shared_code_cache": [
+      {
+        "workers": 1,
+        "shared_code_cache": true,
+        "requests_per_sec": 35831.13235439533,
+        "p99_ms": 3.907333,
+        "idle_rss_mb": 27.65625,
+        "peak_rss_mb": 105.015625,
+        "cpu_percent": 95.06969100871643,
+        "peak_rss_mb_per_worker_total": 105.015625
+      },
+      {
+        "workers": 2,
+        "shared_code_cache": true,
+        "requests_per_sec": 46401.77580760791,
+        "p99_ms": 3.511291,
+        "idle_rss_mb": 32.5625,
+        "peak_rss_mb": 175.1875,
+        "cpu_percent": 183.1185755168104,
+        "idle_rss_mb_per_extra_worker": 4.90625,
+        "peak_rss_mb_per_extra_worker": 70.171875,
+        "peak_rss_mb_per_worker_total": 87.59375
+      },
+      {
+        "workers": 4,
+        "shared_code_cache": true,
+        "requests_per_sec": 55628.50100041833,
+        "p99_ms": 2.865584,
+        "idle_rss_mb": 43.40625,
+        "peak_rss_mb": 182.265625,
+        "cpu_percent": 321.8748629632793,
+        "idle_rss_mb_per_extra_worker": 5.25,
+        "peak_rss_mb_per_extra_worker": 25.75,
+        "peak_rss_mb_per_worker_total": 45.56640625
+      },
+      {
+        "workers": 8,
+        "shared_code_cache": true,
+        "requests_per_sec": 48284.00080146308,
+        "p99_ms": 13.591209,
+        "idle_rss_mb": 67.78125,
+        "peak_rss_mb": 206.515625,
+        "cpu_percent": 308.10569475021555,
+        "idle_rss_mb_per_extra_worker": 5.732142857142857,
+        "peak_rss_mb_per_extra_worker": 14.5,
+        "peak_rss_mb_per_worker_total": 25.814453125
+      }
+    ]
+  },
+  "load_average_after": [
+    12.54931640625,
+    10.029296875,
+    8.70556640625
+  ]
+}

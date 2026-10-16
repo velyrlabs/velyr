@@ -1,0 +1,10 @@
+# Wraps the driver: it generates a 100-module graph, spawns workers one after the other and
+# compares startup and RSS per worker with and without --experimental-shared-code-cache.
+# The harness measures the driver itself (one run); the numbers live in
+# benches/results/worker-startup-detail-*.json. Needs a release velyr at $VELYR_BIN or
+# target/release/velyr (profile-full: workers need the node/web globals).
+name = "worker-startup"
+command = ["python3", "benches/worker-startup/run.py"]
+iterations = 1
+warmup = 0
+metrics = ["wall_ms"]

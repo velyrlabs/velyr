@@ -1,0 +1,20 @@
+{
+  "benchmark": "footprint-full",
+  "commit": "unknown",
+  "profile": "full",
+  "platform": "macos-aarch64",
+  "cpu": "Apple M4 Pro",
+  "memory": "24576 MiB",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "os": "macOS 27.0",
+  "timestamp": "2026-10-16T06:09:51Z",
+  "metrics": {
+    "binary_bytes": 78213408.0,
+    "binary_stripped_bytes": 58434008.0,
+    "cpu_seconds": 0.010439366666666667,
+    "isolates": 1.0,
+    "rss_mb": 21.421875,
+    "wall_ms": 10.843583,
+    "wall_ms_p95": 12.958417
+  }
+}

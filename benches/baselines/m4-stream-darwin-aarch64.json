@@ -1,0 +1,16 @@
+{
+  "benchmark": "http-stream",
+  "commit": "unknown",
+  "profile": "web",
+  "platform": "macos-aarch64",
+  "cpu": "Apple M4 Pro",
+  "memory": "24576 MiB",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "os": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "timestamp": "2026-10-16T07:19:46Z",
+  "metrics": {
+    "requests_per_sec": 9921.97736313721,
+    "p99_ms": 9.088959000000001,
+    "rss_mb": 175.546875
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "scenario": "plaintext",
+  "timestamp": "2026-10-16T07:18:05Z",
+  "machine": {
+    "platform": "darwin-aarch64",
+    "cpu": "Apple M4 Pro",
+    "os": "macOS-27.0-arm64-arm-64bit-Mach-O"
+  },
+  "load_generator": "oha 1.16.0",
+  "connections": 64,
+  "duration_s": 10,
+  "velyr_profile": "web",
+  "note": "indicative numbers from a machine that runs other work; not a gate",
+  "runtimes": {
+    "velyr": {
+      "version": "velyr 0.1.0",
+      "requests_per_sec": 40146.41346175306,
+      "p99_ms": 2.4594579999999997,
+      "rss_mb": 107.015625
+    },
+    "node": {
+      "version": "v26.3.1",
+      "requests_per_sec": 80510.52919287195,
+      "p99_ms": 1.5741660000000002,
+      "rss_mb": 100.46875
+    },
+    "deno": {
+      "version": "deno 2.9.6 (stable, release, aarch64-apple-darwin)",
+      "requests_per_sec": 117984.35663901744,
+      "p99_ms": 0.833042,
+      "rss_mb": 45.078125
+    },
+    "bun": {
+      "version": "1.3.14",
+      "requests_per_sec": 107776.14184109436,
+      "p99_ms": 1.2072090000000002,
+      "rss_mb": 44.171875
+    }
+  },
+  "skipped": []
+}

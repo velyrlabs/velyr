@@ -1,0 +1,9 @@
+# ADR-009 "Measure, then budget": cold start and idle RSS of one isolate on an empty script.
+# Build: cargo build --release -p velyr-cli [--no-default-features --features profile-minimal]
+# Run:   velyr-bench run benches/suites/footprint-minimal.toml --profile minimal --bin <velyr built for minimal> --out-dir <dir>
+# isolates = 1: velyr run hosts a single isolate, so rss_mb is RSS idle of one isolate.
+name = "footprint-minimal"
+command = ["velyr", "run", "benches/fixtures/empty.js"]
+iterations = 30
+warmup = 5
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds", "binary_bytes", "binary_stripped_bytes", "isolates"]

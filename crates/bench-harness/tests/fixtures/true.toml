@@ -1,0 +1,5 @@
+name = "trivial"
+command = ["true"]
+iterations = 3
+warmup = 1
+metrics = ["wall_ms", "rss_mb", "cpu_seconds"]
