@@ -16,7 +16,8 @@
 mod function_code;
 
 pub use function_code::{
-    Constant, FunctionCode, GlobalDeclarations, HandlerEntry, SourcePosition, TemplateObject,
+    Constant, FunctionCode, GlobalDeclarations, HandlerEntry, LazyBody, SourcePosition,
+    TemplateObject,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -136,6 +137,8 @@ pub enum Instruction {
     GetNamed {
         object: Reg,
         name: ConstIndex,
+        /// Inline cache of the site; compilers number the sites 0.. (see `cache_mut`).
+        cache: u32,
     },
     /// Key in `acc`.
     GetKeyed {
@@ -145,6 +148,8 @@ pub enum Instruction {
     SetNamed {
         object: Reg,
         name: ConstIndex,
+        /// Inline cache of the site, like `GetNamed::cache`.
+        cache: u32,
     },
     /// Value in `acc` (preserved).
     SetKeyed {
@@ -222,6 +227,8 @@ pub enum Instruction {
     /// Records an instance element on class `r0` (key `r1`, closure in `acc`), defined on each
     /// instance at construction; a `ClassField` closure is called for the field value.
     AddInstanceElement(Reg, Reg, FunctionKind),
+    /// SetFunctionName of the anonymous function in `acc` from the property key in `reg`.
+    NameFunction(Reg),
     /// `acc` = a fresh private name (a symbol only class code can reach).
     CreatePrivateName,
     /// `super(...args)` with the argument array in `reg`; `acc` = the bound `this`.
@@ -360,8 +367,10 @@ pub enum Instruction {
         depth: u32,
         slot: u32,
     },
-    /// `import(acc)`: `acc` = a promise for the namespace, loaded by the host hook.
-    DynamicImport,
+    /// `import(acc, options)`: `acc` = a promise for the namespace, loaded by the host hook.
+    DynamicImport {
+        options: Option<Reg>,
+    },
 }
 
 impl Instruction {
@@ -385,6 +394,16 @@ impl Instruction {
             | Instruction::YieldStarCall {
                 on_return: target, ..
             } => Some(target),
+            _ => None,
+        }
+    }
+
+    /// The inline cache index of a named property access.
+    pub fn cache_mut(&mut self) -> Option<&mut u32> {
+        match self {
+            Instruction::GetNamed { cache, .. } | Instruction::SetNamed { cache, .. } => {
+                Some(cache)
+            }
             _ => None,
         }
     }

@@ -147,6 +147,7 @@ impl Interpreter {
         frame.pc = target.0;
         if is_back_edge {
             self.check_termination()?;
+            self.enforce_heap_limit()?;
         }
         Ok(Flow::Next)
     }
@@ -190,7 +191,7 @@ impl Interpreter {
             | I::YieldStarUnpack { .. }
             | I::AsyncIteratorClose { .. }
             | I::CheckIteratorResult => return self.step_generator(info, instruction),
-            I::LdaModuleImport { .. } | I::DynamicImport => self.step_module(instruction)?,
+            I::LdaModuleImport { .. } | I::DynamicImport { .. } => self.step_module(instruction)?,
             I::Throw | I::ReThrow => return Err(Abrupt::Throw(acc.clone())),
             I::Call { callee, this, args } => {
                 let (f, this, args) = (

@@ -14,17 +14,21 @@ const DICTIONARY_DELETE_THRESHOLD: u32 = 8;
 /// A write further than this past the dense end makes the elements sparse.
 const MAX_DENSE_GAP: usize = 1024;
 
-/// Slot payload in shape mode; the attributes live in the shape.
+/// Slot payload in shape mode; the attributes live in the shape. Accessors are rare, so
+/// they are boxed to keep every data slot at the size of a `Value`.
 #[derive(Debug, Clone)]
 pub(crate) enum Stored {
     Value(Value),
-    Accessor { get: Value, set: Value },
+    /// Getter and setter.
+    Accessor(Box<[Value; 2]>),
 }
+
+const _: () = assert!(size_of::<Stored>() == size_of::<Value>());
 
 fn split(property: Property) -> (Stored, Attributes) {
     let (stored, writable) = match property.value {
         PropertyValue::Data { value, writable } => (Stored::Value(value), writable),
-        PropertyValue::Accessor { get, set } => (Stored::Accessor { get, set }, false),
+        PropertyValue::Accessor { get, set } => (Stored::Accessor(Box::new([get, set])), false),
     };
     let attributes = Attributes {
         writable,
@@ -40,9 +44,9 @@ fn join(stored: &Stored, attributes: Attributes) -> Property {
             value: value.clone(),
             writable: attributes.writable,
         },
-        Stored::Accessor { get, set } => PropertyValue::Accessor {
-            get: get.clone(),
-            set: set.clone(),
+        Stored::Accessor(pair) => PropertyValue::Accessor {
+            get: pair[0].clone(),
+            set: pair[1].clone(),
         },
     };
     Property {
@@ -53,18 +57,23 @@ fn join(stored: &Stored, attributes: Attributes) -> Property {
 }
 
 #[derive(Debug)]
+#[allow(clippy::box_collection)] // boxed on purpose: it keeps every object cell small
 pub(crate) enum NamedProperties {
     Shaped {
         shape: ShapeId,
         slots: Vec<Stored>,
         deletions: u32,
     },
-    /// Insertion-ordered; deleted entries leave a `None` tombstone.
+    /// Insertion-ordered; deleted entries leave a `None` tombstone. Both tables are boxed
+    /// so this variant fits beside `Shaped` (dictionary objects are rare).
     Dictionary {
-        entries: Vec<Option<(ObjectKey, Property)>>,
-        positions: HashMap<ObjectKey, usize>,
+        entries: Box<Vec<Option<(ObjectKey, Property)>>>,
+        positions: Box<HashMap<ObjectKey, usize>>,
     },
 }
+
+const _: () = assert!(size_of::<NamedProperties>() == 32);
+const _: () = assert!(size_of::<Elements>() == 24);
 
 impl Default for NamedProperties {
     fn default() -> Self {
@@ -160,12 +169,28 @@ impl NamedProperties {
 
     fn to_dictionary(&self, shapes: &ShapeTable) -> Self {
         let keys = self.keys(shapes);
-        let positions = keys.iter().enumerate().map(|(i, key)| (*key, i)).collect();
+        let positions = Box::new(keys.iter().enumerate().map(|(i, key)| (*key, i)).collect());
         let entries = keys
             .into_iter()
             .map(|key| Some((key, self.get(shapes, key).expect("key listed by the shape"))))
             .collect();
-        Self::Dictionary { entries, positions }
+        Self::Dictionary {
+            entries: Box::new(entries),
+            positions,
+        }
+    }
+
+    /// Bytes held outside the object cell.
+    pub fn bytes(&self) -> usize {
+        match self {
+            Self::Shaped { slots, .. } => slots.capacity() * size_of::<Stored>(),
+            Self::Dictionary { entries, positions } => {
+                entries.capacity() * size_of::<Option<(ObjectKey, Property)>>()
+                    + size_of::<Vec<()>>()
+                    + size_of::<HashMap<ObjectKey, usize>>()
+                    + positions.capacity() * (size_of::<(ObjectKey, usize)>() + 1)
+            }
+        }
     }
 
     /// Keys in insertion order.
@@ -199,10 +224,12 @@ fn rebuild_without(
 }
 
 #[derive(Debug)]
+#[allow(clippy::box_collection)] // boxed on purpose: it keeps every object cell small
 pub(crate) enum Elements {
     /// Every present element is a writable, enumerable, configurable data property.
     Dense(Vec<Option<Value>>),
-    Sparse(BTreeMap<u32, Property>),
+    /// Boxed: sparse arrays are rare and the box keeps every object cell smaller.
+    Sparse(Box<BTreeMap<u32, Property>>),
 }
 
 impl Default for Elements {
@@ -244,12 +271,12 @@ impl Elements {
 
     fn to_sparse(&self) -> Self {
         let indices = self.indices();
-        Self::Sparse(
+        Self::Sparse(Box::new(
             indices
                 .into_iter()
                 .filter_map(|i| Some((i, self.get(i)?)))
                 .collect(),
-        )
+        ))
     }
 
     pub fn remove(&mut self, index: u32) {
@@ -261,6 +288,16 @@ impl Elements {
             }
             Self::Sparse(map) => {
                 map.remove(&index);
+            }
+        }
+    }
+
+    /// Bytes held outside the object cell; sparse nodes are estimated at one entry each.
+    pub fn bytes(&self) -> usize {
+        match self {
+            Self::Dense(values) => values.capacity() * size_of::<Option<Value>>(),
+            Self::Sparse(map) => {
+                size_of::<BTreeMap<u32, Property>>() + map.len() * size_of::<(u32, Property)>()
             }
         }
     }
@@ -302,7 +339,7 @@ impl Trace for Stored {
     fn trace(&self, tracer: &mut Tracer) {
         match self {
             Stored::Value(value) => value.trace(tracer),
-            Stored::Accessor { get, set } => (get, set).trace(tracer),
+            Stored::Accessor(pair) => pair.iter().for_each(|value| value.trace(tracer)),
         }
     }
 }

@@ -111,16 +111,21 @@ fn array_splice(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<
     let item_count = items.len() as f64;
     vm.check_length(length + item_count - delete_count)?;
     let removed = vm.array_species_create(object, delete_count)?;
-    let mut k = 0.0;
-    while k < delete_count {
-        let from = vm.index_key(start + k);
-        if vm.has_property(object, from)? {
-            let value = vm.get_key(object, from)?;
-            let to = vm.index_key(k);
-            vm.create_data_or_throw(removed, to, value)?;
+    vm.rooted(&[object_value(object), object_value(removed)], |vm| {
+        let mut since_check = 0;
+        let mut k = 0.0;
+        while k < delete_count {
+            let from = vm.index_key(start + k);
+            if vm.has_property(object, from)? {
+                let value = vm.get_key(object, from)?;
+                let to = vm.index_key(k);
+                vm.create_data_or_throw(removed, to, value)?;
+            }
+            k += 1.0;
+            vm.heap_tick(&mut since_check, 0)?;
         }
-        k += 1.0;
-    }
+        Ok(())
+    })?;
     vm.set_length(removed, delete_count)?;
     if item_count < delete_count {
         let mut k = start;
@@ -185,12 +190,18 @@ fn array_fill(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Va
     let value = arg(args, 0);
     let mut k = relative_arg(vm, &arg(args, 1), length, 0.0)?;
     let end = relative_arg(vm, &arg(args, 2), length, length)?;
-    while k < end {
-        let key = vm.index_key(k);
-        vm.set_or_throw(object, key, value.clone())?;
-        k += 1.0;
-    }
-    Ok(object_value(object))
+    // Element storage is charged as it grows but checked only at safepoints, so a long
+    // fill checks the heap limit itself; `object` is rooted for the collections it runs.
+    vm.rooted(&[object_value(object)], |vm| {
+        let mut since_check = 0;
+        while k < end {
+            let key = vm.index_key(k);
+            vm.set_or_throw(object, key, value.clone())?;
+            k += 1.0;
+            vm.heap_tick(&mut since_check, 0)?;
+        }
+        Ok(object_value(object))
+    })
 }
 
 pub(in super::super) fn array_copy_within(
@@ -210,11 +221,15 @@ pub(in super::super) fn array_copy_within(
     } else {
         1.0
     };
-    while count > 0.0 {
-        move_element(vm, object, from, to)?;
-        from += step;
-        to += step;
-        count -= 1.0;
-    }
-    Ok(object_value(object))
+    vm.rooted(&[object_value(object)], |vm| {
+        let mut since_check = 0;
+        while count > 0.0 {
+            move_element(vm, object, from, to)?;
+            from += step;
+            to += step;
+            count -= 1.0;
+            vm.heap_tick(&mut since_check, 0)?;
+        }
+        Ok(object_value(object))
+    })
 }

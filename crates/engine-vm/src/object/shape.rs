@@ -3,6 +3,8 @@
 
 use std::collections::HashMap;
 
+use velyr_engine_gc::external::{Charge, Kind};
+
 use super::ObjectKey;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,13 +39,25 @@ struct Shape {
 #[derive(Debug)]
 pub struct ShapeTable {
     shapes: Vec<Shape>,
+    /// Estimated table bytes (hash maps by capacity), as `Kind::Shapes`.
+    charge: Charge,
 }
 
 impl Default for ShapeTable {
     fn default() -> Self {
         Self {
             shapes: vec![Shape::default()],
+            charge: Charge::new(Kind::Shapes, size_of::<Shape>()),
         }
+    }
+}
+
+impl Shape {
+    /// Owned bytes of the layout and both maps; a map entry costs its pair plus a control byte.
+    fn bytes(&self) -> usize {
+        self.layout.capacity() * size_of::<(ObjectKey, Attributes)>()
+            + self.slots.capacity() * (size_of::<(ObjectKey, u32)>() + 1)
+            + self.transitions.capacity() * (size_of::<(Transition, ShapeId)>() + 1)
     }
 }
 
@@ -101,14 +115,20 @@ impl ShapeTable {
             .map(|(slot, (key, _))| (*key, slot as u32))
             .collect();
         let id = ShapeId(u32::try_from(self.shapes.len()).expect("shape table overflow"));
-        self.shapes.push(Shape {
+        let shape = Shape {
             layout,
             slots,
             transitions: HashMap::new(),
-        });
-        self.shapes[from.0 as usize]
-            .transitions
-            .insert(transition, id);
+        };
+        let parent_before = self.shape(from).bytes();
+        let table_before = self.shapes.capacity();
+        let mut added = shape.bytes();
+        self.shapes.push(shape);
+        let parent = &mut self.shapes[from.0 as usize];
+        parent.transitions.insert(transition, id);
+        added += parent.bytes() - parent_before;
+        added += (self.shapes.capacity() - table_before) * size_of::<Shape>();
+        self.charge.grow(added);
         id
     }
 }

@@ -1,6 +1,8 @@
 //! Source locations and frame lines for V8-format stack traces
 //! (`    at name (file:line:column)`).
 
+use velyr_engine_gc::external::{Charge, Kind};
+
 /// The script a `FunctionCode` was compiled from: its name, text and line starts.
 #[derive(Debug)]
 pub struct Script {
@@ -9,15 +11,20 @@ pub struct Script {
     line_starts: Vec<u32>,
     /// Source text, for `Function.prototype.toString`.
     text: Box<str>,
+    /// Text and line table, as `Kind::Source`.
+    _charge: Charge,
 }
 
 impl Script {
     pub fn new(name: &str, text: &str) -> Self {
         let breaks = text.match_indices('\n').map(|(index, _)| index as u32 + 1);
+        let line_starts: Vec<u32> = std::iter::once(0).chain(breaks).collect();
+        let bytes = size_of::<Self>() + name.len() + text.len() + line_starts.capacity() * 4;
         Self {
             name: name.to_owned(),
-            line_starts: std::iter::once(0).chain(breaks).collect(),
+            line_starts,
             text: text.into(),
+            _charge: Charge::new(Kind::Source, bytes),
         }
     }
 

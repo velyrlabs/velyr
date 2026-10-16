@@ -225,6 +225,7 @@ fn string_repeat(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult
     if count * units.len() as f64 > f64::from(u32::MAX >> 2) {
         return vm.throw_range("Invalid string length");
     }
+    vm.reserve_heap(count as usize * units.len() * 2)?;
     Ok(string_value(units.repeat(count as usize)))
 }
 
@@ -245,6 +246,7 @@ fn pad(vm: &mut Interpreter, this: &Value, args: &[Value], at_start: bool) -> Js
     if max_length > f64::from(u32::MAX >> 2) {
         return vm.throw_range("Invalid string length");
     }
+    vm.reserve_heap(max_length as usize * 2)?;
     let fill_length = max_length as usize - units.len();
     let fill: Vec<u16> = filler.iter().copied().cycle().take(fill_length).collect();
     let (mut head, tail) = if at_start {

@@ -80,33 +80,37 @@ fn is_concat_spreadable(vm: &mut Interpreter, value: &Value) -> JsResult<bool> {
 fn array_concat(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
     let object = vm.coerce_object(this)?;
     let result = vm.array_species_create(object, 0.0)?;
-    let mut n = 0.0;
-    let items = std::iter::once(object_value(object)).chain(args.iter().cloned());
-    for item in items {
-        if !is_concat_spreadable(vm, &item)? {
-            vm.check_length(n + 1.0)?;
-            let key = vm.index_key(n);
-            vm.create_data_or_throw(result, key, item)?;
-            n += 1.0;
-            continue;
-        }
-        let source = vm.as_object(&item).expect("spreadable values are objects");
-        let length = vm.length_of(source)?;
-        vm.check_length(n + length)?;
-        let mut k = 0.0;
-        while k < length {
-            let key = vm.index_key(k);
-            if vm.has_property(source, key)? {
-                let value = vm.get_key(source, key)?;
-                let target = vm.index_key(n);
-                vm.create_data_or_throw(result, target, value)?;
+    vm.rooted(&[object_value(object), object_value(result)], |vm| {
+        let mut since_check = 0;
+        let mut n = 0.0;
+        let items = std::iter::once(object_value(object)).chain(args.iter().cloned());
+        for item in items {
+            if !is_concat_spreadable(vm, &item)? {
+                vm.check_length(n + 1.0)?;
+                let key = vm.index_key(n);
+                vm.create_data_or_throw(result, key, item)?;
+                n += 1.0;
+                continue;
             }
-            n += 1.0;
-            k += 1.0;
+            let source = vm.as_object(&item).expect("spreadable values are objects");
+            let length = vm.length_of(source)?;
+            vm.check_length(n + length)?;
+            let mut k = 0.0;
+            while k < length {
+                let key = vm.index_key(k);
+                if vm.has_property(source, key)? {
+                    let value = vm.get_key(source, key)?;
+                    let target = vm.index_key(n);
+                    vm.create_data_or_throw(result, target, value)?;
+                }
+                n += 1.0;
+                k += 1.0;
+                vm.heap_tick(&mut since_check, 0)?;
+            }
         }
-    }
-    vm.set_length(result, n)?;
-    Ok(object_value(result))
+        vm.set_length(result, n)?;
+        Ok(object_value(result))
+    })
 }
 
 pub(in super::super) fn array_includes(
@@ -201,19 +205,23 @@ pub(in super::super) fn array_join(
     };
     let separator = separator.to_utf16();
     let mut out: Vec<u16> = Vec::new();
-    let mut k = 0.0;
-    while k < length {
-        if k > 0.0 {
-            out.extend_from_slice(&separator);
+    vm.rooted(&[object_value(object)], |vm| {
+        let mut since_check = 0;
+        let mut k = 0.0;
+        while k < length {
+            if k > 0.0 {
+                out.extend_from_slice(&separator);
+            }
+            let key = vm.index_key(k);
+            let element = vm.get_key(object, key)?;
+            if !matches!(element, Value::Undefined | Value::Null) {
+                out.extend(vm.coerce_string(&element)?.to_utf16());
+            }
+            k += 1.0;
+            vm.heap_tick(&mut since_check, out.len() * 2)?;
         }
-        let key = vm.index_key(k);
-        let element = vm.get_key(object, key)?;
-        if !matches!(element, Value::Undefined | Value::Null) {
-            out.extend(vm.coerce_string(&element)?.to_utf16());
-        }
-        k += 1.0;
-    }
-    Ok(Value::String(JsStr::from_utf16(out)))
+        Ok(Value::String(JsStr::from_utf16(out)))
+    })
 }
 
 fn array_to_string(vm: &mut Interpreter, this: &Value, _: &[Value]) -> JsResult<Value> {

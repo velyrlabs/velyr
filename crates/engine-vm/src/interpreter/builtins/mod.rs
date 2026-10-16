@@ -7,8 +7,8 @@ mod aggregate_error;
 mod array;
 mod bigint;
 mod boolean;
-pub(crate) mod date;
 pub(crate) mod collections;
+pub(crate) mod date;
 mod error;
 pub(crate) mod function;
 mod iterator;
@@ -31,6 +31,7 @@ mod string;
 pub(crate) mod symbol;
 pub(crate) mod typed_arrays;
 mod weak;
+pub(crate) mod weak_ref;
 
 use std::rc::Rc;
 
@@ -59,6 +60,8 @@ pub(crate) enum Intrinsic {
     SetPrototype,
     WeakMapPrototype,
     WeakSetPrototype,
+    WeakRefPrototype,
+    FinalizationRegistryPrototype,
     MapIteratorPrototype,
     SetIteratorPrototype,
     ThrowTypeError,
@@ -101,6 +104,9 @@ impl Intrinsic {
     pub(crate) const COUNT: usize = Intrinsic::BigUint64Array as usize + 1;
 }
 
+/// Elements a native loop processes between heap limit checks.
+const HEAP_CHECK_INTERVAL: u32 = 4096;
+
 /// `args[index]`, or `undefined` when absent.
 pub(crate) fn arg(args: &[Value], index: usize) -> Value {
     args.get(index).cloned().unwrap_or(Value::Undefined)
@@ -118,6 +124,32 @@ impl Interpreter {
     /// Roots `value` until the running native function returns.
     pub(crate) fn keep(&mut self, value: &Value) {
         self.state.scratch.push(value.clone());
+    }
+
+    /// Roots `roots` for the duration of `body`, which may collect the heap.
+    pub(crate) fn rooted<T>(
+        &mut self,
+        roots: &[Value],
+        body: impl FnOnce(&mut Self) -> JsResult<T>,
+    ) -> JsResult<T> {
+        let base = self.state.scratch.len();
+        self.state.scratch.extend_from_slice(roots);
+        let result = body(self);
+        self.state.scratch.truncate(base);
+        result
+    }
+
+    /// Call once per element of a native loop that allocates in proportion to its input:
+    /// every `HEAP_CHECK_INTERVAL` calls it checks the heap limit for `bytes` of
+    /// not-yet-accounted storage. Everything live must be rooted (see `rooted`).
+    #[inline]
+    pub(crate) fn heap_tick(&mut self, since_check: &mut u32, bytes: usize) -> JsResult<()> {
+        *since_check += 1;
+        if *since_check < HEAP_CHECK_INTERVAL {
+            return Ok(());
+        }
+        *since_check = 0;
+        self.reserve_heap(bytes)
     }
 
     pub(crate) fn throw_type<T>(&mut self, message: &str) -> JsResult<T> {
@@ -249,6 +281,7 @@ pub(crate) fn install_all(vm: &mut Interpreter) -> JsResult<()> {
     map::install(vm)?;
     set::install(vm)?;
     weak::install(vm)?;
+    weak_ref::install(vm)?;
     proxy::install(vm)?;
     promise::install(vm)?;
     typed_arrays::install(vm)?;

@@ -85,11 +85,12 @@ pub(crate) fn create_state(realm: &mut Realm) -> State {
         jobs: Default::default(),
         regexps: Default::default(),
         modules: Vec::new(),
+        kept: Default::default(),
     }
 }
 
 /// Prototype objects allocated up front (constructors are made by their installers).
-const PROTOTYPES: [Intrinsic; 15] = [
+const PROTOTYPES: [Intrinsic; 17] = [
     Intrinsic::DatePrototype,
     Intrinsic::StringPrototype,
     Intrinsic::NumberPrototype,
@@ -101,6 +102,8 @@ const PROTOTYPES: [Intrinsic; 15] = [
     Intrinsic::SetPrototype,
     Intrinsic::WeakMapPrototype,
     Intrinsic::WeakSetPrototype,
+    Intrinsic::WeakRefPrototype,
+    Intrinsic::FinalizationRegistryPrototype,
     Intrinsic::MapIteratorPrototype,
     Intrinsic::SetIteratorPrototype,
     Intrinsic::RegExpPrototype,

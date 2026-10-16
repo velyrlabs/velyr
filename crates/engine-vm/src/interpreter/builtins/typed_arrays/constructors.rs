@@ -92,16 +92,38 @@ fn construct(vm: &mut Interpreter, kind: ElementKind, args: &[Value]) -> JsResul
     }
     let array = match vm.typed_array_of(&first) {
         Some(source) => from_typed_array(vm, proto, kind, &source)?,
-        None => {
-            let values = values_of(vm, &first)?;
-            let (array, typed) = allocate(vm, proto, kind, values.len())?;
-            for (index, value) in values.iter().enumerate() {
-                vm.typed_set(&typed, Some(index), value)?;
+        None => match vm.get_method(&first, ObjectKey::Symbol(SYMBOL_ITERATOR))? {
+            Some(method) => {
+                let values = iterated_values(vm, &first, &method)?;
+                let (array, typed) = allocate(vm, proto, kind, values.len())?;
+                for (index, value) in values.iter().enumerate() {
+                    vm.typed_set(&typed, Some(index), value)?;
+                }
+                array
             }
-            array
-        }
+            None => from_array_like(vm, proto, kind, object)?,
+        },
     };
     Ok(object_value(array))
+}
+
+/// InitializeTypedArrayFromArrayLike: allocates first, so a huge `length` is a
+/// RangeError from the buffer budget before any element is read.
+fn from_array_like(
+    vm: &mut Interpreter,
+    proto: ObjectRef,
+    kind: ElementKind,
+    source: ObjectRef,
+) -> JsResult<ObjectRef> {
+    let length = vm.length_of(source)? as usize;
+    let (array, typed) = allocate(vm, proto, kind, length)?;
+    vm.keep(&object_value(array));
+    for index in 0..length {
+        let key = vm.index_key(index as f64);
+        let value = vm.get_key(source, key)?;
+        vm.typed_set(&typed, Some(index), &value)?;
+    }
+    Ok(array)
 }
 
 /// AllocateTypedArray with a fresh zeroed buffer of `length` elements.
@@ -211,18 +233,31 @@ pub(super) fn copy_elements(
 
 /// The values of an iterable, or of an array-like when it has no `@@iterator`.
 pub(super) fn values_of(vm: &mut Interpreter, source: &Value) -> JsResult<Vec<Value>> {
-    let mut values = Vec::new();
     if let Some(method) = vm.get_method(source, ObjectKey::Symbol(SYMBOL_ITERATOR))? {
-        let (iterator, next) = vm.open_iterator_with(source, &method)?;
-        vm.drain_iterator(&iterator, &next, &mut |_, value| {
-            values.push(value);
-            Ok(())
-        })?;
-        return Ok(values);
+        return iterated_values(vm, source, &method);
     }
     let object = vm.coerce_object(source)?;
     vm.list_from_array_like(&object_value(object))
 }
+
+fn iterated_values(vm: &mut Interpreter, source: &Value, method: &Value) -> JsResult<Vec<Value>> {
+    let mut values = Vec::new();
+    let (iterator, next) = vm.open_iterator_with(source, method)?;
+    vm.drain_iterator(&iterator, &next, &mut |vm, value| {
+        // Kept so a collection in the next `next()` cannot free it; the list and its
+        // roots live outside the heap, so an endless iterator is checked as it grows.
+        vm.keep(&value);
+        values.push(value);
+        if values.len().is_multiple_of(LIST_CHECK_INTERVAL) {
+            vm.reserve_heap(values.len() * 2 * size_of::<Value>())?;
+        }
+        Ok(())
+    })?;
+    Ok(values)
+}
+
+/// Iterated values between checks of the heap limit.
+const LIST_CHECK_INTERVAL: usize = 1024;
 
 /// TypedArrayCreateFromConstructor: constructs and validates the result.
 pub(super) fn create_from_constructor(

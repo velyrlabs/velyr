@@ -1,11 +1,12 @@
 //! Everything the interpreter keeps alive: the register stack, frames, accumulator and the
 //! realm-wide tables. Its `Trace` impl is the root set handed to every allocation.
 
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::cell::{OnceCell, RefCell};
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use velyr_engine_gc::{Gc, Trace, Tracer, WeakMap};
+use velyr_engine_gc::external::{Charge, Kind};
+use velyr_engine_gc::{Gc, GcRef, Trace, Tracer, WeakMap};
 
 use super::ErrorKind;
 use super::builtins::Intrinsic;
@@ -18,19 +19,35 @@ use super::jobs::JobQueue;
 use crate::bytecode::FunctionCode;
 use crate::{InlineCache, JsStr, ObjectKey, ObjectRef, Value};
 
-/// Per-`FunctionCode` data shared by every closure of it: inline caches indexed by
-/// instruction offset and whether frames must keep their arguments.
+/// Per-`FunctionCode` data shared by every closure of it: inline caches indexed by the
+/// `cache` of `GetNamed`/`SetNamed` and whether frames must keep their arguments.
 pub(crate) struct CodeInfo {
     pub code: Rc<FunctionCode>,
     pub caches: RefCell<Vec<InlineCache>>,
     pub keeps_arguments: bool,
     /// Generator or async function: its kind and the register of its generator object.
     pub coroutine: Option<(crate::bytecode::CoroutineKind, crate::bytecode::Reg)>,
+    /// A lazy stub's info for its compiled body, set on the first call.
+    pub compiled: OnceCell<Rc<CodeInfo>>,
+    /// The info and its caches, as `Kind::Code`.
+    _charge: Charge,
 }
 
 impl CodeInfo {
     pub fn new(code: Rc<FunctionCode>) -> Self {
-        use crate::bytecode::Instruction as I;
+        use crate::bytecode::{Instruction as I, Reg};
+        if let Some(lazy) = &code.lazy {
+            // Frames never run a stub's info, so its generator register is never read.
+            let coroutine = lazy.coroutine().map(|kind| (kind, Reg(0)));
+            return Self {
+                code,
+                caches: RefCell::new(Vec::new()),
+                keeps_arguments: false,
+                coroutine,
+                compiled: OnceCell::new(),
+                _charge: Charge::new(Kind::Code, size_of::<Self>()),
+            };
+        }
         let keeps_arguments = code.instructions.iter().any(|instruction| {
             matches!(
                 instruction,
@@ -44,14 +61,24 @@ impl CodeInfo {
                 I::CreateGenerator { generator, kind } => Some((*kind, *generator)),
                 _ => None,
             });
-        let caches = (0..code.instructions.len())
-            .map(|_| InlineCache::default())
-            .collect();
+        let cache_count = code
+            .instructions
+            .iter()
+            .filter_map(|instruction| match instruction {
+                I::GetNamed { cache, .. } | I::SetNamed { cache, .. } => Some(*cache as usize + 1),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        let caches: Vec<_> = (0..cache_count).map(|_| InlineCache::default()).collect();
+        let bytes = size_of::<Self>() + caches.capacity() * size_of::<InlineCache>();
         Self {
             code,
             caches: RefCell::new(caches),
             keeps_arguments,
             coroutine,
+            compiled: OnceCell::new(),
+            _charge: Charge::new(Kind::Code, bytes),
         }
     }
 }
@@ -158,6 +185,8 @@ pub(crate) struct State {
     pub regexps: RegExpCache,
     /// Module records, indexed by `ModuleId`.
     pub modules: Vec<super::module::ModuleRecord>,
+    /// `[[KeptAlive]]`: WeakRef targets held until the running job ends (AddToKeptObjects).
+    pub kept: HashSet<GcRef>,
 }
 
 impl Trace for State {
@@ -185,5 +214,6 @@ impl Trace for State {
         tracer.mark(self.slots.raw());
         self.jobs.trace(tracer);
         self.modules.trace(tracer);
+        self.kept.iter().for_each(|target| tracer.mark(*target));
     }
 }

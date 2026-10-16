@@ -176,6 +176,7 @@ impl Realm {
             ObjectKey::Index(index) => object.elements.put(index, property),
             _ => object.properties.put(&mut self.shapes, key, property),
         }
+        object.recharge();
         true
     }
 
@@ -185,6 +186,7 @@ impl Realm {
             ObjectKey::Index(index) => object.elements.remove(index),
             _ => object.properties.remove(&mut self.shapes, key),
         }
+        object.recharge();
     }
 
     fn call_accessor(

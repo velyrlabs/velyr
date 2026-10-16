@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use velyr_engine_gc::external::{Charge, Kind};
 use velyr_engine_gc::{Gc, Trace, Tracer};
 
 use super::ops::HOLE;
@@ -67,6 +68,14 @@ pub(crate) struct Closure {
     pub home: Value,
     /// Class constructors: [[PrivateMethods]] and [[Fields]].
     pub elements: Option<Rc<RefCell<Vec<Element>>>>,
+    /// This record (in its `Rc`), as `Kind::Tables`.
+    pub _charge: Charge,
+}
+
+impl Closure {
+    pub fn charge() -> Charge {
+        Charge::new(Kind::Tables, size_of::<Self>() + 2 * size_of::<usize>())
+    }
 }
 
 pub(crate) struct BoundFunction {
@@ -151,6 +160,7 @@ impl Interpreter {
             env,
             home: Value::Undefined,
             elements: None,
+            _charge: Closure::charge(),
         };
         let is_constructor = code.kind == FunctionKind::Normal;
         let name = code.name.clone();
@@ -427,7 +437,8 @@ impl Interpreter {
         if self.state.frames.len() >= MAX_FRAMES {
             return Err(self.stack_overflow());
         }
-        let code = &closure.info.code;
+        let info = self.compiled_info(&closure.info)?;
+        let code = &info.code;
         let base = self.state.registers.len();
         let parameters = code.parameter_count as usize;
         let registers = code.register_count as usize;
@@ -440,12 +451,12 @@ impl Interpreter {
         {
             *slot = arg.clone();
         }
-        let arguments = match closure.info.keeps_arguments {
+        let arguments = match info.keeps_arguments {
             true => args.to_vec(),
             false => Vec::new(),
         };
         self.state.frames.push(Frame {
-            info: closure.info.clone(),
+            info,
             pc: 0,
             base,
             context: closure.context.clone(),
@@ -455,6 +466,12 @@ impl Interpreter {
             constructed,
             is_entry,
         });
+        // The new frame roots the callee and its arguments, so a collection is safe here.
+        if let Err(error) = self.enforce_heap_limit() {
+            self.state.frames.pop();
+            self.state.registers.truncate(base);
+            return Err(error);
+        }
         Ok(())
     }
 

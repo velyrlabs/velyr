@@ -6,6 +6,7 @@ use std::mem;
 use std::rc::Rc;
 
 use velyr_engine_api::JsString;
+use velyr_engine_gc::external::{self, Kind};
 
 /// Concatenations shorter than this are copied instead of building a rope node.
 const MIN_ROPE_LEN: usize = 16;
@@ -20,9 +21,14 @@ struct Repr {
     len: usize,
     /// Every unit is <= 0xFF, so flattening a rope yields latin1.
     latin1: bool,
-    hash: Cell<Option<u32>>,
+    /// 0 until computed; a real hash of 0 is just never cached.
+    hash: Cell<u32>,
     node: RefCell<Node>,
 }
+
+// One per string of a large app (VELYR-196): 48 plus the two `Rc` counts is a 64-byte
+// malloc block instead of 80.
+const _: () = assert!(size_of::<Repr>() == 48);
 
 /// Flat view of a string's code units.
 pub enum Flat<'a> {
@@ -33,12 +39,27 @@ pub enum Flat<'a> {
 #[derive(Clone)]
 pub struct JsStr(Rc<Repr>);
 
+/// The `Rc` allocation of a string: its counts plus the `Repr`.
+const REPR_BYTES: usize = size_of::<Repr>() + 2 * size_of::<usize>();
+
+impl Node {
+    /// Payload bytes; a rope's leaves are charged on their own.
+    fn bytes(&self) -> usize {
+        match self {
+            Node::Latin1(bytes) => bytes.len(),
+            Node::Utf16(units) => units.len() * 2,
+            Node::Rope(..) => 0,
+        }
+    }
+}
+
 impl JsStr {
     fn from_node(len: usize, latin1: bool, node: Node) -> Self {
+        external::charge(Kind::Strings, REPR_BYTES + node.bytes());
         Self(Rc::new(Repr {
             len,
             latin1,
-            hash: Cell::new(None),
+            hash: Cell::new(0),
             node: RefCell::new(node),
         }))
     }
@@ -134,13 +155,15 @@ impl JsStr {
             Node::Utf16(out.into())
         };
         // Dropping the old rope node releases the children (see `Drop for Repr`).
+        external::charge(Kind::Strings, flat.bytes());
         *self.0.node.borrow_mut() = flat;
     }
 
     /// FNV-1a over UTF-16 units, so latin1 and utf16 storage of equal text hash alike.
     pub fn hash_value(&self) -> u32 {
-        if let Some(hash) = self.0.hash.get() {
-            return hash;
+        let cached = self.0.hash.get();
+        if cached != 0 {
+            return cached;
         }
         let fnv = |hash: u32, unit: u16| (hash ^ u32::from(unit)).wrapping_mul(16_777_619);
         let hash = self.with_flat(|flat| match flat {
@@ -149,7 +172,7 @@ impl JsStr {
                 .fold(2_166_136_261, |h, b| fnv(h, u16::from(*b))),
             Flat::Utf16(units) => units.iter().fold(2_166_136_261, |h, u| fnv(h, *u)),
         });
-        self.0.hash.set(Some(hash));
+        self.0.hash.set(hash);
         hash
     }
 }
@@ -172,6 +195,7 @@ impl Drop for Repr {
     /// Unlinks rope children iteratively: the default recursive drop of a left-deep rope
     /// of 100k nodes would overflow the stack.
     fn drop(&mut self) {
+        external::release(Kind::Strings, REPR_BYTES + self.node.get_mut().bytes());
         let mut stack = Vec::new();
         take_children(self.node.get_mut(), &mut stack);
         while let Some(child) = stack.pop() {

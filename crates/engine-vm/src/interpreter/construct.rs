@@ -160,11 +160,7 @@ impl Interpreter {
     fn arguments_list(&mut self, array_like: Option<&Value>) -> JsResult<Vec<Value>> {
         match array_like {
             None | Some(Value::Undefined | Value::Null) => Ok(Vec::new()),
-            Some(value @ Value::Object(_)) => self.array_elements(value.clone()),
-            Some(_) => Err(self.error(
-                ErrorKind::Type,
-                "CreateListFromArrayLike called on non-object",
-            )),
+            Some(value) => self.list_from_array_like(value),
         }
     }
 

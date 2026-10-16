@@ -10,8 +10,9 @@ use crate::string::JsStr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SymbolId(pub u32);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Value {
+    #[default]
     Undefined,
     Null,
     Bool(bool),

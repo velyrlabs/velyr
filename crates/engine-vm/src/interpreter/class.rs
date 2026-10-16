@@ -58,6 +58,10 @@ impl Interpreter {
                     value: acc,
                 });
             }
+            I::NameFunction(key) => {
+                let key = self.reg(*key).clone();
+                self.name_anonymous_function(&acc, &key, "")?;
+            }
             I::CreatePrivateName => {
                 let id = self.state.next_private_name;
                 self.state.next_private_name = match id.checked_add(1) {
@@ -123,6 +127,7 @@ impl Interpreter {
             env: FunctionEnv::new(Value::Undefined),
             home: object_value(proto),
             elements: Some(Default::default()),
+            _charge: Closure::charge(),
         };
         let callable = Callable::Closure(Rc::new(closure));
         let class = self.create_function_object(callable, &code.name, code.length)?;
@@ -245,7 +250,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn raw_own_property(
+    pub(crate) fn raw_own_property(
         &mut self,
         object: ObjectRef,
         key: ObjectKey,
@@ -342,7 +347,7 @@ impl Interpreter {
         for field in fields {
             let value = match field.value {
                 Value::Undefined => Value::Undefined,
-                initializer => self.call_value(&initializer, object, &[])?,
+                initializer => self.call_value(&initializer, object, &[field.key.clone()])?,
             };
             self.define_element(object, &field.key, FunctionKind::ClassField, value)?;
         }

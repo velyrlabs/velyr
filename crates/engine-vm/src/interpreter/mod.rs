@@ -30,7 +30,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use velyr_engine_gc::{GcRef, Heap};
+use velyr_engine_gc::external::{Charge, Kind};
+use velyr_engine_gc::{GcRef, GcStats, Heap};
 use velyr_runtime_errors::VelyrError;
 
 use crate::bytecode::FunctionCode;
@@ -103,6 +104,8 @@ pub struct Interpreter {
     pub(crate) state: State,
     terminated: Arc<AtomicBool>,
     code_infos: HashMap<usize, Rc<CodeInfo>>,
+    /// `code_infos` by capacity, as `Kind::Tables`.
+    code_infos_charge: Charge,
     reentry: usize,
     compile: Option<CompileHook>,
     /// Receives `import()` requests as `(specifier, referrer, resolver id)`.
@@ -137,6 +140,7 @@ impl Interpreter {
             state,
             terminated: Arc::new(AtomicBool::new(false)),
             code_infos: HashMap::new(),
+            code_infos_charge: Charge::new(Kind::Tables, 0),
             reentry: 0,
             compile: None,
             import_hook: None,
@@ -160,6 +164,45 @@ impl Interpreter {
     /// or call; it stays raised, so later runs fail fast too.
     pub fn termination_flag(&self) -> Arc<AtomicBool> {
         self.terminated.clone()
+    }
+
+    /// Lets scripts allocate `heap_limit_bytes` of GC heap on top of what is live now
+    /// (the realm and preludes); past it an allocation fails with the `heap` quota.
+    /// Called after bootstrap so a small limit cannot fail realm creation.
+    pub fn limit_heap(&mut self, heap_limit_bytes: usize) {
+        let stats = self.realm.heap.stats();
+        let live = stats.live_bytes + stats.external_bytes;
+        let limit = live.saturating_add(heap_limit_bytes);
+        self.realm.heap.set_hard_limit(Some(limit));
+    }
+
+    /// A new array holding `values` (CreateArrayFromList), for embedders.
+    pub fn create_array(&mut self, values: &[Value]) -> Result<Value, Abrupt> {
+        self.create_array_from(values).map(object_value)
+    }
+
+    /// Full collection now; the cleanup callbacks it queues run at the next microtask
+    /// checkpoint.
+    pub fn collect_garbage(&mut self) {
+        self.realm.heap.collect(&self.state);
+    }
+
+    /// Charges this thread's external bytes (strings, storage, atoms) to this isolate's
+    /// heap until another isolate enters; call it before running or compiling code.
+    pub fn enter_heap(&self) {
+        self.realm.heap.enter();
+    }
+
+    /// Collector counters: collections, pauses, live cells and bytes, external bytes.
+    pub fn gc_stats(&self) -> GcStats {
+        self.realm.heap.stats()
+    }
+
+    /// Bytes in use (cells plus strings and object storage) and the hard limit.
+    pub fn heap_usage(&self) -> (usize, Option<usize>) {
+        let stats = self.gc_stats();
+        let used = stats.live_bytes + stats.external_bytes;
+        (used, self.realm.heap.hard_limit())
     }
 
     /// Caps BigInt results at the isolate heap budget (one bit per budget bit), so a
@@ -191,6 +234,7 @@ impl Interpreter {
             env: function::FunctionEnv::new(global.clone()),
             home: Value::Undefined,
             elements: None,
+            _charge: function::Closure::charge(),
         };
         let env = self.frame_env(&script, &Value::Undefined, &global, Value::Undefined);
         self.run_closure(&script, &Value::Undefined, env, &[], None)
@@ -218,6 +262,19 @@ impl Interpreter {
         self.define_method(global, name, object_value(function))
     }
 
+    /// An `Error` with `message` and a `code` property, the shape hosts give a `VelyrError`.
+    pub fn error_with_code(&mut self, message: &str, code: &str) -> Abrupt {
+        let error = self.error(ErrorKind::Error, message);
+        if let Abrupt::Throw(Value::Object(object)) = &error {
+            let (object, value) = (ObjectRef::from_raw(*object), Value::str(code));
+            let key = self.string_key(&JsStr::from("code"));
+            if let Err(abrupt) = self.create_data_property(object, key, value) {
+                return abrupt;
+            }
+        }
+        error
+    }
+
     /// The `ErrorKind` error object as an abrupt completion, for native functions.
     pub fn error(&mut self, kind: ErrorKind, message: &str) -> Abrupt {
         match self.create_error(kind, message) {
@@ -243,10 +300,30 @@ impl Interpreter {
 
     fn code_info(&mut self, code: &Rc<FunctionCode>) -> Rc<CodeInfo> {
         let key = Rc::as_ptr(code) as usize;
-        self.code_infos
-            .entry(key)
-            .or_insert_with(|| Rc::new(CodeInfo::new(code.clone())))
-            .clone()
+        if let Some(info) = self.code_infos.get(&key) {
+            return info.clone();
+        }
+        let info = Rc::new(CodeInfo::new(code.clone()));
+        self.code_infos.insert(key, info.clone());
+        self.code_infos_charge
+            .set(self.code_infos.capacity() * (size_of::<(usize, Rc<CodeInfo>)>() + 1));
+        info
+    }
+
+    /// The info frames run: `info` itself, or a lazy stub's body, compiled once.
+    fn compiled_info(&mut self, info: &Rc<CodeInfo>) -> JsResult<Rc<CodeInfo>> {
+        let Some(lazy) = &info.code.lazy else {
+            return Ok(info.clone());
+        };
+        if let Some(compiled) = info.compiled.get() {
+            return Ok(compiled.clone());
+        }
+        let code = match lazy.compile(&info.code) {
+            Ok(code) => code,
+            Err(message) => return Err(self.error(ErrorKind::Syntax, &message)),
+        };
+        let compiled = Rc::new(CodeInfo::new(Rc::new(code)));
+        Ok(info.compiled.get_or_init(|| compiled).clone())
     }
 
     fn check_termination(&self) -> JsResult<()> {
@@ -254,6 +331,23 @@ impl Interpreter {
             return Err(Abrupt::Terminated);
         }
         Ok(())
+    }
+
+    /// Fails with the `heap` quota when cells plus strings and object storage are past
+    /// the hard limit even after a collection. Only call where every live value is
+    /// rooted in `state`: back-edges and function entry.
+    #[inline]
+    fn enforce_heap_limit(&mut self) -> JsResult<()> {
+        self.reserve_heap(0)
+    }
+
+    /// Makes room for `bytes` of strings or storage before a builtin builds them.
+    #[inline]
+    pub(crate) fn reserve_heap(&mut self, bytes: usize) -> JsResult<()> {
+        self.realm
+            .heap
+            .reserve(bytes, &self.state)
+            .map_err(Abrupt::Heap)
     }
 
     fn alloc_object(&mut self, proto: Option<ObjectRef>) -> JsResult<ObjectRef> {
@@ -299,6 +393,8 @@ mod tests {
             source_start: 0,
             source_end: 0,
             script: None,
+            charge: Charge::new(Kind::Code, 0),
+            lazy: None,
         })
     }
 
@@ -317,6 +413,7 @@ mod tests {
                 I::GetNamed {
                     object: Reg(0),
                     name: x,
+                    cache: 0,
                 },
                 I::Return,
             ],
@@ -328,7 +425,12 @@ mod tests {
         }
         let info = vm.code_info(&code);
         let caches = info.caches.borrow();
-        assert_eq!(caches[4].misses(), 1);
-        assert!(caches[4].cached_shape().is_some());
+        assert_eq!(
+            caches.len(),
+            1,
+            "one cache per named access site, not per instruction"
+        );
+        assert_eq!(caches[0].misses(), 1);
+        assert!(caches[0].cached_shape().is_some());
     }
 }

@@ -74,7 +74,10 @@ impl Realm {
         if !self.define_length(o, &new_desc) {
             return Ok(false);
         }
-        if let Err(blocked) = self.object_mut(o).elements.truncate(new_length) {
+        let object = self.object_mut(o);
+        let truncated = object.elements.truncate(new_length);
+        object.recharge();
+        if let Err(blocked) = truncated {
             new_desc.value = Some(Value::Number(f64::from(blocked) + 1.0));
             new_desc.writable = Some(keeps_writable);
             self.define_length(o, &new_desc);

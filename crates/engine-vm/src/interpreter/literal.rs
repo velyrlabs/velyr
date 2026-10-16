@@ -5,12 +5,15 @@ use std::rc::Rc;
 use velyr_engine_gc::Gc;
 
 use super::builtins::Intrinsic;
-use super::function::Callable;
+use super::class::is_private;
+use super::function::{Callable, is_class_constructor};
 use super::state::CodeInfo;
 use super::{Interpreter, JsResult, object_value};
 use crate::bytecode::{ConstIndex, Constant, Instruction as I, Reg, RegRange};
 use crate::object::ParameterMap;
-use crate::{InternalMethods, JsStr, ObjectKey, ObjectRef, PropertyDescriptor, Value};
+use crate::{
+    InternalMethods, JsStr, ObjectKey, ObjectRef, PropertyDescriptor, PropertyValue, Value,
+};
 
 impl Interpreter {
     pub(crate) fn step_literal(&mut self, info: &CodeInfo, instruction: &I) -> JsResult<()> {
@@ -122,13 +125,39 @@ impl Interpreter {
         if !closure.info.code.name.is_empty() && prefix.is_empty() {
             return Ok(());
         }
+        let object = self.as_object(function).expect("closures are objects");
+        // A class keeps a `static name` member it defined itself.
+        if is_class_constructor(closure.info.code.kind) && !self.has_empty_own_name(object)? {
+            return Ok(());
+        }
         let name = match key {
             Value::String(s) => s.clone(),
+            Value::Symbol(id) if !is_private(ObjectKey::Symbol(*id)) => {
+                match self.state.symbols.description(*id) {
+                    Some(description) => JsStr::from_str("[")
+                        .concat(&description)
+                        .concat(&JsStr::from_str("]")),
+                    None => JsStr::from_str(""),
+                }
+            }
             _ => closure.info.code.name.clone(),
         };
         let name = JsStr::from_str(prefix).concat(&name);
-        let function = self.as_object(function).expect("closures are objects");
-        self.set_function_name(function, Value::String(name))
+        self.set_function_name(object, Value::String(name))
+    }
+
+    /// Whether `function`'s own `name` is still the empty string an anonymous class starts with.
+    fn has_empty_own_name(&mut self, function: ObjectRef) -> JsResult<bool> {
+        let key = self.realm.key_str("name");
+        let own = self.raw_own_property(function, key)?;
+        Ok(match own.map(|property| property.value) {
+            None => true,
+            Some(PropertyValue::Data {
+                value: Value::String(name),
+                ..
+            }) => name.is_empty(),
+            Some(_) => false,
+        })
     }
 
     fn define_accessor(&mut self, object: Reg, key: Reg, is_getter: bool) -> JsResult<()> {

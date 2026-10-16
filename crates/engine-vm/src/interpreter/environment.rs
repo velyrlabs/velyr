@@ -21,6 +21,11 @@ impl Trace for Context {
         self.slots.trace(tracer);
         self.parent.trace(tracer);
     }
+
+    /// The slots never change size once the context is created.
+    fn owned_bytes(&self) -> usize {
+        self.slots.capacity() * size_of::<Value>()
+    }
 }
 
 impl Interpreter {

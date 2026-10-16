@@ -32,19 +32,27 @@ fn needs_interpreter(error: &ObjectError) -> bool {
 impl Interpreter {
     pub(crate) fn step_property(&mut self, info: &CodeInfo, instruction: &I) -> JsResult<()> {
         match instruction {
-            I::GetNamed { object, name } => {
+            I::GetNamed {
+                object,
+                name,
+                cache,
+            } => {
                 let key = self.name_key(info, *name);
                 let base = self.reg(*object).clone();
-                self.state.acc = self.get_value(&base, key, Some(info))?;
+                self.state.acc = self.get_value(&base, key, Some((info, *cache)))?;
             }
             I::GetKeyed { object } => {
                 let key = self.object_key(&self.state.acc.clone())?;
                 let base = self.reg(*object).clone();
                 self.state.acc = self.get_value(&base, key, None)?;
             }
-            I::SetNamed { object, name } => {
+            I::SetNamed {
+                object,
+                name,
+                cache,
+            } => {
                 let key = self.name_key(info, *name);
-                self.set_value(*object, key, Some(info))?;
+                self.set_value(*object, key, Some((info, *cache)))?;
             }
             I::SetKeyed { object, key } => {
                 // Key conversion may run JS (toString/valueOf), which clobbers the accumulator.
@@ -120,7 +128,7 @@ impl Interpreter {
         &mut self,
         base: &Value,
         key: ObjectKey,
-        site: Option<&CodeInfo>,
+        site: Option<(&CodeInfo, u32)>,
     ) -> JsResult<Value> {
         if is_private(key) {
             return self.private_get(base, key);
@@ -147,8 +155,8 @@ impl Interpreter {
             Value::BigInt(_) => self.intrinsic(Intrinsic::BigIntPrototype),
         };
         match site {
-            Some(info) if matches!(base, Value::Object(_)) && !self.is_proxy(object) => {
-                self.get_cached(info, object, key)
+            Some((info, cache)) if matches!(base, Value::Object(_)) && !self.is_proxy(object) => {
+                self.get_cached(info, cache as usize, object, key)
             }
             _ => self.get(object, key, base),
         }
@@ -169,12 +177,17 @@ impl Interpreter {
         self.state.intrinsics.length_key
     }
 
-    fn get_cached(&mut self, info: &CodeInfo, o: ObjectRef, key: ObjectKey) -> JsResult<Value> {
-        let pc = (self.top().pc - 1) as usize;
-        if !info.caches.borrow()[pc].hits(&self.realm, o) && self.proxy_in_chain(o)? {
+    fn get_cached(
+        &mut self,
+        info: &CodeInfo,
+        cache: usize,
+        o: ObjectRef,
+        key: ObjectKey,
+    ) -> JsResult<Value> {
+        if !info.caches.borrow()[cache].hits(&self.realm, o) && self.proxy_in_chain(o)? {
             return self.get(o, key, &object_value(o));
         }
-        let result = info.caches.borrow_mut()[pc].load(&mut self.realm, o, key);
+        let result = info.caches.borrow_mut()[cache].load(&mut self.realm, o, key);
         match result {
             Err(error) if needs_interpreter(&error) => self.get(o, key, &object_value(o)),
             other => other.map_err(|e| self.object_error(e)),
@@ -236,7 +249,12 @@ impl Interpreter {
     }
 
     /// PutValue for `reg.key = acc`; strict code throws when the write fails.
-    fn set_value(&mut self, object: Reg, key: ObjectKey, site: Option<&CodeInfo>) -> JsResult<()> {
+    fn set_value(
+        &mut self,
+        object: Reg,
+        key: ObjectKey,
+        site: Option<(&CodeInfo, u32)>,
+    ) -> JsResult<()> {
         let base = self.reg(object).clone();
         let value = self.state.acc.clone();
         if is_private(key) {
@@ -254,10 +272,15 @@ impl Interpreter {
             }
             return Ok(());
         };
+        let result = value.clone();
         let done = match site {
-            Some(info) if !self.is_proxy(o) => self.set_cached(info, o, key, value)?,
+            Some((info, cache)) if !self.is_proxy(o) => {
+                self.set_cached(info, cache as usize, o, key, value)?
+            }
             _ => self.set(o, key, value, &base)?,
         };
+        // A setter's return value must not replace the value of the assignment.
+        self.state.acc = result;
         if !done && is_strict {
             let message = format!(
                 "Cannot assign to read only property '{}'",
@@ -271,20 +294,20 @@ impl Interpreter {
     fn set_cached(
         &mut self,
         info: &CodeInfo,
+        cache: usize,
         o: ObjectRef,
         key: ObjectKey,
         value: Value,
     ) -> JsResult<bool> {
-        let pc = (self.top().pc - 1) as usize;
         // An object array length needs ToPrimitive, which only the interpreter can run.
         let object_length =
             matches!(value, Value::Object(_)) && key == self.length_key() && self.realm.is_array(o);
         if object_length
-            || (!info.caches.borrow()[pc].hits(&self.realm, o) && self.proxy_in_chain(o)?)
+            || (!info.caches.borrow()[cache].hits(&self.realm, o) && self.proxy_in_chain(o)?)
         {
             return self.set(o, key, value, &object_value(o));
         }
-        let result = info.caches.borrow_mut()[pc].store(&mut self.realm, o, key, value.clone());
+        let result = info.caches.borrow_mut()[cache].store(&mut self.realm, o, key, value.clone());
         match result {
             Err(error) if needs_interpreter(&error) => self.set(o, key, value, &object_value(o)),
             other => other.map_err(|e| self.object_error(e)),

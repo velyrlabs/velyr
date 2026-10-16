@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use velyr_engine_api::JsBigInt;
+use velyr_engine_gc::external::{Charge, Kind};
 use velyr_engine_gc::{GcRef, Trace, Tracer};
 
 use crate::{JsStr, SymbolId, Value};
@@ -47,10 +48,22 @@ pub(crate) fn canonical_key(value: &Value) -> Value {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub(crate) struct OrderedTable {
     entries: Vec<Option<(Value, Value)>>,
     index: HashMap<MapKey, usize>,
+    /// Both tables by capacity, as `Kind::Storage` like object storage (they only grow).
+    charge: Charge,
+}
+
+impl Default for OrderedTable {
+    fn default() -> Self {
+        Self {
+            entries: Vec::new(),
+            index: HashMap::new(),
+            charge: Charge::new(Kind::Storage, 0),
+        }
+    }
 }
 
 impl OrderedTable {
@@ -73,6 +86,11 @@ impl OrderedTable {
         }
         self.index.insert(map_key, self.entries.len());
         self.entries.push(Some((canonical_key(&key), value)));
+        // A map entry costs its pair plus a control byte.
+        self.charge.set(
+            self.entries.capacity() * size_of::<Option<(Value, Value)>>()
+                + self.index.capacity() * (size_of::<(MapKey, usize)>() + 1),
+        );
     }
 
     pub fn delete(&mut self, key: &Value) -> bool {

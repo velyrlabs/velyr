@@ -206,7 +206,10 @@ impl Interpreter {
                 self.state.acc = cell.slots[index as usize].clone();
                 Ok(())
             }
-            I::DynamicImport => self.dynamic_import(),
+            I::DynamicImport { options } => {
+                let options = options.map_or(Value::Undefined, |reg| self.reg(reg).clone());
+                self.dynamic_import(&options)
+            }
             other => Err(self.internal(&format!("unexpected instruction {other:?}"))),
         }
     }
@@ -389,6 +392,7 @@ impl Interpreter {
             env: FunctionEnv::new(Value::Undefined),
             home: Value::Undefined,
             elements: None,
+            _charge: Closure::charge(),
         };
         let undefined = Value::Undefined;
         let env = self.frame_env(&closure, &undefined, &undefined, Value::Undefined);

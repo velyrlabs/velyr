@@ -68,12 +68,15 @@ pub(crate) struct Reaction {
     pub capability: Capability,
     pub handler: Value,
     pub rejects: bool,
+    /// The continuation context when the reaction was registered.
+    pub context: Value,
 }
 
 impl Trace for Reaction {
     fn trace(&self, tracer: &mut Tracer) {
         self.capability.trace(tracer);
         self.handler.trace(tracer);
+        self.context.trace(tracer);
     }
 }
 
@@ -86,7 +89,19 @@ pub(crate) enum Job {
         promise: Rc<PromiseCell>,
         thenable: Value,
         then: Value,
+        /// The continuation context when the job was queued.
+        context: Value,
     },
+}
+
+impl Job {
+    /// The continuation context the job runs under.
+    pub(crate) fn context(&self) -> Value {
+        match self {
+            Job::Reaction { reaction, .. } => reaction.context.clone(),
+            Job::ResolveThenable { context, .. } => context.clone(),
+        }
+    }
 }
 
 impl Trace for Job {
@@ -100,10 +115,12 @@ impl Trace for Job {
                 promise,
                 thenable,
                 then,
+                context,
             } => {
                 promise.borrow().trace(tracer);
                 thenable.trace(tracer);
                 then.trace(tracer);
+                context.trace(tracer);
             }
         }
     }
@@ -284,10 +301,12 @@ impl Interpreter {
             self.fulfill_promise(promise, resolution);
             return Ok(());
         }
+        let context = self.state.jobs.continuation.clone();
         self.state.jobs.enqueue(Job::ResolveThenable {
             promise: promise.clone(),
             thenable: resolution,
             then,
+            context,
         });
         Ok(())
     }
@@ -344,15 +363,18 @@ impl Interpreter {
                 Value::Undefined
             }
         };
+        let context = self.state.jobs.continuation.clone();
         let fulfill = Reaction {
             capability: capability.clone(),
             handler: handler(self, on_fulfilled),
             rejects: false,
+            context: context.clone(),
         };
         let reject = Reaction {
             capability,
             handler: handler(self, on_rejected),
             rejects: true,
+            context,
         };
         let (status, argument, was_handled) = {
             let mut record = promise.borrow_mut();
@@ -468,6 +490,7 @@ impl Interpreter {
                 promise,
                 thenable,
                 then,
+                ..
             } => {
                 let (resolve, reject) = self.resolving_functions(&promise)?;
                 let result = self.call_value(&then, &thenable, &[resolve, reject.clone()]);

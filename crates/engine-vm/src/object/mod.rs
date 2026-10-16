@@ -11,7 +11,7 @@ mod realm;
 mod shape;
 mod storage;
 
-use velyr_engine_gc::{Gc, Trace, Tracer};
+use velyr_engine_gc::{Gc, Trace, Tracer, external};
 
 pub(crate) use arguments::ParameterMap;
 pub(crate) use descriptor::validate_and_apply;
@@ -63,6 +63,8 @@ pub struct JsObject {
     extensible: bool,
     properties: NamedProperties,
     elements: Elements,
+    /// Storage bytes charged to `external`, released on drop (GC sweep).
+    charged: usize,
 }
 
 impl JsObject {
@@ -73,7 +75,20 @@ impl JsObject {
             extensible: true,
             properties: NamedProperties::default(),
             elements: Elements::default(),
+            charged: 0,
         }
+    }
+
+    /// Charges or releases the change in storage size; call after every storage write.
+    fn recharge(&mut self) {
+        let now = self.properties.bytes() + self.elements.bytes();
+        external::adjust(external::Kind::Storage, &mut self.charged, now);
+    }
+}
+
+impl Drop for JsObject {
+    fn drop(&mut self) {
+        external::release(external::Kind::Storage, self.charged);
     }
 }
 
@@ -95,3 +110,6 @@ impl Trace for Value {
         }
     }
 }
+
+// Every object of a large app pays this (VELYR-196): keep rare cases boxed.
+const _: () = assert!(size_of::<JsObject>() <= 96);

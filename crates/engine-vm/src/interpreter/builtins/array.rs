@@ -261,18 +261,22 @@ fn array_from(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Va
     let source = vm.coerce_object(&items)?;
     let length = vm.length_of(source)?;
     let array = construct_or_array(vm, this, &[Value::Number(length)], length)?;
-    let mut index = 0.0;
-    while index < length {
-        let key = vm.index_key(index);
-        let mut value = vm.get_key(source, key)?;
-        if mapping {
-            value = vm.call_value(&mapper, &this_arg, &[value, Value::Number(index)])?;
+    vm.rooted(&[object_value(array), object_value(source)], |vm| {
+        let mut since_check = 0;
+        let mut index = 0.0;
+        while index < length {
+            let key = vm.index_key(index);
+            let mut value = vm.get_key(source, key)?;
+            if mapping {
+                value = vm.call_value(&mapper, &this_arg, &[value, Value::Number(index)])?;
+            }
+            vm.create_data_or_throw(array, key, value)?;
+            index += 1.0;
+            vm.heap_tick(&mut since_check, 0)?;
         }
-        vm.create_data_or_throw(array, key, value)?;
-        index += 1.0;
-    }
-    vm.set_length(array, length)?;
-    Ok(object_value(array))
+        vm.set_length(array, length)?;
+        Ok(object_value(array))
+    })
 }
 
 /// `keys`/`values`/`entries` on `Array.prototype`.

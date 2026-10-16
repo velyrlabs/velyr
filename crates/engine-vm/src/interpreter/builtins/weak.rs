@@ -25,12 +25,12 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
 }
 
 /// A weakly holdable key: an object or a non-registered symbol.
-enum WeakKey {
+pub(super) enum WeakKey {
     Object(velyr_engine_gc::GcRef),
     Symbol(crate::SymbolId),
 }
 
-fn weak_key(vm: &Interpreter, value: &Value) -> Option<WeakKey> {
+pub(super) fn weak_key(vm: &Interpreter, value: &Value) -> Option<WeakKey> {
     match value {
         Value::Object(r) => Some(WeakKey::Object(*r)),
         Value::Symbol(s) if vm.can_be_held_weakly(*s) => Some(WeakKey::Symbol(*s)),

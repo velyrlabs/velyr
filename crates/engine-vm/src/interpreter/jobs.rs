@@ -21,10 +21,14 @@ pub(crate) struct JobQueue {
     /// Resolving functions of embedder promises, by resolver id, until settled.
     resolvers: HashMap<u64, [Value; 2]>,
     next_resolver: u64,
+    /// The continuation context of the running code: captured by every reaction when it is
+    /// registered and restored while its job runs (`AsyncLocalStorage` builds on it).
+    pub(crate) continuation: Value,
 }
 
 impl Trace for JobQueue {
     fn trace(&self, tracer: &mut Tracer) {
+        self.continuation.trace(tracer);
         for job in self.pending.iter().chain(&self.running) {
             job.trace(tracer);
         }
@@ -67,11 +71,24 @@ impl Interpreter {
     /// the drain and leave the remaining jobs queued.
     pub fn perform_microtask_checkpoint(&mut self) -> Result<bool, Abrupt> {
         let mut ran = false;
-        while let Some(job) = self.state.jobs.pending.pop_front() {
+        loop {
+            // ClearKeptObjects: the script or job that kept WeakRef targets has ended.
+            self.state.kept.clear();
+            let Some(job) = self.state.jobs.pending.pop_front() else {
+                // Cleanup callbacks run once the queue is empty and may queue more jobs.
+                if !self.run_finalizers()? {
+                    return Ok(ran);
+                }
+                ran = true;
+                continue;
+            };
             ran = true;
             self.state.jobs.running.push(job.clone());
             let mark = self.state.scratch.len();
+            let previous = std::mem::replace(&mut self.state.jobs.continuation, job.context());
+            self.state.scratch.push(previous.clone());
             let result = self.run_job(job);
+            self.state.jobs.continuation = previous;
             self.state.scratch.truncate(mark);
             self.state.jobs.running.pop();
             match result {
@@ -79,7 +96,6 @@ impl Interpreter {
                 Err(abrupt) => return Err(abrupt),
             }
         }
-        Ok(ran)
     }
 
     /// A pending `%Promise%` and the id that settles it (`settle_promise`). The promise is
@@ -113,6 +129,17 @@ impl Interpreter {
         let result = self.call_value(&function, &Value::Undefined, std::slice::from_ref(value));
         self.state.scratch.truncate(mark);
         result.map(drop)
+    }
+
+    /// Sets the continuation context: reactions registered from now on capture it and see
+    /// it again while their jobs run.
+    pub fn set_continuation_context(&mut self, value: Value) {
+        self.state.jobs.continuation = value;
+    }
+
+    /// The continuation context of the code running now; `undefined` when unset.
+    pub fn continuation_context(&self) -> Value {
+        self.state.jobs.continuation.clone()
     }
 
     /// `None` when `value` is not a promise.

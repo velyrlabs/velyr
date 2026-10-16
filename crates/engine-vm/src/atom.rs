@@ -2,16 +2,30 @@
 
 use std::collections::HashMap;
 
+use velyr_engine_gc::external::{Charge, Kind};
+
 use crate::string::JsStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Atom(u32);
 
 /// Atoms are only meaningful for the interner that produced them.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Interner {
     atoms: HashMap<JsStr, Atom>,
     names: Vec<JsStr>,
+    /// Both tables by capacity, as `Kind::Interner` (the names are charged as strings).
+    charge: Charge,
+}
+
+impl Default for Interner {
+    fn default() -> Self {
+        Self {
+            atoms: HashMap::new(),
+            names: Vec::new(),
+            charge: Charge::new(Kind::Interner, 0),
+        }
+    }
 }
 
 impl Interner {
@@ -20,8 +34,15 @@ impl Interner {
             return *atom;
         }
         let atom = Atom(u32::try_from(self.names.len()).expect("atom table overflow"));
+        let capacities = (self.names.capacity(), self.atoms.capacity());
         self.names.push(name.clone());
         self.atoms.insert(name.clone(), atom);
+        if capacities != (self.names.capacity(), self.atoms.capacity()) {
+            self.charge.set(
+                self.names.capacity() * size_of::<JsStr>()
+                    + self.atoms.capacity() * (size_of::<(JsStr, Atom)>() + 1),
+            );
+        }
         atom
     }
 

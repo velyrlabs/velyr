@@ -172,7 +172,16 @@ impl Interpreter {
             return self.throw_type("CreateListFromArrayLike called on non-object");
         };
         let length = self.length_of(object)?;
+        // The list lives outside the GC heap, so its size is checked here, up front.
+        let max = self
+            .realm
+            .heap
+            .hard_limit()
+            .map_or(u32::MAX as usize, |bytes| bytes / size_of::<Value>());
         let mut list = Vec::new();
+        if length > max as f64 || list.try_reserve_exact(length as usize).is_err() {
+            return self.throw_range("Too many elements in array-like object");
+        }
         let mut index = 0.0;
         while index < length {
             let key = self.index_key(index);

@@ -6,13 +6,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use velyr_engine_api::JsBigInt;
-use velyr_engine_gc::{Liveness, Trace, Tracer, WeakMap};
+use velyr_engine_gc::{Gc, Liveness, Trace, Tracer, WeakMap};
 
 use super::collections::OrderedTable;
 use super::promise_ops::{Captures, PromiseCell};
 use super::regexp::RegExpData;
 use super::typed_arrays::TypedArray;
 use super::typed_arrays::store::{Store, View};
+use super::weak_ref::{RegistryCell, WeakTarget};
 use crate::interpreter::generator::GeneratorCell;
 use crate::{JsStr, ObjectRef, SymbolId, Value};
 
@@ -96,6 +97,8 @@ pub(crate) enum Slot {
     ArrayBuffer(Store),
     TypedArray(Rc<TypedArray>),
     DataView(Rc<View>),
+    WeakRef(WeakTarget),
+    FinalizationRegistry(Gc<RegistryCell>),
 }
 
 impl Trace for Slot {
@@ -127,6 +130,10 @@ impl Trace for Slot {
             Slot::AsyncFromSyncIterator(pair) => pair.as_slice().trace(tracer),
             Slot::TypedArray(array) => array.view.buffer.trace(tracer),
             Slot::DataView(view) => view.buffer.trace(tracer),
+            // The cells are the GC-visible state: marking them keeps them live (so the
+            // collector clears their dead targets) without marking the targets.
+            Slot::WeakRef(WeakTarget::Object(cell)) => cell.trace(tracer),
+            Slot::FinalizationRegistry(cell) => cell.trace(tracer),
             _ => {}
         }
     }

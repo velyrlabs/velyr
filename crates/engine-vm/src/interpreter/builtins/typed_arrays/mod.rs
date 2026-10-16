@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use super::abstract_ops::MAX_SAFE_INTEGER;
 use super::slots::Slot;
-use super::{Interpreter, JsResult};
+use super::{Interpreter, Intrinsic, JsResult, object_value};
 use crate::{ObjectRef, Value};
 pub(crate) use elements::ElementKind;
 use store::{Block, LocalBuffer, SharedBuffer, Store, View};
@@ -87,6 +87,35 @@ impl Interpreter {
         };
         let array = TypedArray { kind, view };
         self.new_slotted(proto, Slot::TypedArray(Rc::new(array)))
+    }
+
+    /// A new ArrayBuffer holding a copy of `bytes`, charged to the heap budget.
+    pub fn create_array_buffer(&mut self, bytes: &[u8]) -> JsResult<Value> {
+        let proto = self.intrinsic(Intrinsic::ArrayBufferPrototype);
+        let buffer = self.create_buffer(proto, bytes.len(), None, false)?;
+        let value = object_value(buffer);
+        if let Some(store) = self.buffer_store(&value) {
+            store.with_bytes(|target| target.copy_from_slice(bytes));
+        }
+        Ok(value)
+    }
+
+    /// Runs `f` on the bytes an ArrayBuffer, SharedArrayBuffer, TypedArray or DataView
+    /// covers, without copying; `None` for other values and detached or out-of-bounds views.
+    pub fn with_buffer_bytes<R>(&self, value: &Value, f: impl FnOnce(&[u8]) -> R) -> Option<R> {
+        let (store, offset, len) = match self.value_slot(value)? {
+            Slot::ArrayBuffer(store) if !store.is_detached() => {
+                let len = store.byte_length();
+                (store, 0, len)
+            }
+            Slot::TypedArray(array) => {
+                let len = array.length()? * array.kind.size();
+                (array.view.store.clone(), array.view.byte_offset, len)
+            }
+            Slot::DataView(view) => (view.store.clone(), view.byte_offset, view.length(1)?),
+            _ => return None,
+        };
+        Some(store.with_bytes(|bytes| f(&bytes[offset..offset + len])))
     }
 
     /// `[[ArrayBufferData]]` of an ArrayBuffer or SharedArrayBuffer.

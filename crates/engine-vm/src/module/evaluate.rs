@@ -1,31 +1,68 @@
 //! Module evaluation (Evaluate(), with top-level await) and dynamic `import()`.
 //!
 //! Every module of the graph gets its evaluation promise up front; the modules then run in
-//! post-order. A module waits for the promises of its dependencies (except back-edges of a
-//! cycle, which are still running) and, with top-level await, for its body's promise. A
+//! post-order. A module runs once the evaluation promises of its dependencies (except
+//! back-edges of a cycle, which are still running) are fulfilled; until then it is skipped
+//! and later modules that do not depend on it run, so independent top-level awaits overlap
+//! as in the spec. A body that awaits settles its module's promise when it finishes. A
 //! graph without top-level await settles synchronously.
-//! shortcut: independent async modules run one after the other instead of concurrently,
-//! and a failure does not stop unrelated modules later in the order; upgrade to the
-//! spec's [[AsyncParentModules]] bookkeeping if that ordering becomes observable.
+//! shortcut: a failure rejects only the modules that depend on it; unrelated modules still
+//! run (the spec stops the whole cycle root), upgrade if that becomes observable.
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use super::{Interpreter, JsResult, ModuleId};
 use crate::Value;
 use crate::interpreter::builtins::promise_ops::Capability;
+use crate::interpreter::builtins::slots::IterationKind;
 use crate::interpreter::builtins::{Intrinsic, arg};
 use crate::interpreter::function::NativeFn;
 use crate::interpreter::{Abrupt, ErrorKind, PromiseStatus, object_value};
 
-/// The modules one `evaluate_module` call runs, in order, and the next one to run.
+/// The modules one `evaluate_module` call runs, in post-order: a dependency later in the
+/// order is still on the DFS stack (a back-edge of a cycle) and is never waited for.
 struct Runner {
     order: Vec<usize>,
-    next: usize,
+    position: HashMap<usize, usize>,
+    started: Vec<bool>,
+    /// The last module of each module's cycle (itself outside a cycle).
+    cycle_root: HashMap<usize, usize>,
+    /// Pending dependencies whose settlement already resumes this runner.
+    watched: HashSet<usize>,
+}
+
+impl Runner {
+    /// What `module` waits for to use `dep`: a dependency in another cycle counts as done
+    /// only when its whole cycle is (InnerModuleEvaluation step 11.c.iv).
+    fn wait_target(&self, module: usize, dep: usize) -> usize {
+        match self.cycle_root.get(&dep) {
+            Some(&root) if self.cycle_root.get(&module) != Some(&root) => root,
+            _ => dep,
+        }
+    }
+}
+
+/// Tarjan's DFS over the unevaluated modules: the post-order and each module's cycle root.
+#[derive(Default)]
+struct Traversal {
+    dfs_index: HashMap<usize, usize>,
+    stack: Vec<usize>,
+    order: Vec<usize>,
+    cycle_root: HashMap<usize, usize>,
 }
 
 type RunnerCell = Rc<RefCell<Runner>>;
+
+/// Called with a promise's outcome once it settles.
+type Settled = Rc<dyn Fn(&mut Interpreter, Result<(), Value>) -> JsResult<()>>;
+
+enum Readiness {
+    Ready,
+    Blocked,
+    Failed(Value),
+}
 
 impl Interpreter {
     /// Evaluate(): the promise settles once `id` and its dependencies ran.
@@ -36,8 +73,11 @@ impl Interpreter {
         if !matches!(self.state.modules[id.0].evaluation, Value::Undefined) {
             return Ok(self.state.modules[id.0].evaluation.clone());
         }
-        let mut order = Vec::new();
-        self.collect_unevaluated(id.0, &mut HashSet::new(), &mut order);
+        let mut traversal = Traversal::default();
+        self.collect_unevaluated(id.0, &mut traversal);
+        let Traversal {
+            order, cycle_root, ..
+        } = traversal;
         self.scoped(|vm| {
             for &module in &order {
                 let proto = vm.intrinsic(Intrinsic::PromisePrototype);
@@ -46,7 +86,13 @@ impl Interpreter {
                 record.borrow_mut().is_handled = true;
                 vm.state.modules[module].evaluation = promise;
             }
-            let runner = Rc::new(RefCell::new(Runner { order, next: 0 }));
+            let runner = Rc::new(RefCell::new(Runner {
+                position: order.iter().enumerate().map(|(i, &m)| (m, i)).collect(),
+                started: vec![false; order.len()],
+                order,
+                cycle_root,
+                watched: HashSet::new(),
+            }));
             vm.run_evaluation(&runner)
         })?;
         Ok(self.state.modules[id.0].evaluation.clone())
@@ -83,13 +129,13 @@ impl Interpreter {
     }
 
     /// `DynamicImport`: hands the request to the host hook; failures reject the promise.
-    pub(super) fn dynamic_import(&mut self) -> JsResult<()> {
+    pub(super) fn dynamic_import(&mut self, options: &Value) -> JsResult<()> {
         let specifier = self.state.acc.clone();
         let (promise, resolver) = self.create_promise()?;
         self.keep(&promise);
         let referrer = self.top().info.code.script.as_ref();
         let referrer = referrer.map_or_else(String::new, |script| script.name.clone());
-        match self.request_import(&specifier, &referrer, resolver) {
+        match self.request_import(&specifier, options, &referrer, resolver) {
             Err(Abrupt::Throw(error)) => self.settle_promise(resolver, &error, true)?,
             result => result?,
         }
@@ -97,8 +143,15 @@ impl Interpreter {
         Ok(())
     }
 
-    fn request_import(&mut self, specifier: &Value, referrer: &str, resolver: u64) -> JsResult<()> {
+    fn request_import(
+        &mut self,
+        specifier: &Value,
+        options: &Value,
+        referrer: &str,
+        resolver: u64,
+    ) -> JsResult<()> {
         let specifier = self.coerce_string(specifier)?;
+        self.check_import_options(options)?;
         let Some(hook) = self.import_hook.clone() else {
             let message = "VELYR_UNSUPPORTED: dynamic import() is not supported by this host";
             return Err(self.error(ErrorKind::Error, message));
@@ -111,69 +164,166 @@ impl Interpreter {
         hook(self, &Value::Undefined, &args).map(drop)
     }
 
-    /// Post-order of the modules reachable from `module` that have not started evaluating.
-    fn collect_unevaluated(
-        &self,
-        module: usize,
-        seen: &mut HashSet<usize>,
-        order: &mut Vec<usize>,
-    ) {
-        let record = &self.state.modules[module];
-        if !matches!(record.evaluation, Value::Undefined) || !seen.insert(module) {
-            return;
+    /// EvaluateImportCall: `options.with` must map keys to strings, and no import attribute
+    /// is supported (this host loads JavaScript modules only).
+    fn check_import_options(&mut self, options: &Value) -> JsResult<()> {
+        if matches!(options, Value::Undefined) {
+            return Ok(());
         }
-        for &dep in record.deps.as_deref().unwrap_or_default() {
-            self.collect_unevaluated(dep, seen, order);
+        let Some(options) = self.as_object(options) else {
+            let message = "The second argument of import() must be an object";
+            return Err(self.error(ErrorKind::Type, message));
+        };
+        let attributes = self.get_named(options, "with")?;
+        if matches!(attributes, Value::Undefined) {
+            return Ok(());
         }
-        order.push(module);
+        let Some(attributes) = self.as_object(&attributes) else {
+            let message = "The 'with' option of import() must be an object";
+            return Err(self.error(ErrorKind::Type, message));
+        };
+        let mut unsupported = None;
+        for key in self.enumerable_own(attributes, IterationKind::Keys)? {
+            let object_key = self.object_key(&key)?;
+            let Value::String(value) = self.get_key(attributes, object_key)? else {
+                let message = "Import attribute values must be strings";
+                return Err(self.error(ErrorKind::Type, message));
+            };
+            unsupported.get_or_insert((key, value));
+        }
+        let Some((Value::String(key), value)) = unsupported else {
+            return Ok(());
+        };
+        let message = format!(
+            "Import attribute {}: \"{}\" is not supported; only JavaScript modules can be imported",
+            key.to_string_lossy(),
+            value.to_string_lossy()
+        );
+        Err(self.error(ErrorKind::Syntax, &message))
     }
 
-    /// Runs modules until the order is done or one has to wait for a promise.
-    fn run_evaluation(&mut self, runner: &RunnerCell) -> JsResult<()> {
-        loop {
-            let (module, running) = {
-                let runner = runner.borrow();
-                match runner.order.get(runner.next) {
-                    Some(&module) => (module, runner.order[runner.next..].to_vec()),
-                    None => return Ok(()),
+    /// Visits the modules reachable from `module` that have not started evaluating; returns
+    /// the lowest DFS index `module` reaches (its cycle's root index).
+    fn collect_unevaluated(&self, module: usize, traversal: &mut Traversal) -> usize {
+        let index = traversal.dfs_index.len();
+        traversal.dfs_index.insert(module, index);
+        traversal.stack.push(module);
+        let mut low = index;
+        let record = &self.state.modules[module];
+        for &dep in record.deps.as_deref().unwrap_or_default() {
+            if !matches!(self.state.modules[dep].evaluation, Value::Undefined) {
+                continue;
+            }
+            match traversal.dfs_index.get(&dep) {
+                None => low = low.min(self.collect_unevaluated(dep, traversal)),
+                // Still on the stack: a back-edge into the current cycle.
+                Some(&dep_index) if !traversal.cycle_root.contains_key(&dep) => {
+                    low = low.min(dep_index);
                 }
-            };
-            let deps = self.state.modules[module].deps.clone().unwrap_or_default();
-            let mut failure = None;
-            for dep in deps.into_iter().filter(|dep| !running.contains(dep)) {
-                let evaluation = self.state.modules[dep].evaluation.clone();
-                match self.promise_status(&evaluation) {
-                    Some(PromiseStatus::Pending) => {
-                        return self.wait_for(&evaluation, runner, None);
-                    }
-                    Some(PromiseStatus::Rejected(reason)) => {
-                        failure = Some(reason);
-                        break;
-                    }
-                    _ => {}
+                Some(_) => {}
+            }
+        }
+        traversal.order.push(module);
+        if low == index {
+            while let Some(member) = traversal.stack.pop() {
+                traversal.cycle_root.insert(member, module);
+                if member == module {
+                    break;
                 }
             }
-            let outcome = match failure {
-                Some(reason) => Err(reason),
-                None => {
-                    let body = self.state.modules[module].code.body.clone();
-                    let is_async = self.code_info(&body).coroutine.is_some();
-                    match self.run_module_code(module, &body) {
-                        Ok(promise) if is_async => match self.promise_status(&promise) {
-                            Some(PromiseStatus::Pending) => {
-                                return self.wait_for(&promise, runner, Some(module));
-                            }
-                            Some(PromiseStatus::Rejected(reason)) => Err(reason),
-                            _ => Ok(()),
-                        },
-                        Ok(_) => Ok(()),
-                        Err(Abrupt::Throw(error)) => Err(error),
-                        Err(abrupt) => return Err(abrupt),
+        }
+        low
+    }
+
+    /// Runs, in order, every module not started yet whose dependencies are done; the rest
+    /// run when the dependency they wait for settles.
+    fn run_evaluation(&mut self, runner: &RunnerCell) -> JsResult<()> {
+        let count = runner.borrow().order.len();
+        for index in 0..count {
+            let (module, started) = {
+                let runner = runner.borrow();
+                (runner.order[index], runner.started[index])
+            };
+            if started {
+                continue;
+            }
+            let outcome = match self.readiness(runner, index, module)? {
+                Readiness::Blocked => continue,
+                Readiness::Failed(reason) => Err(reason),
+                Readiness::Ready => {
+                    runner.borrow_mut().started[index] = true;
+                    match self.execute_module(module)? {
+                        Some(outcome) => outcome,
+                        None => continue,
                     }
                 }
             };
+            runner.borrow_mut().started[index] = true;
             self.finish_module(module, outcome);
-            runner.borrow_mut().next += 1;
+        }
+        Ok(())
+    }
+
+    /// Whether `module` (at `index` of the order) can run; a pending dependency resumes the
+    /// runner when it settles.
+    fn readiness(
+        &mut self,
+        runner: &RunnerCell,
+        index: usize,
+        module: usize,
+    ) -> JsResult<Readiness> {
+        let deps = self.state.modules[module].deps.clone().unwrap_or_default();
+        for dep in deps {
+            let dep = runner.borrow().wait_target(module, dep);
+            let position = runner.borrow().position.get(&dep).copied();
+            match position {
+                Some(position) if position >= index => continue,
+                Some(position) if !runner.borrow().started[position] => {
+                    return Ok(Readiness::Blocked);
+                }
+                _ => {}
+            }
+            let evaluation = self.state.modules[dep].evaluation.clone();
+            match self.promise_status(&evaluation) {
+                Some(PromiseStatus::Pending) => {
+                    if runner.borrow_mut().watched.insert(dep) {
+                        let runner = runner.clone();
+                        let resume: Settled = Rc::new(move |vm, _| {
+                            runner.borrow_mut().watched.remove(&dep);
+                            vm.run_evaluation(&runner)
+                        });
+                        self.on_settled(&evaluation, resume)?;
+                    }
+                    return Ok(Readiness::Blocked);
+                }
+                Some(PromiseStatus::Rejected(reason)) => return Ok(Readiness::Failed(reason)),
+                _ => {}
+            }
+        }
+        Ok(Readiness::Ready)
+    }
+
+    /// Runs the body of `module`: its outcome, or `None` while a top-level await is pending
+    /// (the module is finished when the body's promise settles).
+    fn execute_module(&mut self, module: usize) -> JsResult<Option<Result<(), Value>>> {
+        let body = self.state.modules[module].code.body.clone();
+        let is_async = self.code_info(&body).coroutine.is_some();
+        match self.run_module_code(module, &body) {
+            Ok(promise) if is_async => match self.promise_status(&promise) {
+                Some(PromiseStatus::Pending) => {
+                    let finish: Settled = Rc::new(move |vm, outcome| {
+                        vm.finish_module(module, outcome);
+                        Ok(())
+                    });
+                    self.on_settled(&promise, finish)?;
+                    Ok(None)
+                }
+                Some(PromiseStatus::Rejected(reason)) => Ok(Some(Err(reason))),
+                _ => Ok(Some(Ok(()))),
+            },
+            Ok(_) => Ok(Some(Ok(()))),
+            Err(Abrupt::Throw(error)) => Ok(Some(Err(error))),
+            Err(abrupt) => Err(abrupt),
         }
     }
 
@@ -186,29 +336,19 @@ impl Interpreter {
         }
     }
 
-    /// Continues the runner once `promise` settles; `module` is the module whose body
-    /// returned it (settled with the outcome), `None` for a dependency.
-    fn wait_for(
-        &mut self,
-        promise: &Value,
-        runner: &RunnerCell,
-        module: Option<usize>,
-    ) -> JsResult<()> {
+    /// Calls `then` with the outcome of `promise` once it settles.
+    fn on_settled(&mut self, promise: &Value, then: Settled) -> JsResult<()> {
         let record = self.promise_record(promise).expect("a promise");
         let mut reactions = [Value::Undefined, Value::Undefined];
         for (rejects, reaction) in reactions.iter_mut().enumerate() {
-            let runner = runner.clone();
+            let then = then.clone();
             let call: NativeFn = Rc::new(move |vm, _, args| {
-                if let Some(module) = module {
-                    let outcome = if rejects == 1 {
-                        Err(arg(args, 0))
-                    } else {
-                        Ok(())
-                    };
-                    vm.finish_module(module, outcome);
-                    runner.borrow_mut().next += 1;
-                }
-                vm.run_evaluation(&runner).map(|()| Value::Undefined)
+                let outcome = if rejects == 1 {
+                    Err(arg(args, 0))
+                } else {
+                    Ok(())
+                };
+                then(vm, outcome).map(|()| Value::Undefined)
             });
             *reaction = object_value(self.create_native_function("", 1, call, false)?);
             self.keep(reaction);
