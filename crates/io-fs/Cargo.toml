@@ -11,6 +11,8 @@ velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+notify = "8"
+notify-debouncer-full = "0.5"
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -20,6 +22,7 @@ velyr-engine-v8 = { path = "../engine-v8" }
 velyr-runtime-core = { path = "../runtime-core" }
 velyr-web-core = { path = "../web-core" }
 tempfile = "3"
+tokio-util.workspace = true
 
 [lints]
 workspace = true

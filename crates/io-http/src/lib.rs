@@ -5,6 +5,8 @@
 
 mod body;
 mod client;
+#[cfg(feature = "http3")]
+pub mod h3;
 mod metrics;
 mod quota;
 mod server;

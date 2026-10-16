@@ -117,8 +117,11 @@
         try {
           accepted = await this.#inner.next();
         } catch (error) {
-          this.#deliver({ error });
-          return this.#end();
+          // An accept error (sockets quota, EMFILE, ECONNABORTED) does not end the listener: report it
+          // and park the loop; the next next() resumes accepting, so a persistent failure cannot spin.
+          if (this.#closed) return this.#end();
+          this.#started = false;
+          return this.#deliver({ error });
         }
         if (accepted.done) return this.#end();
         upgrade(accepted.value, (id) => op.accept_finish(id, this.#configId, this.#timeout)).then(

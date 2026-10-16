@@ -4,6 +4,9 @@
 
 mod ops;
 pub mod sync_ops;
+mod watch;
+
+pub use watch::{FsEvent, FsWatcher};
 
 use velyr_engine_api::{HostFunctionDef, Isolate, JsException, Source};
 use velyr_runtime_ops::CapabilityKind;
@@ -13,7 +16,7 @@ pub const FS_JS: &str = include_str!("fs.js");
 
 /// The fs ops with the capability each declares, for the registry audit.
 pub fn fs_ops() -> Vec<(HostFunctionDef, CapabilityKind)> {
-    ops::OPS.to_vec()
+    ops::OPS.into_iter().chain(watch::OPS).collect()
 }
 
 pub fn fs_host_functions() -> Vec<HostFunctionDef> {

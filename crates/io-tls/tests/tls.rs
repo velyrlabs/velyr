@@ -107,6 +107,10 @@ fn localhost_resolver() -> Resolver {
 }
 
 fn run(setup: Setup, body: &str) -> Vec<String> {
+    run_with(setup, QuotaConfig::default(), body)
+}
+
+fn run_with(setup: Setup, quotas: QuotaConfig, body: &str) -> Vec<String> {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     LOG.lock().unwrap().clear();
     let script = format!(
@@ -125,7 +129,6 @@ fn run(setup: Setup, body: &str) -> Vec<String> {
         builder = builder.allow(Capability::NetListen(AddrPattern::new(*addr), ALL_PORTS));
     }
     let permissions = builder.build();
-    let quotas = QuotaConfig::default();
     let mut functions = OpRegistry::builtin().host_functions().to_vec();
     functions.extend(timer_host_functions());
     functions.extend(encoding_host_functions());
@@ -377,4 +380,86 @@ fn listen_tls_drops_a_slow_client_without_blocking_accept() {
         ),
     );
     assert_eq!(log, ["fast"]);
+}
+
+#[test]
+fn listen_tls_keeps_accepting_after_the_sockets_quota_refuses_a_connection() {
+    let cert = self_signed();
+    let body = format!(
+        "const cert = {};
+         const key = {};
+         const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+         const l = await Velyr.listenTls({{ hostname: '127.0.0.1', port: 0, cert, key }});
+         let sawError = false;
+         const server = (async () => {{
+           for (;;) {{
+             try {{
+               const r = await l.next();
+               if (r.done) return;
+               const buf = new Uint8Array(16);
+               const n = await r.value.read(buf);
+               await r.value.write(buf.subarray(0, n));
+               r.value.close();
+               return;
+             }} catch (e) {{ if (!sawError) record('accept error ' + e.code); sawError = true; }}
+           }}
+         }})();
+         const hold = await Velyr.connect({{ hostname: '127.0.0.1', port: l.addr.port }});
+         await sleep(100);
+         try {{ await Velyr.connectTls({{ hostname: 'localhost', port: l.addr.port, caCerts: [cert] }}); record('refused client connected'); }}
+         catch (e) {{ record('refused client failed'); }}
+         hold.close();
+         for (let attempt = 0; attempt < 100; attempt++) {{
+           try {{
+             const c = await Velyr.connectTls({{ hostname: 'localhost', port: l.addr.port, caCerts: [cert] }});
+             await c.write(new TextEncoder().encode('again'));
+             const buf = new Uint8Array(16);
+             record(new TextDecoder().decode(buf.subarray(0, await c.read(buf))));
+             c.close();
+             break;
+           }} catch (e) {{ await sleep(20); }}
+         }}
+         await server;
+         l.close();",
+        js_str(&cert.cert_pem),
+        js_str(&cert.key_pem)
+    );
+    let setup = Setup {
+        connect: vec!["localhost", "127.0.0.1"],
+        listen: vec!["127.0.0.1"],
+    };
+    // The held client and its accepted side take two sockets and the new client a third, so the
+    // accept of the new client's connection is refused. A regression leaves the server dead, so
+    // bound the wait.
+    let quotas = QuotaConfig {
+        sockets: Some(3),
+        ..QuotaConfig::default()
+    };
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap();
+    let finished = runtime.block_on(async {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(20),
+            tokio::task::spawn_blocking(move || run_with(setup, quotas, &body)),
+        )
+        .await
+    });
+    // Dropping the runtime would wait for the stuck script thread, so abandon it.
+    runtime.shutdown_background();
+    let log = finished
+        .unwrap_or_else(|_| {
+            let seen = LOG.lock().unwrap().clone();
+            panic!("the server stopped accepting after the quota error; log so far: {seen:?}")
+        })
+        .unwrap();
+    assert_eq!(
+        log,
+        [
+            "accept error VELYR_QUOTA_EXCEEDED",
+            "refused client failed",
+            "again"
+        ]
+    );
 }

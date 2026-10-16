@@ -93,7 +93,16 @@ fn authorized_path(
     let Some(Value::String(raw)) = args.first() else {
         return Err(HostError::TypeError(format!("{op} expects a path string")));
     };
-    let raw = raw.to_string_lossy();
+    authorized_raw(ctx, op, &raw.to_string_lossy(), for_write)
+}
+
+/// [`authorized_path`] for a path that is already a Rust string.
+pub(crate) fn authorized_raw(
+    ctx: &mut dyn CallContext,
+    op: &'static str,
+    raw: &str,
+    for_write: bool,
+) -> Result<PathBuf, HostError> {
     let request = |path| {
         if for_write {
             Request::FsWrite(path)
@@ -101,10 +110,10 @@ fn authorized_path(
             Request::FsRead(path)
         }
     };
-    let canonical = match canonicalize(&raw, for_write) {
+    let canonical = match canonicalize(raw, for_write) {
         Ok(canonical) => canonical,
         Err(err) => {
-            authorize(ctx, op, request(&raw))?;
+            authorize(ctx, op, request(raw))?;
             return Err(err.into());
         }
     };
