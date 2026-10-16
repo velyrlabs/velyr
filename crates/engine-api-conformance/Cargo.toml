@@ -1,0 +1,12 @@
+[package]
+name = "velyr-engine-api-conformance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+
+[lints]
+workspace = true

@@ -1,0 +1,28 @@
+[package]
+name = "velyr-engine-vm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-gc = { path = "../engine-gc" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+ryu-js = "1.0"
+unicode-normalization = "=0.1.25"
+# ECMAScript regex engine (VELYR-112); `utf16` matches JS strings without transcoding.
+# Vendored 0.12.0 with an interrupt hook and anchored sticky search (VELYR-158, see
+# docs/research/regexp-redos.md).
+regress = { path = "vendor/regress", version = "=0.12.0", default-features = false, features = ["std", "utf16"] }
+# BigInt arithmetic (VELYR-113); values stay `JsBigInt`, converted per operation.
+num-bigint = "0.4"
+num-traits = "0.2"
+
+[dev-dependencies]
+# Integration tests compile JS with the engine-native bytecode compiler (dev-only cycle).
+velyr-engine-native = { path = "../engine-native" }
+
+# On the unsafe allowlist (unsafe-allowlist.txt) for the interpreter to come; nothing here
+# needs unsafe yet, so the crate keeps the workspace `forbid` until it does.
+[lints]
+workspace = true

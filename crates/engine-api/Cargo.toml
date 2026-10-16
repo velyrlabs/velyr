@@ -1,0 +1,11 @@
+[package]
+name = "velyr-engine-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+
+[lints]
+workspace = true

@@ -1,0 +1,74 @@
+== "" Script sloppy params=0 length=0 registers=3
+   0: CreateObject
+   1: Star(r1)
+   2: LdaGlobal(c0)
+   3: DefineNamedOwn { object: r1, name: c0 }
+   4: LdaSmi(1)
+   5: DefineNamedOwn { object: r1, name: c1 }
+   6: LdaGlobal(c2)
+   7: ToPropertyKey
+   8: Star(r2)
+   9: LdaSmi(2)
+  10: DefineKeyedOwn { object: r1, key: r2, set_function_name: false }
+  11: LdaConstant(c3)
+  12: Star(r2)
+  13: CreateClosure(c4)
+  14: DefineGetter { object: r1, key: r2 }
+  15: LdaConstant(c3)
+  16: Star(r2)
+  17: CreateClosure(c5)
+  18: DefineSetter { object: r1, key: r2 }
+  19: CreateClosure(c6)
+  20: DefineNamedOwn { object: r1, name: c7 }
+  21: LdaGlobal(c8)
+  22: CopyDataProperties { target: r1, excluded: [] }
+  23: LdaNull
+  24: SetLiteralPrototype { object: r1 }
+  25: LdaSmi(3)
+  26: DefineNamedOwn { object: r1, name: c9 }
+  27: Ldar(r1)
+  28: StaGlobal(c10)
+  29: Star(r0)
+  30: CreateArray
+  31: Star(r1)
+  32: LdaSmi(1)
+  33: ArrayPush { array: r1 }
+  34: ArrayPushHole { array: r1 }
+  35: LdaGlobal(c11)
+  36: SpreadIntoArray { array: r1 }
+  37: Ldar(r1)
+  38: StaGlobal(c12)
+  39: Star(r0)
+  40: CreateRegExp { pattern: c13, flags: c14 }
+  41: Star(r0)
+  42: LdaConstant(c15)
+  43: Star(r0)
+  44: Ldar(r0)
+  45: Return
+c0: "a"
+c1: "b"
+c2: "k"
+c3: "g"
+c4: function ""
+c5: function ""
+c6: function "m"
+c7: "m"
+c8: "o"
+c9: "1.5"
+c10: "x"
+c11: "z"
+c12: "y"
+c13: "re"
+c14: "gi"
+c15: 10n
+== "" Getter sloppy params=0 length=0 registers=0
+   0: LdaSmi(1)
+   1: Return
+   2: LdaUndefined
+   3: Return
+== "" Setter sloppy params=1 length=1 registers=1
+   0: LdaUndefined
+   1: Return
+== "m" Method sloppy params=0 length=0 registers=0
+   0: LdaUndefined
+   1: Return

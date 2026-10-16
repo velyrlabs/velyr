@@ -1,0 +1,137 @@
+== "" Script sloppy params=0 length=0 registers=4
+   0: LdaGlobal(c0)
+   1: JumpIfNotNullish(@3)
+   2: LdaGlobal(c1)
+   3: Star(r0)
+   4: LdaGlobal(c0)
+   5: JumpIfNullish(@11)
+   6: Star(r1)
+   7: GetNamed { object: r1, name: c1 }
+   8: Star(r1)
+   9: GetNamed { object: r1, name: c2 }
+  10: Jump(@12)
+  11: LdaUndefined
+  12: Star(r0)
+  13: LdaGlobal(c0)
+  14: JumpIfNullish(@23)
+  15: Star(r1)
+  16: LdaGlobal(c3)
+  17: GetKeyed { object: r1 }
+  18: Star(r2)
+  19: LdaSmi(1)
+  20: Star(r3)
+  21: Call { callee: r2, this: r1, args: [r3] }
+  22: Jump(@24)
+  23: LdaUndefined
+  24: Star(r0)
+  25: LdaGlobal(c0)
+  26: Star(r1)
+  27: LdaSmi(2)
+  28: Exp(r1)
+  29: Star(r0)
+  30: LdaGlobal(c4)
+  31: JumpIfTrue(@34)
+  32: LdaSmi(1)
+  33: StaGlobal(c4)
+  34: Star(r0)
+  35: LdaGlobal(c5)
+  36: Star(r1)
+  37: GetNamed { object: r1, name: c6 }
+  38: JumpIfFalse(@41)
+  39: LdaSmi(2)
+  40: SetNamed { object: r1, name: c6 }
+  41: Star(r0)
+  42: LdaGlobal(c5)
+  43: Star(r1)
+  44: LdaGlobal(c3)
+  45: ToPropertyKey
+  46: Star(r2)
+  47: Ldar(r2)
+  48: GetKeyed { object: r1 }
+  49: JumpIfNotNullish(@52)
+  50: LdaSmi(3)
+  51: SetKeyed { object: r1, key: r2 }
+  52: Star(r0)
+  53: LdaGlobalInsideTypeof(c7)
+  54: TypeOf
+  55: Star(r0)
+  56: LdaGlobal(c0)
+  57: Star(r1)
+  58: GetNamed { object: r1, name: c1 }
+  59: TypeOf
+  60: Star(r0)
+  61: LdaGlobal(c5)
+  62: Star(r1)
+  63: LdaConstant(c6)
+  64: DeleteProperty { object: r1 }
+  65: Star(r0)
+  66: LdaGlobal(c5)
+  67: Star(r1)
+  68: LdaGlobal(c3)
+  69: DeleteProperty { object: r1 }
+  70: Star(r0)
+  71: LdaGlobal(c3)
+  72: Star(r1)
+  73: LdaGlobal(c5)
+  74: TestIn(r1)
+  75: Star(r0)
+  76: LdaGlobal(c5)
+  77: Star(r1)
+  78: LdaGlobal(c8)
+  79: TestInstanceOf(r1)
+  80: Star(r0)
+  81: LdaSmi(1)
+  82: LdaSmi(2)
+  83: Star(r0)
+  84: LdaGlobal(c2)
+  85: JumpIfFalse(@88)
+  86: LdaSmi(1)
+  87: Jump(@89)
+  88: LdaSmi(2)
+  89: Star(r0)
+  90: LdaGlobal(c5)
+  91: Star(r1)
+  92: GetNamed { object: r1, name: c9 }
+  93: ToNumeric
+  94: Star(r2)
+  95: Inc
+  96: SetNamed { object: r1, name: c9 }
+  97: Ldar(r2)
+  98: Star(r0)
+  99: LdaGlobal(c4)
+ 100: Dec
+ 101: StaGlobal(c4)
+ 102: Star(r0)
+ 103: LdaGlobal(c4)
+ 104: Negate
+ 105: Star(r0)
+ 106: LdaGlobal(c4)
+ 107: ToNumber
+ 108: Star(r0)
+ 109: LdaGlobal(c4)
+ 110: LogicalNot
+ 111: Star(r0)
+ 112: LdaGlobal(c4)
+ 113: BitNot
+ 114: Star(r0)
+ 115: LdaSmi(0)
+ 116: LdaUndefined
+ 117: Star(r0)
+ 118: LdaGlobal(c4)
+ 119: Star(r1)
+ 120: LdaSmi(1)
+ 121: Sub(r1)
+ 122: StaGlobal(c4)
+ 123: Star(r0)
+ 124: Ldar(r0)
+ 125: Return
+c0: "a"
+c1: "b"
+c2: "c"
+c3: "k"
+c4: "x"
+c5: "o"
+c6: "p"
+c7: "u"
+c8: "C"
+c9: "n"

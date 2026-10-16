@@ -1,0 +1,78 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=2 length=2 registers=12
+   0: LdaTheHole
+   1: Star(r2)
+   2: Ldar(r0)
+   3: ForInPrepare { enumerator: r3 }
+   4: ForInNext { enumerator: r3, done: @14 }
+   5: Star(r4)
+   6: LdaTheHole
+   7: Star(r2)
+   8: Ldar(r4)
+   9: Star(r2)
+  10: Ldar(r2)
+  11: JumpIfFalse(@13)
+  12: Jump(@4)
+  13: Jump(@4)
+  14: CreateContext(1)
+  15: PushContext(r3)
+  16: Ldar(r1)
+  17: PopContext(r3)
+  18: GetIterator { record: r4 }
+  19: SaveContext(r7)
+  20: IteratorStep { record: r4, done: @42 }
+  21: Star(r8)
+  22: CreateContext(1)
+  23: PushContext(r9)
+  24: Ldar(r8)
+  25: StaContextSlot { depth: 0, slot: 0 }
+  26: LdaContextSlot { depth: 0, slot: 0 }
+  27: JumpIfFalse(@31)
+  28: PopContext(r9)
+  29: IteratorClose { record: r4 }
+  30: Jump(@42)
+  31: LdaGlobal(c0)
+  32: Star(r10)
+  33: CreateClosure(c1)
+  34: Star(r11)
+  35: CallUndefinedReceiver { callee: r10, args: [r11] }
+  36: PopContext(r9)
+  37: Jump(@20)
+  38: Star(r8)
+  39: IteratorCloseAfterThrow { record: r4 }
+  40: Ldar(r8)
+  41: ReThrow
+  42: Ldar(r1)
+  43: GetIterator { record: r3 }
+  44: SaveContext(r6)
+  45: IteratorStep { record: r3, done: @56 }
+  46: Star(r7)
+  47: Ldar(r0)
+  48: Star(r8)
+  49: Ldar(r7)
+  50: SetNamed { object: r8, name: c2 }
+  51: Jump(@45)
+  52: Star(r7)
+  53: IteratorCloseAfterThrow { record: r3 }
+  54: Ldar(r7)
+  55: ReThrow
+  56: LdaUndefined
+  57: Return
+handler [@20, @38) -> @38 context=Some(r7)
+handler [@45, @52) -> @52 context=Some(r6)
+c0: "g"
+c1: function ""
+c2: "p"
+== "" Arrow sloppy params=0 length=0 registers=0
+   0: LdaContextSlot { depth: 0, slot: 0 }
+   1: ThrowIfHole(c0)
+   2: Return
+c0: "x"

@@ -1,0 +1,65 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=0 length=0 registers=5
+   0: LdaTheHole
+   1: Star(r0)
+   2: CreateArray
+   3: Star(r1)
+   4: Ldar(r1)
+   5: Star(r0)
+   6: CreateContext(1)
+   7: PushContext(r1)
+   8: LdaSmi(0)
+   9: StaContextSlot { depth: 0, slot: 0 }
+  10: LdaContextSlot { depth: 0, slot: 0 }
+  11: Star(r2)
+  12: PopContext(r1)
+  13: CreateContext(1)
+  14: PushContext(r1)
+  15: Ldar(r2)
+  16: StaContextSlot { depth: 0, slot: 0 }
+  17: LdaContextSlot { depth: 0, slot: 0 }
+  18: Star(r2)
+  19: LdaSmi(2)
+  20: TestLessThan(r2)
+  21: JumpIfFalse(@43)
+  22: Ldar(r0)
+  23: Star(r2)
+  24: GetNamed { object: r2, name: c0 }
+  25: Star(r3)
+  26: CreateClosure(c1)
+  27: Star(r4)
+  28: Call { callee: r3, this: r2, args: [r4] }
+  29: LdaContextSlot { depth: 0, slot: 0 }
+  30: Star(r2)
+  31: PopContext(r1)
+  32: CreateContext(1)
+  33: PushContext(r1)
+  34: Ldar(r2)
+  35: StaContextSlot { depth: 0, slot: 0 }
+  36: LdaContextSlot { depth: 0, slot: 0 }
+  37: ToNumeric
+  38: Star(r2)
+  39: Inc
+  40: StaContextSlot { depth: 0, slot: 0 }
+  41: Ldar(r2)
+  42: Jump(@17)
+  43: PopContext(r1)
+  44: Ldar(r0)
+  45: Return
+  46: LdaUndefined
+  47: Return
+c0: "push"
+c1: function ""
+== "" Arrow sloppy params=0 length=0 registers=0
+   0: LdaContextSlot { depth: 0, slot: 0 }
+   1: ThrowIfHole(c0)
+   2: Return
+c0: "i"

@@ -1,0 +1,40 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=0 length=0 registers=5
+   0: CreateContext(1)
+   1: PushContext(r3)
+   2: LdaTheHole
+   3: Star(r0)
+   4: CreateClosure(c0)
+   5: Star(r2)
+   6: Ldar(r2)
+   7: Star(r4)
+   8: CallUndefinedReceiver { callee: r4, args: [] }
+   9: LdaSmi(1)
+  10: StaContextSlot { depth: 0, slot: 0 }
+  11: LdaContextSlot { depth: 0, slot: 0 }
+  12: Star(r0)
+  13: LdaSmi(2)
+  14: StaContextSlot { depth: 0, slot: 0 }
+  15: LdaSmi(3)
+  16: ThrowConstAssignment(c1)
+  17: Ldar(r0)
+  18: Return
+  19: LdaUndefined
+  20: Return
+c0: function "g"
+c1: "y"
+== "g" Normal sloppy params=0 length=0 registers=0
+   0: LdaContextSlot { depth: 0, slot: 0 }
+   1: ThrowIfHole(c0)
+   2: Return
+   3: LdaUndefined
+   4: Return
+c0: "x"

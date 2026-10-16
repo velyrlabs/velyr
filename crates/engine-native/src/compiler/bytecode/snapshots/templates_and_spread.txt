@@ -1,0 +1,72 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=1 length=1 registers=5
+   0: LdaConstant(c0)
+   1: Star(r1)
+   2: Ldar(r0)
+   3: ToString
+   4: Add(r1)
+   5: Star(r1)
+   6: LdaConstant(c1)
+   7: Add(r1)
+   8: Star(r1)
+   9: Ldar(r0)
+  10: ToString
+  11: Add(r1)
+  12: Star(r1)
+  13: Ldar(r1)
+  14: Star(r1)
+  15: LdaGlobal(c2)
+  16: Star(r2)
+  17: GetTemplateObject(c3)
+  18: Star(r3)
+  19: Ldar(r0)
+  20: Star(r4)
+  21: CallUndefinedReceiver { callee: r2, args: [r3..r4] }
+  22: Add(r1)
+  23: Star(r1)
+  24: LdaGlobal(c4)
+  25: Star(r2)
+  26: CreateArray
+  27: Star(r3)
+  28: Ldar(r0)
+  29: SpreadIntoArray { array: r3 }
+  30: LdaSmi(1)
+  31: ArrayPush { array: r3 }
+  32: LdaUndefined
+  33: Star(r4)
+  34: CallSpread { callee: r2, this: r4, args: r3 }
+  35: Add(r1)
+  36: Star(r1)
+  37: LdaGlobal(c5)
+  38: Star(r2)
+  39: CreateArray
+  40: Star(r3)
+  41: Ldar(r0)
+  42: SpreadIntoArray { array: r3 }
+  43: ConstructSpread { callee: r2, args: r3 }
+  44: Add(r1)
+  45: Star(r1)
+  46: LdaGlobal(c6)
+  47: Star(r2)
+  48: Ldar(r0)
+  49: Star(r3)
+  50: Construct { callee: r2, args: [r3] }
+  51: Add(r1)
+  52: Return
+  53: LdaUndefined
+  54: Return
+c0: "a"
+c1: "b"
+c2: "tag"
+c3: template ["x", ""]
+c4: "g"
+c5: "C"
+c6: "D"

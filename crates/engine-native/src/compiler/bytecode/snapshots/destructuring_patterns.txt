@@ -1,0 +1,109 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=2 length=2 registers=13
+   0: LdaTheHole
+   1: Star(r2)
+   2: LdaTheHole
+   3: Star(r3)
+   4: LdaTheHole
+   5: Star(r4)
+   6: LdaTheHole
+   7: Star(r5)
+   8: Ldar(r0)
+   9: Star(r6)
+  10: CheckObjectCoercible
+  11: LdaConstant(c0)
+  12: Star(r7)
+  13: GetNamed { object: r6, name: c0 }
+  14: Star(r2)
+  15: LdaConstant(c1)
+  16: Star(r8)
+  17: GetNamed { object: r6, name: c1 }
+  18: GetIterator { record: r9 }
+  19: Ldar(r11)
+  20: JumpIfTrue(@23)
+  21: IteratorStep { record: r9, done: @23 }
+  22: Jump(@24)
+  23: LdaUndefined
+  24: Star(r3)
+  25: Ldar(r11)
+  26: JumpIfTrue(@29)
+  27: IteratorStep { record: r9, done: @29 }
+  28: Jump(@30)
+  29: LdaUndefined
+  30: JumpIfNotUndefined(@32)
+  31: LdaSmi(1)
+  32: Star(r4)
+  33: IteratorClose { record: r9 }
+  34: Jump(@39)
+  35: Star(r12)
+  36: IteratorCloseAfterThrow { record: r9 }
+  37: Ldar(r12)
+  38: ReThrow
+  39: CreateObject
+  40: Star(r9)
+  41: Ldar(r6)
+  42: CopyDataProperties { target: r9, excluded: [r7..r8] }
+  43: Ldar(r9)
+  44: Star(r5)
+  45: CreateArray
+  46: Star(r6)
+  47: Ldar(r0)
+  48: ArrayPush { array: r6 }
+  49: Ldar(r1)
+  50: ArrayPush { array: r6 }
+  51: Ldar(r6)
+  52: Star(r6)
+  53: Ldar(r6)
+  54: GetIterator { record: r7 }
+  55: Ldar(r9)
+  56: JumpIfTrue(@59)
+  57: IteratorStep { record: r7, done: @59 }
+  58: Jump(@60)
+  59: LdaUndefined
+  60: Star(r1)
+  61: Ldar(r0)
+  62: Star(r10)
+  63: Ldar(r9)
+  64: JumpIfTrue(@67)
+  65: IteratorStep { record: r7, done: @67 }
+  66: Jump(@68)
+  67: LdaUndefined
+  68: SetNamed { object: r10, name: c2 }
+  69: IteratorClose { record: r7 }
+  70: Jump(@75)
+  71: Star(r11)
+  72: IteratorCloseAfterThrow { record: r7 }
+  73: Ldar(r11)
+  74: ReThrow
+  75: Ldar(r6)
+  76: Ldar(r0)
+  77: Star(r6)
+  78: Ldar(r6)
+  79: Star(r7)
+  80: CheckObjectCoercible
+  81: Ldar(r2)
+  82: ToPropertyKey
+  83: Star(r8)
+  84: Ldar(r8)
+  85: GetKeyed { object: r7 }
+  86: JumpIfNotUndefined(@88)
+  87: LdaSmi(2)
+  88: Star(r3)
+  89: Ldar(r6)
+  90: Ldar(r5)
+  91: Return
+  92: LdaUndefined
+  93: Return
+handler [@19, @33) -> @35 context=None
+handler [@55, @69) -> @71 context=None
+c0: "p"
+c1: "q"
+c2: "x"

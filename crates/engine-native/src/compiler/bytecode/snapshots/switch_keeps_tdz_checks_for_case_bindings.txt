@@ -1,0 +1,34 @@
+== "" Script sloppy params=0 length=0 registers=1
+   0: DeclareGlobals(c0)
+   1: CreateClosure(c1)
+   2: StaGlobal(c2)
+   3: Ldar(r0)
+   4: Return
+c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c1: function "f"
+c2: "f"
+== "f" Normal sloppy params=1 length=1 registers=3
+   0: Ldar(r0)
+   1: Star(r2)
+   2: LdaTheHole
+   3: Star(r1)
+   4: LdaSmi(1)
+   5: TestEqualStrict(r2)
+   6: JumpIfTrue(@11)
+   7: LdaSmi(2)
+   8: TestEqualStrict(r2)
+   9: JumpIfTrue(@16)
+  10: Jump(@19)
+  11: LdaSmi(1)
+  12: Star(r1)
+  13: Ldar(r1)
+  14: ThrowIfHole(c0)
+  15: Return
+  16: Ldar(r1)
+  17: ThrowIfHole(c0)
+  18: Return
+  19: LdaSmi(0)
+  20: Return
+  21: LdaUndefined
+  22: Return
+c0: "a"

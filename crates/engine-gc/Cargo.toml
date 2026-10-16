@@ -1,0 +1,13 @@
+[package]
+name = "velyr-engine-gc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+
+# On the unsafe allowlist (unsafe-allowlist.txt), but the collector is built on indexed
+# slots and needs no unsafe, so the crate keeps the workspace `forbid`.
+[lints]
+workspace = true
