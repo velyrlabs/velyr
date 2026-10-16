@@ -1,0 +1,81 @@
+[package]
+name = "velyr-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "velyr"
+path = "src/main.rs"
+
+[features]
+default = ["profile-full"]
+# Profiles (PRD section 11). Each adds capability features below; `cfg(feature = ...)` in the
+# sources gates on those, so a crate is linked only when some selected profile needs it.
+profile-minimal = []
+profile-web = ["profile-minimal", "web", "typescript"]
+profile-node = ["profile-web", "npm", "node"]
+profile-full = ["profile-node"]
+# fetch, WebSocket, HTTP/TLS, `velyr serve`.
+web = ["dep:velyr-web-fetch", "dep:velyr-web-websocket", "dep:velyr-io-http", "dep:velyr-io-tls"]
+# npm resolver and `velyr add|install|remove`.
+npm = ["dep:velyr-compat-npm"]
+node = ["npm", "typescript", "dep:velyr-compat-commonjs", "dep:velyr-compat-node"]
+# TypeScript stripping in the module host.
+typescript = ["dep:velyr-tooling-typescript"]
+# Registers test-only globals such as `nativeAdd` (forwarded to velyr-runtime-ops).
+test-ops = ["velyr-runtime-ops/test-ops"]
+# `velyr run --engine native` (experimental engine, ADR-009); not part of any profile.
+engine-native = ["dep:velyr-engine-native"]
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-engine-native = { path = "../engine-native", optional = true }
+velyr-io-fs = { path = "../io-fs" }
+velyr-io-http = { path = "../io-http", optional = true }
+velyr-io-net = { path = "../io-net" }
+velyr-compat-npm = { path = "../compat-npm", optional = true }
+velyr-compat-commonjs = { path = "../compat-commonjs", optional = true }
+velyr-compat-node = { path = "../compat-node", optional = true }
+velyr-io-tls = { path = "../io-tls", optional = true }
+velyr-tooling-typescript = { path = "../tooling-typescript", optional = true }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-workers = { path = "../runtime-workers" }
+velyr-web-core = { path = "../web-core" }
+velyr-web-crypto = { path = "../web-crypto" }
+velyr-web-fetch = { path = "../web-fetch", optional = true }
+velyr-web-websocket = { path = "../web-websocket", optional = true }
+velyr-web-streams = { path = "../web-streams" }
+bytes = "1"
+clap.workspace = true
+http-body-util = "=0.1.5"
+hyper = { version = "=1.12.0", features = ["server", "http1"] }
+hyper-util = { version = "=0.1.21", features = ["tokio"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+jsonc-parser = { version = "0.34.0", features = ["serde"] }
+
+[dev-dependencies]
+assert_cmd = "2.2"
+tempfile = "3"
+rcgen = "=0.14.10"
+rustls = { version = "=0.23.46", default-features = false, features = ["aws-lc-rs", "std", "tls12"] }
+base64 = "0.22"
+flate2 = "1"
+sha2 = "0.10"
+tar = "0.4"
+
+[lints]
+workspace = true

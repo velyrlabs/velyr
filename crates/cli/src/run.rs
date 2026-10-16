@@ -1,0 +1,214 @@
+//! `velyr run <file>`: bootstrap an isolate with the built-in ops and run one script.
+
+use std::path::Path;
+use std::process::ExitCode;
+use std::sync::Arc;
+
+use tokio_util::sync::CancellationToken;
+use velyr_engine_api::{Engine, Isolate, Source};
+use velyr_engine_v8::V8Engine;
+use velyr_runtime_core::{RunError, RuntimeConfig, run_file, run_module_file};
+use velyr_runtime_ops::BOOTSTRAP_JS;
+use velyr_runtime_permissions::CapabilitySet;
+use velyr_runtime_resources::QuotaConfig;
+#[cfg(feature = "web")]
+use velyr_web_fetch::ServeInbox;
+
+use crate::permissions::{self, ConfigError, Permissions};
+use crate::{config, profiles, transforms};
+
+/// JS engine `velyr run` executes on.
+#[derive(Clone, Copy, Default, clap::ValueEnum)]
+pub enum EngineKind {
+    #[default]
+    V8,
+    /// Experimental native engine; only in builds with the `engine-native` feature.
+    Native,
+}
+
+pub fn run(file: &Path, flags: Permissions, engine: EngineKind) -> ExitCode {
+    let _span = tracing::info_span!("velyr.cli.run").entered();
+    exit_code(prepare(file, flags).and_then(|prepared| match engine {
+        EngineKind::V8 => run_prepared(file, &prepared, None, Worker::default()),
+        EngineKind::Native => run_native(file, &prepared),
+    }))
+}
+
+/// shortcut: only the base op bootstrap; the profile globals need builtins engine-native
+/// lacks (FinalizationRegistry, ...), so install them once it has them.
+#[cfg(feature = "engine-native")]
+fn run_native(file: &Path, prepared: &Prepared) -> Result<(), String> {
+    use velyr_runtime_ops::{OpContext, OpRegistry};
+    use velyr_runtime_resources::QuotaContext;
+
+    let config = runtime_config(prepared, None, None);
+    let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
+    let install = move |isolate: &mut velyr_runtime_core::LoopIsolate<_>, sender, _timers| {
+        let quotas = Arc::new(QuotaContext::new(quotas));
+        isolate.set_slot(OpContext::new(0, sender, permissions, quotas));
+    };
+    let functions = OpRegistry::builtin().host_functions().to_vec();
+    let engine = velyr_engine_native::NativeEngine;
+    let path = file.to_path_buf();
+    run_module_file(engine, config, functions, BOOTSTRAP_JS, install, path).map_err(describe)
+}
+
+#[cfg(not(feature = "engine-native"))]
+fn run_native(_file: &Path, _prepared: &Prepared) -> Result<(), String> {
+    Err("error: --engine native is not compiled in (build velyr-cli with the `engine-native` feature)".into())
+}
+
+/// Runs `file`; `after_install` is a script evaluated once the globals are installed, before
+/// the entry module runs (`velyr serve` uses it to start the server).
+#[cfg(feature = "web")]
+pub fn run_with(file: &Path, flags: Permissions, after_install: Option<String>) -> ExitCode {
+    exit_code(execute(file, flags, after_install))
+}
+
+fn exit_code(result: Result<(), String>) -> ExitCode {
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(message) => {
+            eprintln!("{message}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(feature = "web")]
+fn execute(file: &Path, flags: Permissions, after_install: Option<String>) -> Result<(), String> {
+    let prepared = prepare(file, flags)?;
+    run_prepared(file, &prepared, after_install, Worker::default())
+}
+
+/// The authority and limits a run is built from; several isolates (`velyr serve --workers`)
+/// share one.
+#[derive(Clone)]
+pub struct Prepared {
+    pub capabilities: Arc<CapabilitySet>,
+    pub quotas: QuotaConfig,
+}
+
+/// Loads `velyr.json`, merges the permission flags and prints the warnings.
+pub fn prepare(file: &Path, flags: Permissions) -> Result<Prepared, String> {
+    let loaded = load_config()?;
+    let cwd = working_dir()?;
+    let built =
+        permissions::build(flags, loaded.as_ref(), &cwd, file).map_err(|e| e.to_string())?;
+    for warning in &built.warnings {
+        eprintln!("{warning}");
+    }
+    Ok(Prepared {
+        capabilities: built.capabilities,
+        quotas: built.quotas,
+    })
+}
+
+pub fn load_config() -> Result<Option<config::Loaded>, String> {
+    config::discover(&working_dir()?).map_err(|e| e.to_string())
+}
+
+fn working_dir() -> Result<std::path::PathBuf, String> {
+    std::env::current_dir().map_err(|e| ConfigError::WorkingDir(e).to_string())
+}
+
+/// What makes a run a `velyr serve --workers` worker instead of the whole process.
+#[derive(Default)]
+pub struct Worker {
+    /// Connections the supervisor hands over (see `Velyr.serve({ inherit: true })`).
+    #[cfg(feature = "web")]
+    pub inbox: Option<ServeInbox>,
+    /// Cancelled when the supervisor stops; the run then ends quietly.
+    pub shutdown: Option<CancellationToken>,
+}
+
+pub fn run_prepared(
+    file: &Path,
+    prepared: &Prepared,
+    after_install: Option<String>,
+    worker: Worker,
+) -> Result<(), String> {
+    let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
+    let platform_init = Some(V8Engine::init_platform as fn());
+    let config = runtime_config(prepared, platform_init, worker.shutdown);
+    let engine = V8Engine::new();
+    let features = engine.features();
+    #[cfg(feature = "web")]
+    let mut inbox = worker.inbox;
+    let entry = file.to_path_buf();
+    let install = move |isolate: &mut _, sender, timers| {
+        profiles::install(
+            isolate,
+            sender,
+            timers,
+            permissions,
+            quotas,
+            features,
+            &entry,
+        );
+        #[cfg(feature = "web")]
+        if let Some(inbox) = inbox.take() {
+            isolate.set_slot(inbox);
+        }
+        if let Some(text) = after_install {
+            let source = Source {
+                name: "velyr:after-install".into(),
+                text,
+            };
+            isolate
+                .eval_script(&source)
+                .expect("the after-install script is valid JS");
+        }
+    };
+    let (functions, path) = (profiles::host_functions(features), file.to_path_buf());
+    if is_module(file) {
+        run_module_file(engine, config, functions, BOOTSTRAP_JS, install, path)
+    } else {
+        run_file(engine, config, functions, BOOTSTRAP_JS, install, path)
+    }
+    .map_err(describe)
+}
+
+fn runtime_config(
+    prepared: &Prepared,
+    platform_init: Option<fn()>,
+    shutdown: Option<CancellationToken>,
+) -> RuntimeConfig {
+    RuntimeConfig {
+        platform_init,
+        capabilities: Some(prepared.capabilities.clone()),
+        quotas: Some(prepared.quotas.clone()),
+        leak_check: std::env::var_os("VELYR_LEAK_CHECK").is_some_and(|value| value == "1"),
+        leak_collector: Some(velyr_runtime_ops::take_leak_report),
+        module_resolver: profiles::module_resolver(),
+        source_transform: transforms::source_transform(&prepared.capabilities),
+        shutdown,
+        ..RuntimeConfig::default()
+    }
+}
+
+/// ESM is the canonical entry format (TypeScript entries are stripped by the module host); other
+/// extensions keep the classic-script path.
+fn is_module(file: &Path) -> bool {
+    matches!(
+        file.extension().and_then(|ext| ext.to_str()),
+        Some("js" | "mjs" | "cjs" | "ts" | "mts" | "cts")
+    )
+}
+
+fn describe(err: RunError) -> String {
+    match err {
+        RunError::Read(err) => format!("error: {err}"),
+        RunError::Load(_)
+        | RunError::UnsettledEntry
+        | RunError::Terminated
+        | RunError::QuotaExceeded { .. }
+        | RunError::UnhandledRejection(_)
+        | RunError::Leak(_)
+        | RunError::Setup(_) => err.to_string(),
+        RunError::Uncaught(exception) => match exception.stack {
+            Some(stack) => format!("Uncaught {}\n{stack}", exception.message),
+            None => format!("Uncaught {}", exception.message),
+        },
+    }
+}
