@@ -1,0 +1,26 @@
+[package]
+name = "velyr-tooling-typescript"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+# Every oxc_* crate must share this exact version (ADR-012).
+oxc_allocator = "=0.154.0"
+oxc_codegen = "=0.154.0"
+oxc_parser = "=0.154.0"
+oxc_semantic = "=0.154.0"
+oxc_span = "=0.154.0"
+oxc_transformer = "=0.154.0"
+serde_json.workspace = true
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+tokio.workspace = true
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+
+[lints]
+workspace = true
