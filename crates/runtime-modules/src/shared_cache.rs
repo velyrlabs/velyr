@@ -7,11 +7,14 @@
 //! isolate (its output may depend on that isolate's permissions), so only the code cache, keyed by
 //! the transformed text's hash, is shared past it.
 //!
-//! shortcut: nothing is ever invalidated, so a worker restarted by the supervisor can serve a
-//! source that changed on disk since the first read; upgrade with an mtime/size check on hit
-//! before this leaves the experimental flag.
+//! Source entries remember the file's `(mtime, len)`; a lookup stats the file and treats a
+//! divergent stamp as a miss, so the next read replaces the entry.
+//!
+//! shortcut: the stamp is taken after the read, so an edit in between can pair new stamp with old
+//! text; upgrade by stamping before the read if that ever matters.
 
 use std::collections::HashMap;
+use std::time::SystemTime;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 
@@ -20,11 +23,19 @@ use crate::{ModuleId, ModuleSource};
 /// Sealed code cache by (module ID, content hash).
 type CodeEntries = HashMap<(ModuleId, String), Arc<[u8]>>;
 
+/// What a source file looked like when it was read; `None` for modules with no file behind them.
+type Stamp = Option<(SystemTime, u64)>;
+
+fn stamp(id: &ModuleId) -> Stamp {
+    let meta = std::fs::metadata(id.to_path()?).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
 static GLOBAL: OnceLock<Arc<SharedCache>> = OnceLock::new();
 
 #[derive(Default)]
 pub struct SharedCache {
-    sources: RwLock<HashMap<ModuleId, Arc<ModuleSource>>>,
+    sources: RwLock<HashMap<ModuleId, (Stamp, Arc<ModuleSource>)>>,
     code: RwLock<CodeEntries>,
     code_bytes: AtomicUsize,
     accepted: AtomicU32,
@@ -42,18 +53,25 @@ impl SharedCache {
         Arc::clone(GLOBAL.get_or_init(Arc::default))
     }
 
+    /// The stored source, unless the file changed since it was read.
     pub(crate) fn source(&self, id: &ModuleId) -> Option<Arc<ModuleSource>> {
-        self.sources.read().unwrap().get(id).cloned()
+        let (seen, source) = self.sources.read().unwrap().get(id).cloned()?;
+        (seen.is_none() || seen == stamp(id)).then_some(source)
     }
 
-    /// Stores `source` unless one exists; returns the entry every isolate now sees.
+    /// Stores `source`, replacing an entry whose stamp is stale; returns what every isolate now
+    /// sees.
     pub(crate) fn insert_source(&self, id: &ModuleId, source: ModuleSource) -> Arc<ModuleSource> {
+        let now = stamp(id);
         let mut sources = self.sources.write().unwrap();
-        Arc::clone(
-            sources
-                .entry(id.clone())
-                .or_insert_with(|| Arc::new(source)),
-        )
+        if let Some((seen, kept)) = sources.get(id)
+            && *seen == now
+        {
+            return Arc::clone(kept);
+        }
+        let source = Arc::new(source);
+        sources.insert(id.clone(), (now, Arc::clone(&source)));
+        source
     }
 
     /// Sealed code cache of module `id` whose text has `hash` (`ModuleSource::hash`).
@@ -168,6 +186,33 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    }
+
+    #[tokio::test]
+    async fn file_edited_between_workers_is_seen_by_the_second() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().canonicalize().unwrap().join("main.js");
+        std::fs::write(&path, "export const a = 1;").unwrap();
+        let module = ResolvedModule {
+            id: ModuleId::from_path(&path).unwrap(),
+            path,
+        };
+        let shared = Arc::new(SharedCache::default());
+        let worker = || ModuleHost::new(Arc::new(crate::FsLoader)).with_shared(shared.clone());
+        let first = worker().load(&module, &ctx_for(dir.path())).await.unwrap();
+        std::fs::write(&module.path, "export const a = 22;").unwrap();
+        let second = worker().load(&module, &ctx_for(dir.path())).await.unwrap();
+        assert_eq!(first.text, "export const a = 1;");
+        assert_eq!(second.text, "export const a = 22;");
+    }
+
+    fn ctx_for(dir: &std::path::Path) -> LoadContext {
+        let dir = dir.canonicalize().unwrap();
+        LoadContext {
+            permissions: CapabilitySet::builder()
+                .allow(Capability::ImportLocal(PathPattern::new(dir.to_string_lossy())))
+                .build(),
+        }
     }
 
     #[test]
