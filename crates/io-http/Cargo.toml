@@ -1,0 +1,29 @@
+[package]
+name = "velyr-io-http"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-io-net = { path = "../io-net" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+bytes = "1"
+http = "1"
+http-body = "1"
+http-body-util = "=0.1.5"
+hyper = { version = "=1.12.0", features = ["client", "server", "http1", "http2"] }
+hyper-util = { version = "=0.1.21", features = ["client-legacy", "server-auto", "http1", "http2", "tokio"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["aws-lc-rs", "std", "tls12"] }
+tokio.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["aws-lc-rs", "tls12"] }
+tokio-util.workspace = true
+tower-service = "0.3"
+tracing.workspace = true
+
+[dev-dependencies]
+rcgen = "=0.14.10"
+
+[lints]
+workspace = true

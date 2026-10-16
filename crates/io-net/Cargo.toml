@@ -1,0 +1,27 @@
+[package]
+name = "velyr-io-net"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+serde_json.workspace = true
+socket2 = "=0.6.5"
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-web-core = { path = "../web-core" }
+velyr-web-streams = { path = "../web-streams" }
+
+[lints]
+workspace = true
