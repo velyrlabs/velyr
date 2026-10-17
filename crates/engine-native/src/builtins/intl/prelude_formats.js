@@ -4,7 +4,6 @@
 (() => {
   const global = globalThis;
   const shared = global.__intl_shared;
-  delete global.__intl_shared;
   const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocaleKeys, typeOption,
     toOptions, getOption, getNumber, decodeParts, typeError } = shared;
   const { defineProperty } = Object;
