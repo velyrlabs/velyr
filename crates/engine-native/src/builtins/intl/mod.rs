@@ -73,23 +73,51 @@ pub(crate) fn locale(tag: &str) -> Locale {
     Locale::try_from_str(tag).unwrap_or(Locale::UNKNOWN)
 }
 
+/// Placeholder for the 5-8 letter language subtags `Locale::try_from_str` rejects (UTS #35
+/// allows `alpha{2,3} | alpha{5,8}`); a private-use code that no alias or rule touches.
+const LONG_LANGUAGE_STAND_IN: &str = "qaa";
+
+/// Splits a leading 5-8 letter language subtag off `tag`.
+fn split_long_language(tag: &str) -> Option<(&str, &str)> {
+    let (language, rest) = tag.split_once('-').unwrap_or((tag, ""));
+    let long =
+        (5..=8).contains(&language.len()) && language.bytes().all(|b| b.is_ascii_alphabetic());
+    long.then_some((language, rest))
+}
+
 fn canonicalize(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
     let tag = string_arg(args, 0);
-    let Ok(mut locale) = Locale::try_from_str(&tag) else {
+    let long = split_long_language(&tag);
+    let parsable = match long {
+        Some((_, "")) => LONG_LANGUAGE_STAND_IN.to_string(),
+        Some((_, rest)) => format!("{LONG_LANGUAGE_STAND_IN}-{rest}"),
+        None => tag.to_string(),
+    };
+    let Ok(mut locale) = Locale::try_from_str(&parsable) else {
         return Err(range_error(
             vm,
             &format!("Incorrect locale information provided: {tag}"),
         ));
     };
     LocaleCanonicalizer::new_extended().canonicalize(&mut locale);
-    Ok(Value::str(&locale.to_string()))
+    let canonical = locale.to_string();
+    Ok(Value::str(&match long {
+        Some((language, _)) => format!(
+            "{}{}",
+            language.to_ascii_lowercase(),
+            &canonical[LONG_LANGUAGE_STAND_IN.len()..]
+        ),
+        None => canonical,
+    }))
 }
 
 /// Whether `tag` (no extensions) is offered; see the `intl-all-locales` feature.
 fn supported(_: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
     let tag = string_arg(args, 0);
     let language = tag.split('-').next().unwrap_or_default();
-    let offered = cfg!(feature = "intl-all-locales") || matches!(language, "en" | "pt");
+    // "zxx" (no linguistic content) has no CLDR data.
+    let offered = language != "zxx"
+        && (cfg!(feature = "intl-all-locales") || matches!(language, "en" | "pt"));
     Ok(Value::Bool(offered && Locale::try_from_str(&tag).is_ok()))
 }
 

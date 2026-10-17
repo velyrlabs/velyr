@@ -21,11 +21,16 @@
   const tag = (target, name) =>
     defineProperty(target, Symbol.toStringTag, { value: name, configurable: true });
 
+  const toObject = (value) => {
+    if (value === undefined || value === null) typeError('Cannot convert undefined or null to object');
+    return Object(value);
+  };
   // CanonicalizeLocaleList.
   const canonicalLocales = (locales) => {
     if (locales === undefined) return [];
-    const list = typeof locales === 'string' ? [locales] : Object(locales);
-    const length = Math.min(Math.max(Math.trunc(Number(list.length)) || 0, 0), 2 ** 32);
+    const list = typeof locales === 'string' ? [locales] : toObject(locales);
+    // Unary plus is ToNumber: it throws on Symbol and BigInt, as ToLength must.
+    const length = Math.min(Math.max(Math.trunc(+list.length) || 0, 0), 2 ** 32);
     const seen = [];
     for (let k = 0; k < length; k++) {
       if (!(k in list)) continue;
@@ -34,7 +39,7 @@
         typeError('Language ID should be string or object.');
       }
       const canonical = ops.canonicalize(String(value));
-      if (!seen.includes(canonical)) seen.push(canonical);
+      if (!seen.includes(canonical)) seen[seen.length] = canonical;
     }
     return seen;
   };
@@ -128,7 +133,7 @@
   };
   const supportedLocalesOf = (locales, options) => {
     const requested = canonicalLocales(locales);
-    if (options !== undefined) getOption(Object(options), 'localeMatcher', ['lookup', 'best fit']);
+    if (options !== undefined) getOption(toObject(options), 'localeMatcher', ['lookup', 'best fit']);
     return requested.filter((locale) => bestAvailable(locale) !== undefined);
   };
   const toOptions = (options) => (options === undefined ? Object.create(null) : Object(options));
@@ -136,7 +141,7 @@
     let value = options[name];
     if (value === undefined) return fallback;
     if (allowed === Boolean) return Boolean(value);
-    value = String(value);
+    value = `${value}`; // ToString: throws on Symbol, unlike String()
     if (allowed && !allowed.includes(value)) {
       throw new RangeError(`Value ${value} out of range for Intl options property ${name}`);
     }

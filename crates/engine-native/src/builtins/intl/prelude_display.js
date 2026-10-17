@@ -31,11 +31,11 @@
 
   function DisplayNames(locales, options) {
     if (new.target === undefined) typeError("Constructor Intl.DisplayNames requires 'new'");
+    const locale = resolveLocale(locales);
     if (options === undefined || (typeof options !== 'object' && typeof options !== 'function') || options === null) {
       typeError('Options must be an object');
     }
     getOption(options, 'localeMatcher', ['lookup', 'best fit']);
-    const locale = resolveLocale(locales);
     const style = getOption(options, 'style', ['narrow', 'short', 'long'], 'long');
     const type = getOption(options, 'type',
       ['language', 'region', 'script', 'currency', 'calendar', 'dateTimeField']);
