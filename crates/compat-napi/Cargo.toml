@@ -1,0 +1,27 @@
+[package]
+name = "velyr-compat-napi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+# Hands the exported-symbol linker argument to direct dependents' build scripts as
+# `DEP_VELYR_NAPI_LINK_ARG` (read by `crates/cli/build.rs`).
+links = "velyr_napi"
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+libloading = "0.8"
+tracing.workspace = true
+v8.workspace = true
+
+[dev-dependencies]
+# Compiles the C test addon in `tests/addons/` when the tests run.
+cc = "1"
+
+# Unsafe-boundary crate (unsafe-allowlist.txt): the whole crate is the Node-API C ABI, so it
+# does not inherit the workspace `forbid`. Every unsafe block carries a `// SAFETY:` comment.
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
