@@ -308,3 +308,26 @@ fn sync_evaluated_rejection_is_not_reported_unhandled() {
     iso.perform_microtask_checkpoint();
     assert!(iso.take_unhandled_rejections().is_empty());
 }
+
+#[cfg(not(debug_assertions))]
+#[test]
+fn wide_graph_links_in_bounded_time() {
+    const WIDTH: usize = 30000;
+    let mut iso = isolate();
+    let deps: Vec<(String, String)> = (0..WIDTH)
+        .map(|i| (format!("d{i}.js"), format!("export const v = {i};")))
+        .collect();
+    let entry_text: String = (0..WIDTH)
+        .map(|i| format!("import {{ v as v{i} }} from 'd{i}.js';\n"))
+        .collect();
+    let mut hook = MapHook::with(
+        &deps
+            .iter()
+            .map(|(name, text)| (name.as_str(), text.as_str()))
+            .collect::<Vec<_>>(),
+    );
+    let started = std::time::Instant::now();
+    run(&mut iso, &src("wide.js", &entry_text), &mut hook);
+    let elapsed = started.elapsed();
+    assert!(elapsed.as_millis() < 1500, "linking took {elapsed:?}");
+}

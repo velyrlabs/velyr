@@ -5,6 +5,7 @@
 //! reads them back from [`Shared`].
 
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroI32;
 use std::rc::Rc;
 
 use velyr_engine_api::{
@@ -21,6 +22,8 @@ use crate::shared::Shared;
 #[derive(Default)]
 pub(crate) struct ModuleGraph {
     by_name: HashMap<String, v8::Global<v8::Module>>,
+    /// Names per `Module::get_identity_hash`; hashes can collide, so lookups confirm identity.
+    by_hash: HashMap<NonZeroI32, Vec<String>>,
     edges: HashMap<(String, String), String>,
     /// `source_digest` of each module's text, the key its code cache is sealed with. Filled on
     /// demand: only a consumed or produced code cache needs it.
@@ -196,6 +199,11 @@ fn ensure_compiled(
     let global = v8::Global::new(tc, module);
     let text = v8::Global::new(tc, text);
     let mut graph = shared.modules.borrow_mut();
+    graph
+        .by_hash
+        .entry(module.get_identity_hash())
+        .or_default()
+        .push(source.name.clone());
     graph.by_name.insert(source.name.clone(), global);
     graph.texts.insert(source.name.clone(), text);
     if let Some(digest) = digest {
@@ -314,10 +322,11 @@ fn module_by_name<'s>(
 fn name_of_module(shared: &Shared, module: v8::Local<'_, v8::Module>) -> Option<String> {
     let graph = shared.modules.borrow();
     graph
-        .by_name
+        .by_hash
+        .get(&module.get_identity_hash())?
         .iter()
-        .find(|(_, global)| **global == module)
-        .map(|(name, _)| name.clone())
+        .find(|name| graph.by_name[*name] == module)
+        .cloned()
 }
 
 fn shared_of(scope: &v8::PinScope<'_, '_>) -> Option<Rc<Shared>> {
