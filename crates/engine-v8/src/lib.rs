@@ -49,6 +49,7 @@ pub struct V8Engine {
     /// The snapshot's host functions, bound again on every isolate it boots.
     snapshot_ops: Arc<[HostFunctionDef]>,
     inspector: Option<inspector::PendingInspector>,
+    shared_memory: bool,
 }
 
 impl V8Engine {
@@ -64,7 +65,15 @@ impl V8Engine {
             snapshot: Some(blob),
             snapshot_ops: host_functions.into(),
             inspector: None,
+            shared_memory: false,
         }
+    }
+
+    /// Opt-in (default off): `serialize`/`deserialize` may move `SharedArrayBuffer`s between
+    /// isolates, which then share one writable memory. Without it they are a `DataCloneError`.
+    pub fn with_shared_memory(mut self) -> Self {
+        self.shared_memory = true;
+        self
     }
 
     /// The first isolate created gets a V8 inspector driven by `options.events` (VELYR-120).
@@ -109,6 +118,12 @@ impl Engine for V8Engine {
             None => v8::Isolate::new(params),
         };
         let shared = Rc::new(Shared::default());
+        if self.shared_memory {
+            shared.slots.borrow_mut().insert(
+                std::any::TypeId::of::<serialize::SharedMemoryAllowed>(),
+                Box::new(serialize::SharedMemoryAllowed),
+            );
+        }
         let heap_guard = opts
             .heap_limit_bytes
             .map(|_| HeapGuard::install(&mut isolate, Arc::clone(&shared.heap_exhausted)));

@@ -4,6 +4,9 @@
 //! in it (a `DataCloneError` when the engine did not throw one itself), so callers map it
 //! with `exception_from` or `caught`.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use v8::{ValueDeserializerHelper as _, ValueSerializerHelper as _};
 use velyr_engine_api::{SerializedValue, TransferredBuffer, Value};
 
@@ -13,18 +16,58 @@ use crate::shared::Shared;
 /// `DOMException` code of `DataCloneError`.
 const DATA_CLONE_ERR: f64 = 25.0;
 
-/// An `ArrayBuffer` backing store in flight between isolates.
-struct SendStore(v8::SharedRef<v8::BackingStore>);
+/// Present in `Shared::slots` when the engine was built with `V8Engine::with_shared_memory`.
+pub(crate) struct SharedMemoryAllowed;
+
+fn shared_memory_allowed(shared: &Shared) -> bool {
+    let slots = shared.slots.borrow();
+    slots.contains_key(&std::any::TypeId::of::<SharedMemoryAllowed>())
+}
+
+/// A backing store in flight between isolates. `shared` marks a `SharedArrayBuffer` store,
+/// which stays alive (and writable) in the sender too; an `ArrayBuffer` store was detached.
+struct SendStore {
+    store: v8::SharedRef<v8::BackingStore>,
+    shared: bool,
+}
 
 // SAFETY: V8 backing stores are reference counted atomically and `BackingStore` is `Send`; the
 // store is only reachable through this wrapper, and `TransferredBuffer::take_payload` moves it
-// out on the first deserialize, so at most one isolate ever receives it.
+// out on the first deserialize, so at most one isolate ever receives it. A shared store is
+// meant to be accessed from several isolates at once (SharedArrayBuffer semantics, Atomics);
+// it is only ever put in the wrapper when `with_shared_memory` opted in.
 #[allow(unsafe_code)]
 unsafe impl Send for SendStore {}
 
-struct Delegate;
+/// Per-call state shared between the entry points and the V8 delegate.
+#[derive(Default)]
+struct SabState {
+    allowed: bool,
+    /// Serializer: ids of the stores in `outgoing` start here (after the ArrayBuffer ids).
+    first_id: u32,
+    outgoing: RefCell<Vec<v8::SharedRef<v8::BackingStore>>>,
+    /// Deserializer: indexed by transfer id, `Some` for `SharedArrayBuffer` stores.
+    incoming: Vec<Option<v8::SharedRef<v8::BackingStore>>>,
+}
+
+struct Delegate(Rc<SabState>);
 
 impl v8::ValueSerializerImpl for Delegate {
+    fn get_shared_array_buffer_id<'s>(
+        &self,
+        scope: &mut v8::PinScope<'s, '_>,
+        buffer: v8::Local<'s, v8::SharedArrayBuffer>,
+    ) -> Option<u32> {
+        if !self.0.allowed {
+            let message = v8::String::new(scope, "#<SharedArrayBuffer> could not be cloned.")?;
+            self.throw_data_clone_error(scope, message);
+            return None;
+        }
+        let mut outgoing = self.0.outgoing.borrow_mut();
+        outgoing.push(buffer.get_backing_store());
+        Some(self.0.first_id + outgoing.len() as u32 - 1)
+    }
+
     fn throw_data_clone_error<'s>(
         &self,
         scope: &mut v8::PinScope<'s, '_>,
@@ -35,7 +78,16 @@ impl v8::ValueSerializerImpl for Delegate {
     }
 }
 
-impl v8::ValueDeserializerImpl for Delegate {}
+impl v8::ValueDeserializerImpl for Delegate {
+    fn get_shared_array_buffer_from_id<'s>(
+        &self,
+        scope: &mut v8::PinScope<'s, '_>,
+        transfer_id: u32,
+    ) -> Option<v8::Local<'s, v8::SharedArrayBuffer>> {
+        let store = self.0.incoming.get(transfer_id as usize)?.as_ref()?;
+        Some(v8::SharedArrayBuffer::with_backing_store(scope, store))
+    }
+}
 
 /// `Error` named `DataCloneError` with `code` 25 (no `DOMException` yet).
 fn data_clone_error<'s>(
@@ -94,7 +146,12 @@ pub(crate) fn serialize(
         buffers.push(buffer);
     }
     let context = tc.get_current_context();
-    let serializer = v8::ValueSerializer::new(tc, Box::new(Delegate));
+    let state = Rc::new(SabState {
+        allowed: shared_memory_allowed(shared),
+        first_id: buffers.len() as u32,
+        ..SabState::default()
+    });
+    let serializer = v8::ValueSerializer::new(tc, Box::new(Delegate(Rc::clone(&state))));
     serializer.write_header();
     for (id, buffer) in buffers.iter().enumerate() {
         serializer.transfer_array_buffer(id as u32, *buffer);
@@ -108,14 +165,23 @@ pub(crate) fn serialize(
         };
     }
     // Stores are taken before detaching: afterwards the buffers no longer expose them.
-    let transferred = buffers
+    let mut transferred: Vec<TransferredBuffer> = buffers
         .iter()
         .map(|buffer| {
             let store = buffer.get_backing_store();
             buffer.detach(None);
-            TransferredBuffer::new(SendStore(store))
+            TransferredBuffer::new(SendStore {
+                store,
+                shared: false,
+            })
         })
         .collect();
+    transferred.extend(state.outgoing.take().into_iter().map(|store| {
+        TransferredBuffer::new(SendStore {
+            store,
+            shared: true,
+        })
+    }));
     Some(SerializedValue {
         bytes: serializer.release(),
         transferred,
@@ -128,7 +194,26 @@ pub(crate) fn deserialize(
     serialized: &SerializedValue,
 ) -> Option<Value> {
     let context = tc.get_current_context();
-    let deserializer = v8::ValueDeserializer::new(tc, Box::new(Delegate), &serialized.bytes);
+    let mut stores = Vec::with_capacity(serialized.transferred.len());
+    for transferred in &serialized.transferred {
+        let Some(store) = transferred.take_payload::<SendStore>() else {
+            return fail(tc, "Transferred buffer was already consumed or is foreign");
+        };
+        stores.push(store);
+    }
+    if !shared_memory_allowed(shared) && stores.iter().any(|store| store.shared) {
+        return fail(
+            tc,
+            "SharedArrayBuffer transfer is not enabled for this isolate",
+        );
+    }
+    let mut state = SabState::default();
+    state.incoming = stores
+        .iter()
+        .map(|store| store.shared.then(|| store.store.clone()))
+        .collect();
+    let deserializer =
+        v8::ValueDeserializer::new(tc, Box::new(Delegate(Rc::new(state))), &serialized.bytes);
     if deserializer.read_header(context) != Some(true) {
         return if tc.has_caught() {
             None
@@ -136,11 +221,8 @@ pub(crate) fn deserialize(
             fail(tc, "Serialized data is corrupt")
         };
     }
-    for (id, transferred) in serialized.transferred.iter().enumerate() {
-        let Some(store) = transferred.take_payload::<SendStore>() else {
-            return fail(tc, "Transferred buffer was already consumed or is foreign");
-        };
-        let buffer = v8::ArrayBuffer::with_backing_store(tc, &store.0);
+    for (id, store) in stores.iter().enumerate().filter(|(_, store)| !store.shared) {
+        let buffer = v8::ArrayBuffer::with_backing_store(tc, &store.store);
         deserializer.transfer_array_buffer(id as u32, buffer);
     }
     shared.microtasks_dirty.set(true);

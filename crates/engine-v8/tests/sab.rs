@@ -30,14 +30,37 @@ fn sab_structured_clone_is_rejected_today() {
     );
 }
 
+fn shared_isolate() -> V8Isolate {
+    V8Engine::new()
+        .with_shared_memory()
+        .create_isolate(IsolateOptions::default())
+        .expect("isolate")
+}
+
 #[test]
-#[ignore = "RT-07"]
+fn sab_denied_by_default() {
+    let mut iso = isolate();
+    let sab = eval(&mut iso, "new SharedArrayBuffer(8)");
+    assert!(iso.serialize(&sab, &[]).is_err());
+}
+
+#[test]
+fn sab_deserialize_denied_without_opt_in() {
+    let mut a = shared_isolate();
+    let sab = eval(&mut a, "new SharedArrayBuffer(8)");
+    let serialized = a.serialize(&sab, &[]).expect("serialize SAB");
+    let mut b = isolate();
+    let err = b.deserialize(&serialized).expect_err("not enabled");
+    assert!(err.message.contains("not enabled"), "{}", err.message);
+}
+
+#[test]
 fn sab_roundtrip_shares_memory() {
-    let mut a = isolate();
+    let mut a = shared_isolate();
     let sab = eval(&mut a, "globalThis.sab = new SharedArrayBuffer(8)");
     let serialized = a.serialize(&sab, &[]).expect("serialize SAB");
     std::thread::spawn(move || {
-        let mut b = isolate();
+        let mut b = shared_isolate();
         let in_b = b.deserialize(&serialized).expect("deserialize SAB");
         let write = eval(&mut b, "(s) => { new Uint8Array(s)[0] = 42; }");
         b.call(&write, &Value::Undefined, &[in_b])
