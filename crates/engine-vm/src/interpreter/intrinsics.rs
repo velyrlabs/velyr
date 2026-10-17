@@ -85,6 +85,7 @@ pub(crate) fn create_state(realm: &mut Realm) -> State {
         jobs: Default::default(),
         regexps: Default::default(),
         modules: Vec::new(),
+        entry_module: None,
         kept: Default::default(),
         lazy_pending: 0,
     }

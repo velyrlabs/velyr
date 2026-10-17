@@ -334,6 +334,10 @@ impl Isolate for V8Isolate {
         stack_trace::install(self.isolate.get_mut(), mapper);
     }
 
+    fn set_entry_module(&mut self, name: &str) {
+        *self.shared.entry_module.borrow_mut() = Some(name.to_owned());
+    }
+
     fn set_continuation_context(&mut self, value: Value) {
         self.enter(|scope, shared| continuation::set(scope, shared, &value));
     }

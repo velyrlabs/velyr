@@ -131,6 +131,15 @@ impl Interpreter {
                     vm.define_property(meta, key, &attrs)?;
                 }
             }
+            if vm.state.entry_module.is_some() {
+                let is_main = vm.state.entry_module.as_deref() == Some(module_url.as_str());
+                let key = vm.realm.key_str("main");
+                vm.define_property(
+                    meta,
+                    key,
+                    &PropertyDescriptor::data(Value::Bool(is_main), true, true, true),
+                )?;
+            }
             vm.module_context(id).slots[0] = object_value(meta);
             Ok(ModuleId(id))
         })

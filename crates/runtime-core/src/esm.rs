@@ -360,6 +360,7 @@ pub(crate) async fn run<I: Isolate>(
         entry,
     };
     let to_original = modules.host.source_maps().mapper();
+    isolate.set_entry_module(modules.entry.as_str());
     isolate.set_prepare_stack_trace(Arc::new(move |file, line, column| {
         to_original(file, line, column).map(|(file, line, column)| MappedPosition {
             file,

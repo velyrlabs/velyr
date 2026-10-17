@@ -19,6 +19,8 @@ use crate::modules::{self, ModuleGraph};
 pub(crate) struct Shared {
     pub(crate) handles: RefCell<HandleTable>,
     pub(crate) modules: RefCell<ModuleGraph>,
+    /// Compile name of the entry module, for `import.meta.main`.
+    pub(crate) entry_module: RefCell<Option<String>>,
     pub(crate) slots: RefCell<HashMap<TypeId, Box<dyn Any>>>,
     pub(crate) host_fns: RefCell<Vec<HostFn>>,
     /// Registered host function name -> index into `host_fns`.

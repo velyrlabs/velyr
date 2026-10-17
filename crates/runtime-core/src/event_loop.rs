@@ -130,6 +130,11 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.set_prepare_stack_trace(mapper);
     }
 
+    fn set_entry_module(&mut self, name: &str) {
+        self.on_owner();
+        self.inner.set_entry_module(name);
+    }
+
     fn create_promise(&mut self) -> (Value, ResolverId) {
         self.on_owner();
         self.inner.create_promise()

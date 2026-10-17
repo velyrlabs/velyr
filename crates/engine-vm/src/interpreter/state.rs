@@ -185,6 +185,8 @@ pub(crate) struct State {
     pub regexps: RegExpCache,
     /// Module records, indexed by `ModuleId`.
     pub modules: Vec<super::module::ModuleRecord>,
+    /// URL of the entry module; `import.meta.main` is true only for it.
+    pub entry_module: Option<String>,
     /// `[[KeptAlive]]`: WeakRef targets held until the running job ends (AddToKeptObjects).
     pub kept: HashSet<GcRef>,
     /// Lazy namespace shells not yet materialized; 0 keeps `touch` a single compare.

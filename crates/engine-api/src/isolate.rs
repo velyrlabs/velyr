@@ -456,6 +456,11 @@ pub trait Isolate {
     fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R
     where
         Self: Sized;
+
+    /// Names the entry module (the compile name `import.meta.url` reports); `import.meta.main`
+    /// is `true` only there. Call before compiling it. Engines without the feature ignore the
+    /// call and leave `import.meta.main` undefined.
+    fn set_entry_module(&mut self, _name: &str) {}
 }
 
 fn unsupported_modules() -> HostError {

@@ -164,6 +164,11 @@ impl Interpreter {
         self.compile = Some(hook);
     }
 
+    /// Names the entry module for `import.meta.main`; call before creating its record.
+    pub fn set_entry_module(&mut self, name: &str) {
+        self.state.entry_module = Some(name.to_owned());
+    }
+
     /// Raising this flag (from any thread) terminates running JS at the next back-edge
     /// or call; it stays raised, so later runs fail fast too.
     pub fn termination_flag(&self) -> Arc<AtomicBool> {

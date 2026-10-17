@@ -337,6 +337,10 @@ impl Isolate for NativeIsolate {
         self.vm.release_handle(handle);
     }
 
+    fn set_entry_module(&mut self, name: &str) {
+        self.vm.set_entry_module(name);
+    }
+
     fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
         self.vm.push_handle_scope();
         let result = f(self);

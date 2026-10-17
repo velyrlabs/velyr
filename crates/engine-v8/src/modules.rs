@@ -358,7 +358,10 @@ extern "C" fn init_import_meta(
     // SAFETY: V8 calls this synchronously while evaluating `module`, in the entered isolate.
     v8::callback_scope!(unsafe scope, context);
     v8::scope!(let scope, scope);
-    let Some(name) = shared_of(scope).and_then(|shared| name_of_module(&shared, module)) else {
+    let Some(shared) = shared_of(scope) else {
+        return;
+    };
+    let Some(name) = name_of_module(&shared, module) else {
         return;
     };
     if let (Some(key), Some(url)) = (v8::String::new(scope, "url"), v8::String::new(scope, &name)) {
@@ -373,6 +376,11 @@ extern "C" fn init_import_meta(
                 let _ = meta.create_data_property(scope, key.into(), value.into());
             }
         }
+    }
+    let entry = shared.entry_module.borrow().clone();
+    if let (Some(entry), Some(key)) = (entry, v8::String::new(scope, "main")) {
+        let is_main = v8::Boolean::new(scope, entry == name);
+        let _ = meta.create_data_property(scope, key.into(), is_main.into());
     }
 }
 
