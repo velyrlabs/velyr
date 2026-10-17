@@ -16,15 +16,17 @@ dependency spec npm:@rollup/wasm-node@...`).
 So the fixture pins `vite ~4.5.14` (esbuild 0.18 as a spawned binary, run with `--allow-run`;
 pure-JS Rollup 3) and `@vitejs/plugin-react ^4.7`. No N-API is involved.
 
-## Current status: blocked
+## Status: green
 
-`velyr x vite build` fails before running Vite:
+`bash scripts/acceptance.sh react-vite` passes: `install --frozen`, `velyr x vite build` (checks
+`dist/index.html`, the JS bundle and `#root`), then the dev server with a GET on `/` and on
+`/src/main.tsx` (must be transformed JS importing React). Then HMR: a stdlib `python3 -I` WebSocket client
+connects to the dev server (`vite-hmr` subprotocol), appends a comment to `src/App.tsx` in the
+temp copy and requires an `update` (or `full-reload`) for `/src/App.tsx` within 5 s.
 
-    Uncaught (in promise) VELYR_UNSUPPORTED: node: modules need Node compatibility, which is not
-    linked: node:readline
+The script runs on a temp copy of the fixture and kills the dev server on exit. It prefers
+`target/release/velyr`, then `target/debug/velyr`; override with `VELYR=<path>`. The binary needs the
+VELYR-214 (`node:readline`, `node:vm`), VELYR-218 (async WebAssembly) and VELYR-219 (`unref`) fixes.
 
-Vite imports `node:readline` (`vite/dist/node/cli.js`, `index.js`, `chunks/dep-*.js`) and Rollup 3
-imports `node:vm`. Neither builtin exists in the `crates/compat-node` builtin table (the message is
-misleading: Node compat is linked, the module is just missing). Blockers beyond those two are
-unknown until they are implemented. Once they are, re-run the script and, if green, drop this
-section.
+Permissions: `--allow-run` is scoped to the installed esbuild binary
+(`node_modules/@esbuild/<platform>/bin/esbuild`, resolved by the script after install).

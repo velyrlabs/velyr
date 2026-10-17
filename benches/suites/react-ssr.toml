@@ -1,0 +1,12 @@
+# React SSR streaming (VELYR-92): renderToReadableStream with a Suspense boundary over `velyr serve`.
+# The driver measures TTFB (median of 30 sequential requests) and throughput under oha, and writes
+# the result JSON the harness reads. Throughput is capped by the fixture's 150 ms Suspense delay.
+# Needs oha on PATH, a release velyr at $VELYR_BIN or target/release/velyr, and the fixture's
+# node_modules (`cd compat/acceptance/react-ssr && velyr install --frozen`).
+name = "react-ssr"
+mode = "server"
+command = ["python3", "-I", "compat/acceptance/react-ssr/driver.py", "bench", "--duration", "5"]
+driver_json = "benches/results/react-ssr/react-ssr.json"
+iterations = 1
+warmup = 0
+metrics = ["ttfb_ms", "requests_per_sec", "p99_ms", "rss_mb", "wall_ms"]

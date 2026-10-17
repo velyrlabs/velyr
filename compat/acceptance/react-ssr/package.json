@@ -1,0 +1,10 @@
+{
+  "name": "react-ssr-acceptance",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

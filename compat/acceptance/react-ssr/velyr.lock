@@ -1,0 +1,32 @@
+{
+  "complete": true,
+  "importers": {
+    ".": {
+      "dependencies": {
+        "react": "19.3.1",
+        "react-dom": "19.3.1"
+      }
+    }
+  },
+  "lockfileVersion": 1,
+  "packages": {
+    "react-dom@19.3.1": {
+      "dependencies": {
+        "scheduler": "^0.28.0"
+      },
+      "integrity": "sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==",
+      "peerDependencies": {
+        "react": "^19.3.1"
+      },
+      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz"
+    },
+    "react@19.3.1": {
+      "integrity": "sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==",
+      "resolved": "https://registry.npmjs.org/react/-/react-19.3.1.tgz"
+    },
+    "scheduler@0.28.0": {
+      "integrity": "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==",
+      "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz"
+    }
+  }
+}
