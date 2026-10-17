@@ -187,7 +187,7 @@ fn decode_hex(units: &[u16], max_len: Option<usize>) -> Decoded {
         read: 0,
         error: None,
     };
-    if units.len() % 2 != 0 {
+    if !units.len().is_multiple_of(2) {
         out.error = Some(BAD_HEX);
         return out;
     }
