@@ -5,7 +5,7 @@
   const T = globalThis.__temporal_shared;
   const {
     op, slots, defineMethods, wrap, slotOf, strOf, fieldsOf, optionsOf, optionText,
-    monthFromCode, Temporal, installCommon, calendarId, calendarSuffix, wrapDuration,
+    monthFromCode, Temporal, installCommon, calendarId, calendarSuffix, wrapDuration, slotCalendar,
   } = T;
   const { defineProperty } = Object;
 
@@ -61,6 +61,20 @@
     if (slot !== undefined && slot.cls === 'ZonedDateTime') return fieldsOf(value, 'ZonedDateTime')[21];
     throw new TypeError('Invalid time zone');
   };
+  const ISO = 'iso8601';
+  // Calendars with eras also read `era` and `eraYear` (alphabetical order keeps them after `day`).
+  const ERA_FREE_CALENDARS = [ISO, 'chinese', 'dangi'];
+  const withEras = (names, calendar) => (ERA_FREE_CALENDARS.includes(calendar)
+    ? names : names.flatMap((name) => (name === 'day' ? [name, 'era', 'eraYear'] : [name])));
+  // The native `zoned_fields` arguments: offset, year, month, monthCode, day, era, eraYear, then time.
+  const fieldArgs = (given) => [
+    given.offset, ...['year', 'month', 'monthCode', 'day', 'era', 'eraYear', ...TIME_NAMES].map((name) => given[name]),
+  ];
+  const requireCalendarFields = (given) => {
+    const hasYear = given.year !== undefined || (given.era !== undefined && given.eraYear !== undefined);
+    const hasMonth = given.month !== undefined || given.monthCode !== undefined;
+    if (!hasYear || !hasMonth || given.day === undefined) throw new TypeError('year, month and day are required');
+  };
   const MINIMUM = { day: 1, month: 1 };
   // One Get and conversion per name, in the order given.
   const readFields = (bag, names) => {
@@ -68,7 +82,9 @@
     for (const name of names) {
       const value = bag[name];
       if (value === undefined) continue;
-      if (name === 'monthCode') {
+      if (name === 'era') {
+        out[name] = stringField(value, name);
+      } else if (name === 'monthCode') {
         out[name] = stringField(value, name);
         if (!MONTH_CODE_SYNTAX.test(out[name])) throw new RangeError(`Invalid month code ${out[name]}`);
       } else if (name === 'offset') {
@@ -281,13 +297,14 @@
         return wrapZoned(slot.str);
       }
       const calendar = item.calendar;
-      // shortcut: bag fields are read as ISO fields, so a non-iso `calendar` is refused until N46.
-      if (calendar !== undefined && calendarField(calendar) !== 'iso8601') {
-        throw new RangeError('Property bags with a non-iso8601 calendar are not supported yet');
-      }
-      const given = readFields(item, ZONED_READ_ORDER);
+      const calendarName = calendar === undefined ? ISO : calendarField(calendar);
+      const given = readFields(item, withEras(ZONED_READ_ORDER, calendarName));
       if (given.timeZone === undefined) throw new TypeError('timeZone is required');
       const choices = readChoices(options);
+      if (calendarName !== ISO) {
+        requireCalendarFields(given);
+        return wrapZoned(op('ZonedDateTime', 'fromFields', calendarName, given.timeZone, ...fieldArgs(given), choices.disambiguation, choices.offset, choices.overflow));
+      }
       const local = localDateTime(given, undefined, choices.overflow);
       return zonedFrom(local, given.offset, given.timeZone, choices.disambiguation, choices.offset);
     }
@@ -303,9 +320,13 @@
       const current = fieldsOf(this, 'ZonedDateTime');
       if (notObject(bag) || slotOf(bag) !== undefined) throw new TypeError('with() needs a plain object');
       if (bag.calendar !== undefined || bag.timeZone !== undefined) throw new TypeError('calendar and timeZone cannot be changed here');
-      const given = readFields(bag, WITH_READ_ORDER);
+      const calendar = slotCalendar(strOf(this, 'ZonedDateTime'));
+      const given = readFields(bag, withEras(WITH_READ_ORDER, calendar));
       if (Object.keys(given).length === 0) throw new TypeError('with() needs at least one recognized property');
       const choices = readChoices(options);
+      if (calendar !== ISO) {
+        return wrapZoned(op('ZonedDateTime', 'withFields', strOf(this, 'ZonedDateTime'), ...fieldArgs(given), choices.disambiguation, choices.offset ?? 'prefer', choices.overflow));
+      }
       const local = localDateTime(given, current, choices.overflow);
       return zonedFrom(local, given.offset ?? current[18], current[21], choices.disambiguation, choices.offset ?? 'prefer');
     }
@@ -363,7 +384,7 @@
       return calendarSuffix(text, { calendarName });
     }
   }
-  T.installDateGetters(ZonedDateTime.prototype, 'ZonedDateTime');
+  T.installDateGetters(ZonedDateTime.prototype, 'ZonedDateTime', 23);
   T.installTimeGetters(ZonedDateTime.prototype, 'ZonedDateTime', 12);
   installCommon(ZonedDateTime, 'ZonedDateTime', wrapZoned, true);
   differenceMethods(ZonedDateTime, 'ZonedDateTime');

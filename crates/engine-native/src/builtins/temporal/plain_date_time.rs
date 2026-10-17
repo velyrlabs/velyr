@@ -19,7 +19,7 @@ fn datetime(a: Args, i: usize) -> TemporalResult<PlainDateTime> {
 }
 
 /// `hour..nanosecond` at `i..i + 6` (`""` is `undefined`).
-fn time_parts(a: Args, i: usize) -> TemporalResult<PartialTime> {
+pub(super) fn time_parts(a: Args, i: usize) -> TemporalResult<PartialTime> {
     let part = |n: usize, max: i64| -> TemporalResult<Option<i64>> {
         match arg(a, i + n) {
             "" => Ok(None),

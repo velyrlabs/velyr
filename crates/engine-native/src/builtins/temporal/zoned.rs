@@ -1,8 +1,12 @@
 //! `Temporal.ZonedDateTime` ops; the state is the IXDTF string with offset and `[zone]`.
 
+use temporal_rs::fields::ZonedDateTimeFields;
 use temporal_rs::options::{Disambiguation, OffsetDisambiguation};
+use temporal_rs::partial::PartialZonedDateTime;
 use temporal_rs::provider::TransitionDirection;
-use temporal_rs::{Instant, PlainTime, TemporalError, TemporalResult, TimeZone, ZonedDateTime};
+use temporal_rs::{
+    Instant, PlainTime, TemporalError, TemporalResult, TimeZone, UtcOffset, ZonedDateTime,
+};
 
 use super::{
     Args, Res, arg, calendar, date_fields, difference, duration, opt, ordering, overflow, range,
@@ -27,6 +31,35 @@ fn zoned(a: Args, i: usize) -> TemporalResult<ZonedDateTime> {
     )
 }
 
+/// `offset, year, month, monthCode, day, era, eraYear, hour..nanosecond` at `i..i + 13`.
+fn zoned_fields(a: Args, i: usize) -> TemporalResult<ZonedDateTimeFields> {
+    let offset = match arg(a, i) {
+        "" => None,
+        text => Some(text.parse::<UtcOffset>()?),
+    };
+    Ok(ZonedDateTimeFields {
+        calendar_fields: super::plain_date::calendar_fields(a, i + 1)?,
+        time: super::plain_date_time::time_parts(a, i + 7)?,
+        offset,
+    })
+}
+
+/// `disambiguation, offset, overflow` at `i..i + 3`.
+fn choices(
+    a: Args,
+    i: usize,
+) -> TemporalResult<(
+    Option<Disambiguation>,
+    Option<OffsetDisambiguation>,
+    Option<temporal_rs::options::Overflow>,
+)> {
+    Ok((
+        opt(a, i, "invalid disambiguation")?,
+        opt(a, i + 1, "invalid offset")?,
+        overflow(a, i + 2)?,
+    ))
+}
+
 pub(super) fn run(method: &str, a: Args) -> Res {
     let text = |z: ZonedDateTime| z.to_string();
     match method {
@@ -43,17 +76,35 @@ pub(super) fn run(method: &str, a: Args) -> Res {
             ZonedDateTime::try_new(ns, time_zone(a, 1)?, calendar(a, 2)?).map(text)
         }
         "withCalendar" => Ok(text(zoned(a, 0)?.with_calendar(calendar(a, 1)?))),
+        // calendar, time zone, then `zoned_fields` and `choices`
+        "fromFields" => {
+            let (disambiguation, offset, overflow) = choices(a, 15)?;
+            let partial = PartialZonedDateTime {
+                fields: zoned_fields(a, 2)?,
+                timezone: Some(time_zone(a, 1)?),
+                calendar: calendar(a, 0)?,
+            };
+            ZonedDateTime::from_partial(partial, overflow, disambiguation, offset).map(text)
+        }
+        // text, then `zoned_fields` and `choices`
+        "withFields" => {
+            let (disambiguation, offset, overflow) = choices(a, 14)?;
+            zoned(a, 0)?
+                .with(zoned_fields(a, 1)?, disambiguation, offset, overflow)
+                .map(text)
+        }
         "fields" => {
             let z = zoned(a, 0)?;
             Ok(format!(
-                "{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{}",
                 date_fields!(z),
                 time_fields!(z),
                 z.offset(),
                 z.offset_nanoseconds(),
                 z.epoch_nanoseconds().as_i128(),
                 z.time_zone().identifier()?,
-                z.hours_in_day()?
+                z.hours_in_day()?,
+                super::plain_date::era_fields(z.era(), z.era_year())
             ))
         }
         "add" => zoned(a, 0)?
