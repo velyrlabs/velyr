@@ -1,0 +1,10 @@
+# Throwaway private keys generated only as test fixtures (crypto and default-deny tests).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "test fixture keys"
+paths = [
+  '''crates/compat-node/tests/fixtures/crypto/.*\.pem''',
+  '''tests/fixtures/m3-security/default-deny/main\.js''',
+]

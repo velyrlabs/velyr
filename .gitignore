@@ -5,3 +5,4 @@ compat/results/
 benches/results/
 benches/fixtures/large-app/
 __pycache__/
+benches/fixtures/.fs-readfile-burst.bin

@@ -59,7 +59,7 @@ Decisões do Lucas no VELYR-181: (1) TOCTOU residual aceito como limitação con
 ## 6. Como reproduzir
 
 ```
-source ~/.cargo/env && cd /Users/lucasbrito/dev/wdt/velyr-core
+source ~/.cargo/env && cd <repo>
 cargo test -p velyr-compat-node --test fs_security
 cargo test -p velyr-compat-node --test fs
 ```

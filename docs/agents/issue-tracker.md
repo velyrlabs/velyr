@@ -53,7 +53,7 @@ Ticket `type`: research, prototype, grilling, task, slice, bug, enhancement. `mo
 
 ## Velyr conventions for agents
 
-- Repository root: `/Users/lucasbrito/dev/wdt/velyr-core`. Every path in a ticket is relative to it.
+- Repository root: `<repo>`. Every path in a ticket is relative to it.
 - Rust toolchain: `source ~/.cargo/env` before `cargo`. Run only the tests of the touched crate (`cargo test -p velyr-<crate>`); never the whole workspace.
 - Decisions live in `docs/adr/` (ADR-009 to ADR-015 cover the engine, threading, conventions, Oxc, config/CLI, server/multicore and conformance). Read the ADRs a ticket references before coding.
 - Efforts map 1:1 to ROADMAP milestones (`m0-foundation` ... `m11-advanced`). Track C lives in `m10-native-engine`.
