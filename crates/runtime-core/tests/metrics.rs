@@ -95,7 +95,7 @@ fn a_run_feeds_heap_turns_and_velyr_metrics() {
         need(typeof m.loopLagSeconds === "number", "loopLagSeconds");
         need(typeof m.pendingOps === "number", "pendingOps");
         need(m.heap.usedBytes > 0 && m.heap.totalBytes >= m.heap.usedBytes, "heap");
-        need(typeof m.resources.sockets === "number" && typeof m.resources.files === "number", "resources");
+        need(typeof m.resources.sockets === "number" && typeof m.resources.files === "number" && typeof m.resources.processes === "number", "resources");
         need(typeof m.permissionDenied === "number" && typeof m.quotaDenied === "number", "denials");
         need(m.http.requests === 0 || m.http.requests > 0, "http");
         need(Array.isArray(m.http.buckets), "buckets");
@@ -120,4 +120,54 @@ fn a_run_feeds_heap_turns_and_velyr_metrics() {
     result.unwrap();
     let snapshot = metrics::global().snapshot();
     assert!(snapshot.heap.is_some_and(|heap| heap.used_bytes > 0));
+}
+
+#[test]
+fn an_idle_gc_updates_the_heap_gauge_without_waiting_for_a_turn() {
+    use std::sync::Mutex;
+    use velyr_engine_api::{GcReason, HeapStats, Isolate};
+
+    let path = std::env::temp_dir().join(format!("velyr-metrics-gc-{}.js", std::process::id()));
+    std::fs::write(&path, "0;").unwrap();
+    // (heap the gauge held after the last turn, heap right after the GC, heap the gauge shows then)
+    type Seen = (Option<HeapStats>, HeapStats, Option<HeapStats>);
+    let seen: Arc<Mutex<Option<Seen>>> = Arc::default();
+    let out = seen.clone();
+    let result = run_file(
+        V8Engine::new(),
+        RuntimeConfig {
+            platform_init: Some(V8Engine::init_platform),
+            ..RuntimeConfig::default()
+        },
+        metrics::metrics_host_functions(),
+        "globalThis.Velyr = {};",
+        move |isolate, sender, _timers| {
+            // Own worker slot: the main one is shared with the other tests of this binary.
+            let gauge = metrics::global();
+            gauge.register_worker(97);
+            gauge.bind(sender, Arc::new(QuotaContext::default()));
+            metrics::install_metrics(isolate).expect("valid JS");
+            let worker_heap = || {
+                let snapshot = metrics::global().snapshot();
+                snapshot
+                    .workers
+                    .iter()
+                    .find(|w| w.id == 97)
+                    .and_then(|w| w.heap)
+            };
+            let before = worker_heap();
+            isolate.request_gc(GcReason::Idle);
+            *out.lock().unwrap() = Some((before, isolate.heap_stats(), worker_heap()));
+        },
+        path.clone(),
+    );
+    std::fs::remove_file(&path).unwrap();
+    result.unwrap();
+    let (before, after_gc, gauge) = seen.lock().unwrap().take().expect("install ran");
+    assert_ne!(
+        before,
+        Some(after_gc),
+        "the GC changed nothing: the test proves nothing"
+    );
+    assert_eq!(gauge, Some(after_gc));
 }

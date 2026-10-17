@@ -7,7 +7,7 @@ use velyr_runtime_permissions::{CapabilitySet, Request};
 
 use crate::{
     BoxFuture, LoadContext, MediaType, ModuleId, ModuleLoader, ModuleSource, ResolvedModule,
-    Result, SharedCache, SourceTransform,
+    Result, SharedCache, SourceMaps, SourceTransform,
 };
 
 /// Reads modules from disk. Opens only the canonical path of the resolved module.
@@ -67,7 +67,8 @@ pub struct ModuleHost {
     loader: Arc<dyn ModuleLoader>,
     transform: Option<Arc<dyn SourceTransform>>,
     cache: Mutex<HashMap<ModuleId, Arc<ModuleSource>>>,
-    source_maps: Mutex<HashMap<ModuleId, String>>,
+    transform_maps: Mutex<HashMap<ModuleId, String>>,
+    source_maps: SourceMaps,
     shared: Option<Arc<SharedCache>>,
 }
 
@@ -77,7 +78,8 @@ impl ModuleHost {
             loader,
             transform: None,
             cache: Mutex::default(),
-            source_maps: Mutex::default(),
+            transform_maps: Mutex::default(),
+            source_maps: SourceMaps::default(),
             shared: None,
         }
     }
@@ -102,7 +104,12 @@ impl ModuleHost {
 
     /// Source map JSON of a loaded module, when its transform produced one.
     pub fn source_map(&self, id: &ModuleId) -> Option<String> {
-        self.source_maps.lock().unwrap().get(id).cloned()
+        self.transform_maps.lock().unwrap().get(id).cloned()
+    }
+
+    /// Maps by the `file://` URL V8 reports in stack frames; feeds `Isolate::set_prepare_stack_trace`.
+    pub fn source_maps(&self) -> &SourceMaps {
+        &self.source_maps
     }
 
     /// `ImportLocal` or `FsRead` must cover the canonical path before anything is read.
@@ -132,6 +139,12 @@ impl ModuleHost {
         if let Some(transform) = &self.transform {
             source = self.apply(transform.clone(), module, source).await?;
         }
+        self.source_maps.register(
+            module,
+            &source.text,
+            self.source_map(&module.id),
+            &ctx.permissions,
+        );
         let source = Arc::new(source);
         self.cache
             .lock()
@@ -159,7 +172,7 @@ impl ModuleHost {
         .await
         .map_err(|e| VelyrError::internal("module transform did not finish").with_cause(e))??;
         if let Some(map) = done.source_map {
-            self.source_maps
+            self.transform_maps
                 .lock()
                 .unwrap()
                 .insert(module.id.clone(), map);

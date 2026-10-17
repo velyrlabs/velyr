@@ -373,6 +373,7 @@ impl Isolate for MockIsolate {
             used_bytes: used,
             total_bytes: used.max(4096),
             limit_bytes: None,
+            ..HeapStats::default()
         }
     }
 
@@ -482,6 +483,18 @@ fn engine_declares_features_and_rejects_bad_options() {
         .err()
         .unwrap();
     assert_eq!(err.code(), ErrorCode::InvalidData);
+}
+
+#[test]
+fn default_write_string_utf8_appends_lossy_utf8() {
+    let mut heap = Heap::default();
+    let mut ctx = Ctx(&mut heap);
+    let ctx: &mut dyn CallContext = &mut ctx;
+    let mut out = b"<".to_vec();
+    ctx.write_string_utf8(&JsString::from_str("hi"), &mut out);
+    ctx.write_string_utf8(&JsString::from_str("\u{e9}\u{1F600}"), &mut out);
+    ctx.write_string_utf8(&JsString::from_utf16(vec![0x61, 0xD800, 0x62]), &mut out);
+    assert_eq!(out, "<hi\u{e9}\u{1F600}a\u{FFFD}b".as_bytes());
 }
 
 #[test]
@@ -674,6 +687,16 @@ fn errors_convert_to_velyr_error() {
         velyr_runtime_errors::VelyrError::from(engine).code(),
         ErrorCode::Unsupported
     );
+}
+
+#[test]
+fn continuation_context_is_unsupported_unless_an_engine_opts_in() {
+    assert!(!MockEngine
+        .features()
+        .contains(EngineFeatures::CONTINUATION_CONTEXT));
+    let mut iso = MockEngine.create_isolate(IsolateOptions::default()).unwrap();
+    iso.set_continuation_context(Value::Number(1.0));
+    assert_eq!(iso.get_continuation_context(), Value::Undefined);
 }
 
 #[test]

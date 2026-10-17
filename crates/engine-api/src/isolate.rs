@@ -1,5 +1,6 @@
 use std::any::{Any, TypeId};
 use std::sync::Arc;
+use std::time::Duration;
 
 use velyr_runtime_errors::VelyrError;
 
@@ -82,12 +83,60 @@ pub enum GcReason {
     Explicit,
 }
 
-/// Heap accounting snapshot, in bytes.
+/// Heap accounting snapshot, in bytes. `None` where the engine has no such reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct HeapStats {
     pub used_bytes: usize,
     pub total_bytes: usize,
     pub limit_bytes: Option<usize>,
+    /// Memory held outside the GC heap on the engine's behalf (strings, buffers, ...).
+    pub external_bytes: Option<usize>,
+    /// Live GC cells.
+    pub cells: Option<usize>,
+    /// Collections so far.
+    pub gc_count: Option<u64>,
+    /// Total time spent paused in collections.
+    pub gc_time: Option<Duration>,
+    /// Where the engine's memory goes, for engines that track it.
+    pub breakdown: Option<MemoryBreakdown>,
+}
+
+/// Engine memory by kind, in bytes; `strings` and `storage` make up `external_bytes`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MemoryBreakdown {
+    /// GC cells.
+    pub cells: usize,
+    /// The collector's own slot tables.
+    pub heap_tables: usize,
+    pub strings: usize,
+    /// Object property and element storage.
+    pub storage: usize,
+    /// Bytecode, constant pools, line tables and inline caches.
+    pub code: usize,
+    /// Source text kept for `Function.prototype.toString` and stack traces.
+    pub source: usize,
+    pub shapes: usize,
+    /// The property-name atom table.
+    pub interner: usize,
+    /// Engine side tables: weak maps, closure records, per-code info.
+    pub tables: usize,
+}
+
+impl MemoryBreakdown {
+    /// Label and bytes of every kind, in declaration order.
+    pub fn kinds(&self) -> [(&'static str, usize); 9] {
+        [
+            ("cells", self.cells),
+            ("heap_tables", self.heap_tables),
+            ("strings", self.strings),
+            ("storage", self.storage),
+            ("code", self.code),
+            ("source", self.source),
+            ("shapes", self.shapes),
+            ("interner", self.interner),
+            ("tables", self.tables),
+        ]
+    }
 }
 
 /// Native function exposed to JS. Called on the isolate thread, synchronously.
@@ -137,6 +186,11 @@ pub trait CallContext {
     /// other value. Adapters without buffers keep the default.
     fn read_bytes(&mut self, _value: &Value) -> Option<Vec<u8>> {
         None
+    }
+    /// Appends `text` to `out` as UTF-8, lone surrogates as U+FFFD (what `TextEncoder` yields).
+    /// Engines override it with a faster transcoder; the default goes through a `String`.
+    fn write_string_utf8(&mut self, text: &JsString, out: &mut Vec<u8>) {
+        out.extend_from_slice(text.to_string_lossy().as_bytes());
     }
     /// Fails if `object` is not an object or the handle is stale.
     fn get_property(&mut self, object: &Value, key: &str) -> Result<Value, HostError>;
@@ -188,6 +242,12 @@ pub trait CallContext {
     /// See [`Isolate::promise_state`].
     fn promise_state(&mut self, _promise: &Value) -> Option<PromiseState> {
         None
+    }
+    /// See [`Isolate::set_continuation_context`].
+    fn set_continuation_context(&mut self, _value: Value) {}
+    /// See [`Isolate::get_continuation_context`].
+    fn get_continuation_context(&mut self) -> Value {
+        Value::Undefined
     }
     /// Raw slot lookup by type id, as registered with [`Isolate::set_slot`].
     /// Prefer the typed `isolate_slot::<T>()`.
@@ -326,8 +386,19 @@ pub trait Isolate {
 
     fn heap_stats(&self) -> HeapStats;
 
+    /// Remaps the frame positions of every error stack through `mapper`. A user-defined
+    /// `Error.prepareStackTrace` still runs when present. Engines without the hook ignore it.
+    fn set_prepare_stack_trace(&mut self, _mapper: crate::StackFrameMapper) {}
+
     /// A hint; the engine may ignore it.
     fn request_gc(&mut self, reason: GcReason);
+
+    /// Runs engine work that background threads made ready (e.g. finishing an async
+    /// WebAssembly compile). `true` while such work is still outstanding: the loop must stay
+    /// alive and call again soon, since nothing else wakes it. Engines without any: no-op.
+    fn run_platform_tasks(&mut self) -> bool {
+        false
+    }
 
     /// May be handed to other threads (watchdogs, the supervisor).
     fn termination_handle(&self) -> TerminationHandle;
@@ -347,6 +418,17 @@ pub trait Isolate {
     /// Rebuilds the value `serialized` describes in this isolate, attaching its transferred buffers.
     fn deserialize(&mut self, _serialized: &SerializedValue) -> Result<Value, JsException> {
         Err(JsException::serialize_unsupported())
+    }
+
+    /// Sets the continuation context ([`EngineFeatures::CONTINUATION_CONTEXT`]): a value the
+    /// engine captures when a promise reaction (or `await`) is registered and restores while that
+    /// reaction runs. Engines without the feature ignore the call and
+    /// [`get_continuation_context`](Self::get_continuation_context) returns `undefined`.
+    fn set_continuation_context(&mut self, _value: Value) {}
+
+    /// The continuation context of the code running now; `undefined` when unset or unsupported.
+    fn get_continuation_context(&mut self) -> Value {
+        Value::Undefined
     }
 
     /// Frees `handle`. Stale or already released handles are ignored.

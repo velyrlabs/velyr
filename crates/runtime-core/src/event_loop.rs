@@ -125,6 +125,11 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.set_slot(value);
     }
 
+    fn set_prepare_stack_trace(&mut self, mapper: velyr_engine_api::StackFrameMapper) {
+        self.on_owner();
+        self.inner.set_prepare_stack_trace(mapper);
+    }
+
     fn create_promise(&mut self) -> (Value, ResolverId) {
         self.on_owner();
         self.inner.create_promise()
@@ -195,6 +200,13 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
     fn request_gc(&mut self, reason: GcReason) {
         self.on_owner();
         self.inner.request_gc(reason);
+        // An idle GC runs outside any turn; without this the gauge keeps the pre-GC heap.
+        crate::metrics::global().record_heap(self.inner.heap_stats());
+    }
+
+    fn run_platform_tasks(&mut self) -> bool {
+        self.on_owner();
+        self.inner.run_platform_tasks()
     }
 
     fn termination_handle(&self) -> TerminationHandle {

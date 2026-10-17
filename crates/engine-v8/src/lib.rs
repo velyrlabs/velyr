@@ -1,18 +1,22 @@
 //! V8 adapter for `velyr-engine-api` (ADR-009). No `v8::` type appears in the public API.
 
 mod code_cache;
+mod continuation;
 mod convert;
 mod handles;
 mod heap;
 mod host;
+mod inspector;
 mod modules;
 mod serialize;
 mod shared;
+mod snapshot;
+mod stack_trace;
 
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Once};
+use std::sync::{Arc, Once, OnceLock};
 
 use velyr_engine_api::{
     CodeCacheStats, Engine, EngineError, EngineFeatures, GcReason, Handle, HeapStats,
@@ -26,22 +30,53 @@ use heap::HeapGuard;
 use host::SharedSlot;
 use shared::Shared;
 
+pub use inspector::{InspectorEvent, InspectorOptions};
+pub use snapshot::create_snapshot;
+
 static PLATFORM_INIT: Once = Once::new();
+/// Kept to pump each isolate's foreground task queue (`V8Isolate::run_platform_tasks`).
+static PLATFORM: OnceLock<v8::SharedRef<v8::Platform>> = OnceLock::new();
+
+/// Caps the young generation at 16 MB per semi-space (V8 defaults to 64 MB): -10% peak
+/// footprint with one worker and -17% with four on the large-app bench, same CPU per request
+/// (VELYR-212, docs/research/large-app-footprint.md). Smaller caps cost throughput.
+const V8_FLAGS: &str = "--max-semi-space-size=16";
 
 /// Factory for [`V8Isolate`]s.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct V8Engine;
+#[derive(Debug, Default, Clone)]
+pub struct V8Engine {
+    snapshot: Option<&'static [u8]>,
+    inspector: Option<inspector::PendingInspector>,
+}
 
 impl V8Engine {
     pub fn new() -> Self {
-        Self
+        Self::default()
+    }
+
+    /// Boots every isolate's context from `blob`, made by [`create_snapshot`] with this same V8
+    /// build and flags (V8 aborts the process on a mismatched blob).
+    pub fn with_snapshot(blob: &'static [u8]) -> Self {
+        Self {
+            snapshot: Some(blob),
+            inspector: None,
+        }
+    }
+
+    /// The first isolate created gets a V8 inspector driven by `options.events` (VELYR-120).
+    pub fn with_inspector(mut self, options: InspectorOptions) -> Self {
+        self.inspector = Some(Arc::new(std::sync::Mutex::new(Some(options))));
+        self
     }
 
     /// Initializes the process-wide V8 platform exactly once (ADR-010). Idempotent and
     /// thread-safe; `create_isolate` also calls it defensively.
     pub fn init_platform() {
         PLATFORM_INIT.call_once(|| {
-            v8::V8::initialize_platform(v8::new_default_platform(0, false).make_shared());
+            v8::V8::set_flags_from_string(V8_FLAGS);
+            let platform = v8::new_default_platform(0, false).make_shared();
+            let _ = PLATFORM.set(platform.clone());
+            v8::V8::initialize_platform(platform);
             v8::V8::initialize();
         });
     }
@@ -56,6 +91,7 @@ impl Engine for V8Engine {
             | EngineFeatures::BIGINT
             | EngineFeatures::ARRAY_BUFFER
             | EngineFeatures::SERIALIZE
+            | EngineFeatures::CONTINUATION_CONTEXT
     }
 
     fn create_isolate(&self, opts: IsolateOptions) -> Result<V8Isolate, EngineError> {
@@ -64,7 +100,10 @@ impl Engine for V8Engine {
         if let Some(limit) = opts.heap_limit_bytes {
             params = params.heap_limits(0, limit);
         }
-        let mut isolate = v8::Isolate::new(params);
+        let mut isolate = match self.snapshot {
+            Some(blob) => snapshot::boot(params, blob),
+            None => v8::Isolate::new(params),
+        };
         let shared = Rc::new(Shared::default());
         let heap_guard = opts
             .heap_limit_bytes
@@ -79,11 +118,18 @@ impl Engine for V8Engine {
             let context = v8::Context::new(scope, Default::default());
             v8::Global::new(scope, context)
         };
+        let inspector = self
+            .inspector
+            .as_ref()
+            .and_then(|pending| pending.lock().ok()?.take())
+            .map(|options| inspector::Inspector::attach(&mut isolate, &context, options));
         Ok(V8Isolate {
             shared,
             context,
+            inspector,
             isolate: RefCell::new(isolate),
             _heap_guard: heap_guard,
+            platform_busy: false,
         })
     }
 }
@@ -92,11 +138,15 @@ impl Engine for V8Engine {
 pub struct V8Isolate {
     shared: Rc<Shared>,
     context: v8::Global<v8::Context>,
+    // Declared before `isolate`: the inspector must be gone before the isolate.
+    inspector: Option<inspector::Inspector>,
     // Declared last so the `Global`s above are dropped while the isolate is alive.
     // `RefCell` only because `Isolate::heap_stats(&self)` needs `&mut v8::Isolate`.
     isolate: RefCell<v8::OwnedIsolate>,
     // Declared after `isolate`: V8 may call the heap callback until the isolate is gone.
     _heap_guard: Option<Box<HeapGuard>>,
+    /// Background work (async wasm compiles) was pending at the last `run_platform_tasks`.
+    platform_busy: bool,
 }
 
 impl V8Isolate {
@@ -185,6 +235,9 @@ impl Isolate for V8Isolate {
     }
 
     fn evaluate_module(&mut self, module: Handle) -> Result<Value, JsException> {
+        if let Some(inspector) = &self.inspector {
+            inspector.before_module_evaluation();
+        }
         self.enter(|scope, shared| modules::evaluate(scope, shared, module))
     }
 
@@ -244,6 +297,18 @@ impl Isolate for V8Isolate {
         self.enter(|scope, shared| host::promise_state(scope, shared, promise))
     }
 
+    fn set_prepare_stack_trace(&mut self, mapper: velyr_engine_api::StackFrameMapper) {
+        stack_trace::install(self.isolate.get_mut(), mapper);
+    }
+
+    fn set_continuation_context(&mut self, value: Value) {
+        self.enter(|scope, shared| continuation::set(scope, shared, &value));
+    }
+
+    fn get_continuation_context(&mut self) -> Value {
+        self.enter(continuation::get)
+    }
+
     fn take_unhandled_rejections(&mut self) -> Vec<Value> {
         self.enter(|scope, shared| shared.take_unhandled(scope))
     }
@@ -265,11 +330,32 @@ impl Isolate for V8Isolate {
             used_bytes: stats.used_heap_size(),
             total_bytes: stats.total_heap_size(),
             limit_bytes: Some(stats.heap_size_limit()),
+            external_bytes: Some(stats.external_memory()),
+            // V8's HeapStatistics has no cell count or collection counters.
+            ..HeapStats::default()
         }
     }
 
     fn request_gc(&mut self, _reason: GcReason) {
         self.isolate.get_mut().low_memory_notification();
+    }
+
+    // Pumps only while background work is pending: pumping on every tick costs CPU (VELYR-215).
+    fn run_platform_tasks(&mut self) -> bool {
+        if let Some(inspector) = &self.inspector {
+            inspector.pump();
+        }
+        let isolate = self.isolate.get_mut();
+        let busy = isolate.has_pending_background_tasks();
+        // One more pump after the work ends: its last foreground task may still be queued.
+        let outstanding = busy || self.platform_busy;
+        self.platform_busy = busy;
+        if outstanding && let Some(platform) = PLATFORM.get() {
+            while v8::Platform::pump_message_loop(platform, isolate, false) {
+                self.shared.microtasks_dirty.set(true);
+            }
+        }
+        outstanding
     }
 
     fn termination_handle(&self) -> TerminationHandle {

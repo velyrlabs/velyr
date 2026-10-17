@@ -1,15 +1,16 @@
 //! Runtime metrics (TDD section 17), produced from Rust and readable from any thread: the
-//! numbers live in atomics that the isolate thread updates, so a scrape (the CLI exporter) still
-//! answers while JS is CPU-saturated. `Velyr.metrics()` returns the same [`Snapshot`].
+//! numbers live in atomics (and a briefly locked heap copy) that the isolate thread updates, so a
+//! scrape (the CLI exporter) still answers while JS is CPU-saturated. `Velyr.metrics()` returns
+//! the same [`Snapshot`].
 //!
-//! Not covered: GC count and pause (the engine API has no hook for them) and per-worker
-//! utilization. Heap is sampled when a JS turn ends, so it is stale while one runs. Server
+//! GC count, pause, cells and external bytes are reported where the engine has them
+//! (engine-native; V8 gives external bytes only). Not covered: per-worker utilization. Heap is sampled when a JS turn ends, so it is stale while one runs. Server
 //! workers (`serve --workers`) register an id: their loop lag and heap are reported per
 //! `worker` label, while requests, pending ops and resources are totals over the process.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -30,13 +31,15 @@ pub const HTTP_BUCKETS_SECONDS: [f64; 11] = [
 ];
 
 /// Quota classes reported as active resources.
-const RESOURCE_CLASSES: [QuotaClass; 6] = [
+const RESOURCE_CLASSES: [QuotaClass; 8] = [
     QuotaClass::Files,
     QuotaClass::Sockets,
     QuotaClass::Listeners,
     QuotaClass::Workers,
     QuotaClass::Timers,
     QuotaClass::Requests,
+    QuotaClass::Compression,
+    QuotaClass::Processes,
 ];
 
 const STATUS_CLASSES: [&str; 5] = ["1xx", "2xx", "3xx", "4xx", "5xx"];
@@ -52,11 +55,8 @@ struct IsolateMetrics {
     /// Nanoseconds since `start` at which the running JS turn began, plus one; 0 when idle.
     busy_since: AtomicU64,
     last_turn_nanos: AtomicU64,
-    heap_sampled: AtomicBool,
-    heap_used: AtomicU64,
-    heap_total: AtomicU64,
-    /// Heap limit plus one; 0 when the engine reports none.
-    heap_limit: AtomicU64,
+    /// `None` until the first turn ended; locked only to copy the stats in or out.
+    heap: Mutex<Option<HeapStats>>,
     sources: Mutex<Option<Sources>>,
 }
 
@@ -72,14 +72,7 @@ impl IsolateMetrics {
     }
 
     fn heap(&self) -> Option<HeapStats> {
-        let limit = self.heap_limit.load(Ordering::Relaxed);
-        self.heap_sampled
-            .load(Ordering::Acquire)
-            .then(|| HeapStats {
-                used_bytes: self.heap_used.load(Ordering::Relaxed) as usize,
-                total_bytes: self.heap_total.load(Ordering::Relaxed) as usize,
-                limit_bytes: (limit > 0).then(|| (limit - 1) as usize),
-            })
+        *self.heap.lock().expect("metrics heap")
     }
 }
 
@@ -173,17 +166,7 @@ impl Metrics {
     }
 
     pub fn record_heap(&self, stats: HeapStats) {
-        self.current(|isolate| {
-            isolate
-                .heap_used
-                .store(stats.used_bytes as u64, Ordering::Relaxed);
-            isolate
-                .heap_total
-                .store(stats.total_bytes as u64, Ordering::Relaxed);
-            let limit = stats.limit_bytes.map_or(0, |limit| limit as u64 + 1);
-            isolate.heap_limit.store(limit, Ordering::Relaxed);
-            isolate.heap_sampled.store(true, Ordering::Release);
-        });
+        self.current(|isolate| *isolate.heap.lock().expect("metrics heap") = Some(stats));
     }
 
     pub fn count_permission_denied(&self) {

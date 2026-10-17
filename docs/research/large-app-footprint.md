@@ -432,3 +432,109 @@ of the 21 MB used vs 175 MB resident gap, or V8's own heap dominates peak. Throu
 but the machine load was 4 to 13 during every round (limit was 4, later relaxed to 7 by the coordinator),
 so those gains are within noise and are not a basis to keep it. Raw data:
 `benches/results/footprint-large-mimalloc-{before,after}-{w1,w4}.json`.
+
+## Idle and peak footprint of Velyr V8 (VELYR-212)
+
+Method: one server run per reading, routes touched `workers * 2` times, 2 s pause, idle reading, then
+`oha` on 3 routes (2 s warm-up, 6 s measured each) with RSS sampled every 250 ms, then the after-load
+reading. Besides `ps` RSS (noisy on macOS under memory pressure: compressed pages leave RSS), every run
+records the physical footprint from `proc_pid_rusage(RUSAGE_INFO_V4)` (current and lifetime max, summed
+over the process tree) and the CPU time of the tree per request in the measured windows. Those two are
+the stable columns; req/s is reported but the machine load was 5 to 30 during every run (other workers
+building), so req/s differences under ~10% are noise. Velyr heap numbers come from `--metrics-addr`
+(`velyr_heap_*{worker}`); Node numbers from a `--import` probe that dumps `process.memoryUsage()`,
+`v8.getHeapStatistics()` and `v8.getHeapSpaceStatistics()` on SIGUSR2.
+
+### Decomposition (V8 engine, before any change)
+
+| | Velyr w1 | Node w1 | Velyr w4 | Node w4 |
+|---|---|---|---|---|
+| RSS idle (MB) | 134 | 95 to 182 | 408 | 780 (4 x ~178 + 59 primary) |
+| footprint idle (MB) | 122 | 149 | 446 | 539 |
+| footprint max (MB) | 317 | 335 | 1126 | 1121 |
+| V8 heap used / total idle, per isolate (MB) | 68 / 80 | 80 / 109 | ~70 / ~79 | ~76 / ~110 |
+| V8 heap used / total after load, per isolate (MB) | 94 / 139 | 90 / 158 | ~87 / ~139 | ~91 / ~151 |
+| new space size idle / after load (MB) | n/a | 43 / 64 | n/a | 33 / 64 |
+| dirty "App-Specific Tag 16" (V8 heap pages) idle / after (MB) | 58 / 76 | 48 / 98 | 289 / 311 | per worker |
+| malloc allocated / fragmentation after load (MB) | 16 / 43 | 10 / 55 | 63 / 92 | per worker |
+| page tables idle / after (MB) | 10 / 15 | 12 / 17 | 31 / 47 | per worker |
+
+Reading: per isolate Velyr already holds about the same heap as Node. Under load the V8 heap total grows
+by ~55 MB per isolate, almost all of it new space growing to its 64 MB cap (2 x 32 MB semi-spaces, the
+default for this V8), and nothing shrinks it back: Velyr never pumps the V8 platform message loop, so
+the foreground tasks the heap posts (memory reducer, idle-time GC) never run. The second item is the
+malloc fragmentation after load (43 MB at w1, 92 MB at w4), already analysed in VELYR-191.
+
+Gaps: Velyr's `process.memoryUsage()` reports `heapUsed`/`heapTotal` as 0 and
+`v8.getHeapSpaceStatistics()` is not implemented, so the per-space split above exists only for Node;
+Velyr workers are threads, so per-worker RSS cannot be separated (only per-worker heap via metrics).
+
+### Candidates (A/B interleaved, 3 rounds unless noted, medians)
+
+Flags were passed through a temporary `VELYR_V8_FLAGS` hook in `V8Engine::init_platform`; A and B use
+the same binary. "fp" = physical footprint.
+
+| Candidate | w | fp idle A / B | fp max A / B | peak RSS A / B | req/s A / B | CPU ms/req A / B | Verdict |
+|---|---|---|---|---|---|---|---|
+| `--max-semi-space-size=4` | 1 | 118.9 / 113.0 | 313.9 / 266.8 (-15%) | 331 / 289 (-13%) | 4396 / 3329 | 0.233 / 0.293 (+26%) | rejected: scavenge cost |
+| `--max-semi-space-size=8` | 1 | 126.8 / 118.3 | 316.7 / 265.7 (-16%) | 332 / 276 (-17%) | 4313 / 4065 (-6%) | 0.237 / 0.252 (+6%) | rejected: CPU cost |
+| `--max-semi-space-size=16` (n=4) | 1 | 126.8 / 116.6 (-8%) | 315.7 / 284.6 (-10%) | 333 / 298 (-10.5%) | 4230 / 4282 | 0.239 / 0.239 | kept |
+| `--max-semi-space-size=16` | 4 | 441.8 / 457.0 | 1126.2 / 935.9 (-17%) | 1055 / 1005 (-5%) | 9961 / 10561 | 0.340 / 0.332 | kept (heap total after load 555 -> 426, -23%) |
+| `--single-threaded-gc` (on top of semi 16) | 4 | 447.8 / 455.5 | 806.9 / 932.6 | 831 / 958 | 11932 / 12142 | 0.296 / 0.301 | rejected: no gain |
+| `--no-opt` (on top of semi 16) | 1 | 120.2 / 117.9 | 282.6 / 276.7 (-2%) | 307 / 296 (-4%) | 4449 / 4466 | 0.232 / 0.225 | rejected: below 10% |
+| `--lite-mode` (on top of semi 16, n=2) | 1 | 119.0 / 102.3 | 281.9 / 156.7 (-44%) | 305 / 151 (-50%) | 4473 / 1870 (-58%) | 0.231 / 0.642 | rejected: throughput |
+| drop `SourceCache` + `ModuleHost` cache after entry evaluation | 1 | 117.9 / 117.4 | 316.8 / 316.3 | 339 / 339 | 4417 / 4428 | 0.233 / 0.233 | rejected: no gain |
+| same | 4 | 442.6 / 437.8 (-1%) | 1025.6 / 1072.4 | 936 / 1137 | 13787 / 13590 | 0.284 / 0.289 | rejected: no gain |
+| `low_memory_notification` after graph load | 1 | 118.0 / 131.5 (+11%) | 317.3 / 322.0 | 339 / 341 | 4439 / 4388 | 0.232 / 0.233 | rejected: worse idle |
+| same | 4 | 445.1 / 476.8 (+7%) | 1158.4 / 986.8 | 1127 / 1046 | 13720 / 13325 | 0.287 / 0.291 | rejected: worse idle |
+| pump platform message loop on every microtask checkpoint | 1 | 121.1 / 119.0 | 318.6 / 307.4 (-4%) | 333 / 323 | 4278 / 3740 | 0.240 / 0.262 (+9%) | open, see below |
+| same | 4 | 439.2 / 448.0 | 1136.7 / 902.6 (-21%) | 1080 / 766 (-29%) | 11267 / 9750 | 0.302 / 0.341 (+13%) | open, see below |
+
+Notes:
+
+- Sources: the large-app graph is 2046 files, 7.2 MB, so even freeing every Rust-side copy caps at ~6%
+  of the idle footprint; V8 keeps its own copy (lazy compilation and `Function.prototype.toString` need
+  it) and the freed blocks are small malloc allocations that stay resident. Measured: no change.
+- A full GC right after the graph loads made idle worse: it runs before the first requests warm the
+  heap, and the heap grows back with a larger initial size.
+- Pumping the platform loop is the only lever on the after-load heap besides the semi-space cap
+  (w4 peak -29%, fp max -21%), but pumping on every checkpoint cost 9 to 13% CPU per request in this
+  run. It needs a throttled pump (time-based) and an idle trigger, which belongs to
+  `runtime-event-loop` (outside VELYR-212's files); worth its own ticket.
+
+## Idle-time GC in the event loop (VELYR-215)
+
+Same method as VELYR-212, plus a "settled" reading 3 s after the load ends (the server back to idle
+after a burst). Baseline already has `--max-semi-space-size=16`. Candidates went through temporary
+env-gated hooks in one binary (A and B identical code); the kept one was then measured as the final
+build against the previous one. Machine load 4 to 25 (1-min average, logged per run).
+
+| Candidate | w | fp idle A / B | fp settled A / B | fp max A / B | CPU ms/req A / B | req/s A / B | Verdict |
+|---|---|---|---|---|---|---|---|
+| pump the platform loop (budget 1 ms) each time the loop is about to block | 4 | 421.8 / 457.3 (+8%) | n/a | 942.6 / 876.1 (-7%) | 0.326 / 0.309 | 11463 / 11750 | rejected: below 10% |
+| same plus `run_idle_tasks` (platform with idle-task support, 1 ms deadline) | 4 | 440.7 / 451.8 | 733.3 / 788.6 | 809.3 / 924.3 | 0.275 / 0.268 | 14695 / 13899 | rejected: no gain |
+| `low_memory_notification` after 1 s of continuous idleness (no growth guard) | 1 | 117.2 / 103.6 (-12%) | 169.6 / 122.4 (-28%) | 285.0 / 280.6 | 0.256 / 0.259 (+1.2%) | 3947 / 3915 | candidate |
+| same | 4 | 440.5 / 376.1 (-15%) | 590.7 / 462.5 (-22%) | 990.4 / 829.0 | 0.335 / 0.336 (+0.3%) | 10280 / 9823 | candidate |
+| **final build**: idle GC after 1 s, once per idle period, only if used heap grew 4 MB since the last one | 1 | 126.7 / 105.6 (-17%) | 226.2 / 177.7 (-21%) | 281.9 / 281.5 | 0.233 / 0.236 (+1.3%) | 4430 / 4405 | kept |
+| same | 4 | 458.9 / 383.3 (-16%) | 579.8 / 459.6 (-21%) | 952.4 / 968.2 (+2%) | 0.266 / 0.269 (+1.1%) | 15324 / 15307 | kept |
+
+What was kept (`crates/runtime-event-loop/src/lib.rs`): while `EventLoop::run` waits for work, a
+1 s sleep joins the `select!`; when it wins, the loop calls `request_gc(GcReason::Idle)` (V8:
+`low_memory_notification`, a full GC that also shrinks the young generation back) at most once per
+idle period. The GC is skipped unless the used heap grew 4 MB since the previous idle GC, so a
+server with sparse traffic (health checks) does not pay a full GC per request. Under load the loop
+never stays idle for a second, so the timer never fires there.
+
+Notes:
+
+- The pump alone does little once the semi-space is capped: the -21% max footprint VELYR-212 saw
+  was mostly the young-generation growth that VELYR-215's baseline no longer has.
+- `ps` peak RSS rose ~8% with the final build (w1 307 -> 333 MB, w4 957 -> 1036 MB, consistent over
+  the 3 rounds) while the max physical footprint stayed flat. Pages the idle GC returned are faulted
+  back in during the next burst and are counted as resident again, while the baseline's idle pages
+  had been compressed out of RSS; the footprint, which counts compressed pages, is the reliable peak.
+- Gap: `velyr_heap_*` gauges are recorded at the end of JS turns (`LoopIsolate::turn` in
+  runtime-core), so after an idle GC `/metrics` keeps the pre-GC heap until the next request. A
+  one-line `record_heap` in `LoopIsolate::request_gc` would fix it (outside VELYR-215's files).
+- Not tried: `MemoryPressureLevel` notifications (rusty_v8 exposes `memory_pressure_notification`;
+  `low_memory_notification` already is the critical-pressure path and met the target).

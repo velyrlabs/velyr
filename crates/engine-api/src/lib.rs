@@ -12,6 +12,7 @@ mod error;
 mod features;
 mod isolate;
 mod serialize;
+mod stack_trace;
 mod value;
 
 pub use code_cache::{
@@ -21,4 +22,5 @@ pub use error::{EngineError, HostError};
 pub use features::EngineFeatures;
 pub use isolate::*;
 pub use serialize::{SerializedValue, TransferredBuffer};
+pub use stack_trace::{MappedPosition, StackFrameMapper};
 pub use value::{Handle, JsBigInt, JsString, Value};

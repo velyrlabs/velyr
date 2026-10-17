@@ -22,6 +22,19 @@ impl Worker {
     }
 }
 
+/// Readings the engine does not have are `null`.
+fn heap_json(heap: HeapStats) -> Value {
+    json!({
+        "usedBytes": heap.used_bytes,
+        "totalBytes": heap.total_bytes,
+        "limitBytes": heap.limit_bytes,
+        "externalBytes": heap.external_bytes,
+        "cells": heap.cells,
+        "gcCount": heap.gc_count,
+        "gcSeconds": heap.gc_time.map(|time| time.as_secs_f64()),
+    })
+}
+
 fn metric(out: &mut String, name: &str, kind: &str, help: &str) {
     let _ = write!(out, "# HELP {name} {help}\n# TYPE {name} {kind}\n");
 }
@@ -59,37 +72,76 @@ impl Snapshot {
                 })
                 .collect()
         };
-        let heaps =
-            |name: &str, help: &str, read: fn(HeapStats) -> Option<usize>, out: &mut String| {
-                let rows: Vec<_> = isolates
-                    .iter()
-                    .filter_map(|w| Some((w.label(), read(w.heap?)?)))
-                    .collect();
-                if !rows.is_empty() {
-                    metric(out, name, "gauge", help);
-                    for (label, value) in rows {
-                        let _ = writeln!(out, "{name}{label} {value}");
-                    }
+        // Series the engine does not report (`None`) are left out, not zero.
+        let mut heaps = |name: &str, kind: &str, help: &str, read: fn(HeapStats) -> Option<f64>| {
+            let rows: Vec<_> = isolates
+                .iter()
+                .filter_map(|w| Some((w.label(), read(w.heap?)?)))
+                .collect();
+            if !rows.is_empty() {
+                metric(&mut out, name, kind, help);
+                for (label, value) in rows {
+                    let _ = writeln!(out, "{name}{label} {value}");
                 }
-            };
+            }
+        };
         heaps(
             "velyr_heap_used_bytes",
+            "gauge",
             "JS heap in use, as of the last finished turn.",
-            |heap| Some(heap.used_bytes),
-            &mut out,
+            |heap| Some(heap.used_bytes as f64),
         );
         heaps(
             "velyr_heap_total_bytes",
+            "gauge",
             "JS heap committed.",
-            |heap| Some(heap.total_bytes),
-            &mut out,
+            |heap| Some(heap.total_bytes as f64),
         );
         heaps(
             "velyr_heap_limit_bytes",
+            "gauge",
             "Configured JS heap limit.",
-            |heap| heap.limit_bytes,
-            &mut out,
+            |heap| heap.limit_bytes.map(|bytes| bytes as f64),
         );
+        heaps(
+            "velyr_heap_external_bytes",
+            "gauge",
+            "Memory held outside the JS heap for it (strings, buffers).",
+            |heap| heap.external_bytes.map(|bytes| bytes as f64),
+        );
+        heaps("velyr_heap_cells", "gauge", "Live GC cells.", |heap| {
+            heap.cells.map(|cells| cells as f64)
+        });
+        heaps(
+            "velyr_gc_collections_total",
+            "counter",
+            "Garbage collections run.",
+            |heap| heap.gc_count.map(|count| count as f64),
+        );
+        heaps(
+            "velyr_gc_pause_seconds_total",
+            "counter",
+            "Time paused in garbage collections.",
+            |heap| heap.gc_time.map(|time| time.as_secs_f64()),
+        );
+        let breakdowns: Vec<_> = isolates
+            .iter()
+            .filter_map(|w| Some((w.id, w.heap?.breakdown?)))
+            .collect();
+        if !breakdowns.is_empty() {
+            metric(
+                &mut out,
+                "velyr_memory_bytes",
+                "gauge",
+                "Engine memory by kind (cells, strings, storage, code, source, ...).",
+            );
+            for (id, breakdown) in breakdowns {
+                let worker = id.map_or_else(String::new, |id| format!("worker=\"{id}\","));
+                for (kind, bytes) in breakdown.kinds() {
+                    let _ = writeln!(out, "velyr_memory_bytes{{{worker}kind=\"{kind}\"}} {bytes}");
+                }
+            }
+        }
         metric(
             &mut out,
             "velyr_event_loop_lag_seconds",
@@ -173,9 +225,7 @@ impl Snapshot {
 
     /// The object `Velyr.metrics()` returns.
     pub fn to_json(&self) -> Value {
-        let heap = self.heap.map(|heap| {
-            json!({"usedBytes": heap.used_bytes, "totalBytes": heap.total_bytes, "limitBytes": heap.limit_bytes})
-        });
+        let heap = self.heap.map(heap_json);
         let resources: serde_json::Map<String, Value> = self
             .resources
             .iter()
@@ -200,7 +250,7 @@ impl Snapshot {
                 json!({
                     "id": worker.id,
                     "loopLagSeconds": worker.loop_lag_seconds,
-                    "heap": worker.heap.map(|heap| json!({"usedBytes": heap.used_bytes, "totalBytes": heap.total_bytes, "limitBytes": heap.limit_bytes})),
+                    "heap": worker.heap.map(heap_json),
                 })
             })
             .collect();
@@ -220,5 +270,58 @@ impl Snapshot {
                 "sumSeconds": self.http.sum_seconds,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use velyr_engine_api::MemoryBreakdown;
+
+    use super::*;
+    use crate::metrics::WorkerSnapshot;
+
+    fn heap(code: usize) -> Option<HeapStats> {
+        Some(HeapStats {
+            breakdown: Some(MemoryBreakdown {
+                code,
+                ..MemoryBreakdown::default()
+            }),
+            ..HeapStats::default()
+        })
+    }
+
+    #[test]
+    fn memory_breakdown_is_one_series_per_kind_and_worker() {
+        let single = Snapshot {
+            heap: heap(7),
+            ..Snapshot::default()
+        };
+        let text = single.to_prometheus();
+        assert!(
+            text.contains("velyr_memory_bytes{kind=\"code\"} 7\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains("velyr_memory_bytes{kind=\"strings\"} 0\n"),
+            "{text}"
+        );
+        let workers = Snapshot {
+            workers: vec![WorkerSnapshot {
+                id: 2,
+                heap: heap(9),
+                loop_lag_seconds: 0.0,
+            }],
+            ..Snapshot::default()
+        };
+        let text = workers.to_prometheus();
+        assert!(
+            text.contains("velyr_memory_bytes{worker=\"2\",kind=\"code\"} 9\n"),
+            "{text}"
+        );
+        assert!(
+            !Snapshot::default()
+                .to_prometheus()
+                .contains("velyr_memory_bytes")
+        );
     }
 }

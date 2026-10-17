@@ -2,13 +2,16 @@
 //! asynchronous), linked and evaluated by the engine, including top-level await and `import()`.
 //!
 //! The engine links synchronously through a [`ModuleResolveHook`], so the hook only serves
-//! sources that were already read. When it meets one that was not, it records it and fails; the
-//! loader reads it (awaiting the filesystem) and links again. Edges the engine already resolved
-//! are cached, so every retry makes progress.
+//! sources that were already read. Before linking, the loader reads the whole graph its import
+//! scan can see, many modules at a time, so a graph is usually linked once. When the hook meets a
+//! module the scan missed, it records it and fails; the loader reads it and links again. Edges the
+//! engine already resolved are cached, so every retry makes progress.
 //!
 //! `import()` reaches the host through the `op_module_import` function, which queues a request;
 //! the loop in [`drive`] serves requests between event-loop runs.
 
+mod prefetch;
+mod scan;
 mod sync;
 
 use std::path::Path;
@@ -17,7 +20,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tracing::Instrument;
 use velyr_engine_api::{
-    CallContext, Handle, HostError, HostFunctionDef, Isolate, JsException, JsString,
+    CallContext, Handle, HostError, HostFunctionDef, Isolate, JsException, JsString, MappedPosition,
     ModuleResolveHook, PromiseState, ResolverId, Source, Value,
 };
 use velyr_runtime_errors::VelyrError;
@@ -111,7 +114,7 @@ impl From<VelyrError> for LoadError {
 
 /// Resolution, permission-gated loading and the sources the engine hook may serve.
 struct Modules {
-    host: ModuleHost,
+    host: Arc<ModuleHost>,
     load: LoadContext,
     resolve_ctx: ResolveContext,
     resolver: ModuleResolverHandle,
@@ -146,6 +149,7 @@ impl Modules {
         let span = tracing::debug_span!("velyr.core.load_graph");
         async {
             let source = self.fetch(root).await?;
+            self.prefetch(root, &source).await;
             let cache = self
                 .shared
                 .as_ref()
@@ -172,6 +176,7 @@ impl Modules {
     async fn link(&mut self, isolate: &mut impl Isolate, handle: Handle) -> Result<(), LoadError> {
         loop {
             let mut hook = LinkHook::new(self);
+            tracing::debug!(target: "velyr.core.instantiate", "instantiate");
             let linked = isolate.instantiate_module(handle, &mut hook);
             let (missing, failure) = (hook.missing, hook.failure);
             match (linked, missing, failure) {
@@ -345,7 +350,7 @@ pub(crate) async fn run<I: Isolate>(
         host = host.with_transform(transform);
     }
     let mut modules = Modules {
-        host,
+        host: Arc::new(host),
         load: LoadContext { permissions },
         resolve_ctx: ResolveContext::default(),
         resolver: resolver.unwrap_or_else(|| Arc::new(FsResolver)),
@@ -353,6 +358,14 @@ pub(crate) async fn run<I: Isolate>(
         shared,
         entry,
     };
+    let to_original = modules.host.source_maps().mapper();
+    isolate.set_prepare_stack_trace(Arc::new(move |file, line, column| {
+        to_original(file, line, column).map(|(file, line, column)| MappedPosition {
+            file,
+            line,
+            column,
+        })
+    }));
     // `require(esm)` reads into the same cache, so both sides see one instance per module.
     require
         .sharing(Arc::clone(&modules.loaded))

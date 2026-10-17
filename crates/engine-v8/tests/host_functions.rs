@@ -215,6 +215,52 @@ fn echo_bytes(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostEr
     }
 }
 
+fn utf8_bytes(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let [Value::String(text)] = args else {
+        return Err(HostError::TypeError("expected a string".into()));
+    };
+    let mut out = vec![0x3c];
+    ctx.write_string_utf8(text, &mut out);
+    Ok(ctx.create_array_buffer(&out))
+}
+
+fn utf8_matches_lossy(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let [Value::String(text)] = args else {
+        return Err(HostError::TypeError("expected a string".into()));
+    };
+    let mut out = Vec::new();
+    ctx.write_string_utf8(text, &mut out);
+    Ok(Value::Bool(out == text.to_string_lossy().into_bytes()))
+}
+
+#[test]
+fn write_string_utf8_appends_utf8_and_replaces_lone_surrogates() {
+    let mut iso = isolate();
+    register(&mut iso, "utf8Bytes", utf8_bytes);
+    register(&mut iso, "utf8MatchesLossy", utf8_matches_lossy);
+    let script = r#"
+        const hex = (v) => Array.from(new Uint8Array(v), (b) => b.toString(16)).join(",");
+        const long = "abcé".repeat(500) + "€😀".repeat(300) + "\udc00x\ud800";
+        [
+          hex(utf8Bytes("")),
+          hex(utf8Bytes("hi")),
+          hex(utf8Bytes("café")),
+          hex(utf8Bytes("€😀")),
+          hex(utf8Bytes("a\ud800b")),
+          hex(utf8Bytes("\ude00")),
+          utf8MatchesLossy("x".repeat(70000)),
+          utf8MatchesLossy(long),
+        ].join("|")
+    "#;
+    let Value::String(out) = eval(&mut iso, script) else {
+        panic!("expected string");
+    };
+    assert_eq!(
+        out.to_string_lossy(),
+        "3c|3c,68,69|3c,63,61,66,c3,a9|3c,e2,82,ac,f0,9f,98,80|3c,61,ef,bf,bd,62|3c,ef,bf,bd|true|true"
+    );
+}
+
 #[test]
 fn read_bytes_copies_buffers_and_view_windows_and_rejects_others() {
     let mut iso = isolate();

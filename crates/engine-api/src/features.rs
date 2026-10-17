@@ -17,6 +17,9 @@ impl EngineFeatures {
     pub const SERIALIZE: Self = Self(1 << 3);
     /// `ArrayBuffer` creation and access.
     pub const ARRAY_BUFFER: Self = Self(1 << 4);
+    /// [`Isolate::set_continuation_context`](crate::Isolate::set_continuation_context): a value
+    /// that follows promise reactions and `await` (what `AsyncLocalStorage` is built on).
+    pub const CONTINUATION_CONTEXT: Self = Self(1 << 5);
 
     pub const fn empty() -> Self {
         Self(0)

@@ -9,6 +9,7 @@
 mod host;
 mod resolve;
 mod shared_cache;
+mod source_maps;
 mod strategy;
 mod transform;
 
@@ -26,6 +27,7 @@ use velyr_runtime_permissions::CapabilitySet;
 pub use host::{FsLoader, ModuleHost, VirtualLoader, authorize_path};
 pub use resolve::FsResolver;
 pub use shared_cache::SharedCache;
+pub use source_maps::{PositionMapper, SourceMaps};
 pub use strategy::{BareSpecifierResolver, StrategyResolver};
 pub use transform::{MediaType, SourceTransform, Transformed};
 

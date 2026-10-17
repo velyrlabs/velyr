@@ -10,6 +10,7 @@ velyr-runtime-permissions = { path = "../runtime-permissions" }
 tokio.workspace = true
 sha2 = "0.10"
 url = "2"
+oxc_sourcemap = "=9.0.0"
 
 [dev-dependencies]
 tempfile = "3"

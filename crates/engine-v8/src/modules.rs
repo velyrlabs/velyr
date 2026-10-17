@@ -22,8 +22,11 @@ use crate::shared::Shared;
 pub(crate) struct ModuleGraph {
     by_name: HashMap<String, v8::Global<v8::Module>>,
     edges: HashMap<(String, String), String>,
-    /// `source_digest` of each module's text, the key its code cache is sealed with.
+    /// `source_digest` of each module's text, the key its code cache is sealed with. Filled on
+    /// demand: only a consumed or produced code cache needs it.
     digests: HashMap<String, u64>,
+    /// Source string of each module, kept to compute its digest when a cache is produced.
+    texts: HashMap<String, v8::Global<v8::String>>,
 }
 
 impl ModuleGraph {
@@ -33,6 +36,14 @@ impl ModuleGraph {
 
     pub(crate) fn digest(&self, name: &str) -> Option<u64> {
         self.digests.get(name).copied()
+    }
+
+    pub(crate) fn text(&self, name: &str) -> Option<&v8::Global<v8::String>> {
+        self.texts.get(name)
+    }
+
+    pub(crate) fn remember_digest(&mut self, name: &str, digest: u64) {
+        self.digests.insert(name.to_owned(), digest);
     }
 }
 
@@ -126,8 +137,8 @@ fn ensure_compiled(
     if shared.modules.borrow().by_name.contains_key(&source.name) {
         return Ok(());
     }
-    let digest = velyr_engine_api::source_digest(&source.text);
-    let payload = cache.map(|blob| code_cache::unseal(digest, blob));
+    let digest = cache.map(|_| code_cache::digest(&source.text));
+    let payload = cache.zip(digest).map(|(blob, digest)| code_cache::unseal(digest, blob));
     v8::tc_scope!(let tc, scope);
     let (Some(name), Some(text)) = (
         v8::String::new(tc, &source.name),
@@ -183,9 +194,13 @@ fn ensure_compiled(
         return Err(exception);
     };
     let global = v8::Global::new(tc, module);
+    let text = v8::Global::new(tc, text);
     let mut graph = shared.modules.borrow_mut();
     graph.by_name.insert(source.name.clone(), global);
-    graph.digests.insert(source.name.clone(), digest);
+    graph.texts.insert(source.name.clone(), text);
+    if let Some(digest) = digest {
+        graph.remember_digest(&source.name, digest);
+    }
     Ok(())
 }
 
@@ -445,7 +460,7 @@ pub(crate) fn finish_dynamic_import(
     }
 }
 
-fn return_data(
+pub(crate) fn return_data(
     _scope: &mut v8::PinScope<'_, '_>,
     args: v8::FunctionCallbackArguments<'_>,
     mut rv: v8::ReturnValue<'_>,

@@ -1,6 +1,8 @@
 # "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+# Runtime cold start (VELYR-123): bootstrap and web/node globals before an empty script runs.
+# Goal: startup snapshot cuts wall_ms >= 30% vs the pre-snapshot run (29.2 ms, M4 Pro, 2026-10-16).
 name = "startup"
-command = ["velyr", "--version"]
+command = ["velyr", "run", "benches/fixtures/empty.js"]
 iterations = 30
 warmup = 5
-metrics = ["wall_ms", "rss_mb", "cpu_seconds"]
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds"]

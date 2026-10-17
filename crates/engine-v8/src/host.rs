@@ -61,7 +61,7 @@ pub(crate) unsafe extern "C" fn on_promise_reject(message: v8::PromiseRejectMess
     shared.track_rejection(scope, message.get_promise(), message.get_event());
 }
 
-fn trampoline(
+pub(crate) fn trampoline(
     scope: &mut v8::PinScope<'_, '_>,
     args: v8::FunctionCallbackArguments<'_>,
     mut rv: v8::ReturnValue<'_>,
@@ -245,6 +245,22 @@ impl CallContext for HostContext<'_, '_, '_> {
         Some(bytes)
     }
 
+    #[allow(unsafe_code)]
+    fn write_string_utf8(&mut self, text: &JsString, out: &mut Vec<u8>) {
+        let units = text.as_utf16();
+        // Lone surrogates are rare: the lossy path keeps their U+FFFD.
+        if !v8::simdutf::validate_utf16le(units) {
+            out.extend_from_slice(text.to_string_lossy().as_bytes());
+            return;
+        }
+        let start = out.len();
+        out.resize(start + v8::simdutf::utf8_length_from_utf16le(units), 0);
+        // SAFETY: `units` was validated above and `out[start..]` holds exactly the UTF-8 length.
+        let written =
+            unsafe { v8::simdutf::convert_valid_utf16le_to_utf8(units, &mut out[start..]) };
+        debug_assert_eq!(start + written, out.len());
+    }
+
     fn get_property(&mut self, object: &Value, key: &str) -> Result<Value, HostError> {
         v8::tc_scope!(let tc, &mut *self.scope);
         let handles = self.shared.handles.borrow();
@@ -339,6 +355,14 @@ impl CallContext for HostContext<'_, '_, '_> {
 
     fn promise_state(&mut self, promise: &Value) -> Option<PromiseState> {
         promise_state(self.scope, self.shared, promise)
+    }
+
+    fn set_continuation_context(&mut self, value: Value) {
+        crate::continuation::set(self.scope, self.shared, &value);
+    }
+
+    fn get_continuation_context(&mut self) -> Value {
+        crate::continuation::get(self.scope, self.shared)
     }
 
     fn slot(&mut self, type_id: TypeId) -> Option<&mut dyn Any> {
