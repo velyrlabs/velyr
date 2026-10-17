@@ -67,6 +67,7 @@ fn script_without_flags_is_denied_every_network_call() {
         "serve",
         "connectTls",
         "listenTls",
+        "Command",
     ] {
         assert_eq!(results[format!("call {key}")], DENIED, "{key}");
     }

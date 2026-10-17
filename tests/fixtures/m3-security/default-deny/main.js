@@ -28,7 +28,7 @@ for (const name of absent) {
 }
 
 const velyrApis = [
-  "Command", "spawn", "run", "dlopen", "openKv", "resolveDns", "Worker", "dlopenSync", "ffi", "net", "http",
+  "spawn", "run", "dlopen", "openKv", "resolveDns", "Worker", "dlopenSync", "ffi", "net", "http",
 ];
 for (const name of velyrApis) {
   results[`typeof Velyr.${name}`] = typeof Velyr[name];
@@ -53,6 +53,8 @@ const calls = {
   listen: () => Velyr.listen({ hostname: "127.0.0.1", port: 0 }),
   serve: () => Velyr.serve({ hostname: "127.0.0.1", port: 0 }, () => new Response("x")),
   connectTls: () => Velyr.connectTls({ hostname: "127.0.0.1", port: 9 }),
+  // Ships, but spawning needs `--allow-run`.
+  Command: () => new Velyr.Command("true").output(),
   listenTls: () => Velyr.listenTls({ hostname: "127.0.0.1", port: 0, cert: CERT, key: KEY }),
 };
 for (const [name, call] of Object.entries(calls)) {
