@@ -1,0 +1,19 @@
+[package]
+name = "velyr-tooling-tsconfig"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+jsonc-parser = { version = "0.34.0", features = ["serde"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
