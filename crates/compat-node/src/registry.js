@@ -15,8 +15,9 @@
     encode: global.op_buffer_encode || missing("Buffer (compat_node_host_functions)"),
     decode: global.op_buffer_decode || missing("Buffer (compat_node_host_functions)"),
     byteLength: global.op_buffer_byte_length || missing("Buffer (compat_node_host_functions)"),
+    bufferWrite: global.op_buffer_write || missing("Buffer (compat_node_host_functions)"),
   };
-  const opNames = ["op_buffer_encode", "op_buffer_decode", "op_buffer_byte_length"];
+  const opNames = ["op_buffer_encode", "op_buffer_decode", "op_buffer_byte_length", "op_buffer_write"];
   // process / env / setImmediate ops: same capture-and-delete, same clear error when absent.
   for (const [key, name] of Object.entries({
     processInfo: "op_process_info", envGet: "op_process_env_get", envHas: "op_process_env_has",

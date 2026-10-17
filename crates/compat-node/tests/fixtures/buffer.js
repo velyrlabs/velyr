@@ -40,14 +40,14 @@ test("alloc", () => {
   code(() => Buffer.alloc(NaN), "ERR_OUT_OF_RANGE", RangeError);
 });
 test("allocUnsafe pool", () => {
-  eq(Buffer.poolSize, 8192);
+  eq(Buffer.poolSize, 65536);
   const a = Buffer.allocUnsafe(10);
   const b = Buffer.allocUnsafe(10);
   eq(a.buffer, b.buffer);
   eq(a.byteOffset % 8, 0);
   eq(b.byteOffset % 8, 0);
   eq(b.byteOffset > a.byteOffset, true);
-  eq(Buffer.allocUnsafe(5000).buffer === a.buffer, false);
+  eq(Buffer.allocUnsafe(40000).buffer === a.buffer, false);
   eq(Buffer.allocUnsafeSlow(10).buffer === a.buffer, false);
   eq(Buffer.alloc(10).buffer === a.buffer, false);
   const before = Buffer.allocUnsafe(0);

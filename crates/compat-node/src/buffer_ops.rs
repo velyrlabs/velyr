@@ -52,6 +52,11 @@ pub fn compat_node_host_functions() -> Vec<HostFunctionDef> {
             arity: 2,
             callback: op_buffer_byte_length,
         },
+        HostFunctionDef {
+            name: "op_buffer_write",
+            arity: 5,
+            callback: op_buffer_write,
+        },
     ];
     defs.extend(crate::async_context_ops::async_context_host_functions());
     defs.extend(crate::process_ops::process_host_functions());
@@ -84,7 +89,7 @@ fn op_buffer_encode(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, 
             "op_buffer_encode expects (text: string, encoding: string)".into(),
         ));
     };
-    Ok(ctx.create_array_buffer(&encode(text.as_utf16(), encoding)))
+    Ok(ctx.create_array_buffer(&encode_string(text, encoding)))
 }
 
 /// `op_buffer_byte_length(text, encoding) -> number`
@@ -94,18 +99,101 @@ fn op_buffer_byte_length(_: &mut dyn CallContext, args: &[Value]) -> Result<Valu
             "op_buffer_byte_length expects (text: string, encoding: string)".into(),
         ));
     };
-    // shortcut: encodes to count; upgrade to closed-form lengths if this shows up in profiles.
-    Ok(Value::Number(encode(text.as_utf16(), encoding).len() as f64))
+    let length = match encoding {
+        Encoding::Utf8 => utf8_length(text),
+        Encoding::Utf16le => text.len() * 2,
+        Encoding::Latin1 | Encoding::Ascii => text.len(),
+        // shortcut: encodes to count; closed forms for the lenient decoders when profiles ask.
+        Encoding::Base64 | Encoding::Base64Url | Encoding::Hex => {
+            encode_string(text, encoding).len()
+        }
+    };
+    Ok(Value::Number(length as f64))
 }
 
-/// `op_buffer_decode(bytes, encoding) -> string`; `bytes` is a typed array (its window) or buffer.
+/// `op_buffer_write(target, text, encoding, offset, length) -> number`: bytes written, or -1 when
+/// the adapter cannot borrow `target` (the JS side then takes the copy path). Never splits a
+/// UTF-8 sequence or a UTF-16 unit. `offset` and `length` are validated by the caller.
+fn op_buffer_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let (
+        Some(target),
+        Some(Value::String(text)),
+        Some(Value::Number(offset)),
+        Some(Value::Number(max)),
+    ) = (args.first(), args.get(1), args.get(3), args.get(4))
+    else {
+        return Err(HostError::TypeError(
+            "op_buffer_write expects (target, text, encoding, offset, length)".into(),
+        ));
+    };
+    let encoding = encoding_arg(args.get(2))?;
+    let bytes = encode_string(text, encoding);
+    let mut written = None;
+    let borrowed = ctx.with_bytes_mut(target, &mut |window| {
+        let start = (*offset as usize).min(window.len());
+        let mut count = bytes.len().min(*max as usize).min(window.len() - start);
+        if count < bytes.len() {
+            match encoding {
+                Encoding::Utf8 => {
+                    while count > 0 && bytes[count] & 0xc0 == 0x80 {
+                        count -= 1;
+                    }
+                }
+                Encoding::Utf16le => count &= !1,
+                _ => {}
+            }
+        }
+        window[start..start + count].copy_from_slice(&bytes[..count]);
+        written = Some(count);
+    });
+    Ok(Value::Number(
+        written.filter(|_| borrowed).map_or(-1.0, |n| n as f64),
+    ))
+}
+
+/// `op_buffer_decode(bytes, encoding, start?, end?) -> string`; `bytes` is a typed array or buffer
+/// and `start..end` (clamped) selects a window of it.
 fn op_buffer_decode(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let encoding = encoding_arg(args.get(1))?;
-    let bytes = args
+    let bound = |index: usize, default: usize| match args.get(index) {
+        Some(Value::Number(n)) => *n as usize,
+        _ => default,
+    };
+    let (start, end) = (bound(2, 0), bound(3, usize::MAX));
+    let window = |bytes: &[u8]| {
+        let end = end.min(bytes.len());
+        decode(&bytes[start.min(end)..end], encoding)
+    };
+    let value = args
         .first()
-        .and_then(|value| ctx.read_bytes(value))
         .ok_or_else(|| HostError::TypeError("op_buffer_decode expects a buffer".into()))?;
-    Ok(ctx.create_string(JsString::from_utf16(decode(&bytes, encoding))))
+    let mut text = None;
+    if !ctx.with_bytes(value, &mut |bytes| text = Some(window(bytes))) {
+        let copied = ctx
+            .read_bytes(value)
+            .ok_or_else(|| HostError::TypeError("op_buffer_decode expects a buffer".into()))?;
+        text = Some(window(&copied));
+    }
+    Ok(ctx.create_string(text.expect("decoded by one of the two paths")))
+}
+
+/// UTF-8 length of the string, lone surrogates counting as U+FFFD (3 bytes), no allocation.
+fn utf8_length(text: &JsString) -> usize {
+    if let Some(bytes) = text.as_latin1() {
+        return bytes.len() + bytes.iter().filter(|&&byte| byte >= 0x80).count();
+    }
+    char::decode_utf16(text.as_utf16().iter().copied())
+        .map(|unit| unit.map_or(3, char::len_utf8))
+        .sum()
+}
+
+/// Encodes with the one-byte fast paths; same bytes as `encode(text.as_utf16(), ..)`.
+fn encode_string(text: &JsString, encoding: Encoding) -> Vec<u8> {
+    match (text.as_latin1(), encoding) {
+        (Some(bytes), Encoding::Latin1 | Encoding::Ascii) => bytes.to_vec(),
+        (Some(bytes), Encoding::Utf8) if bytes.is_ascii() => bytes.to_vec(),
+        _ => encode(text.as_utf16(), encoding),
+    }
 }
 
 fn encode(units: &[u16], encoding: Encoding) -> Vec<u8> {
@@ -121,45 +209,52 @@ fn encode(units: &[u16], encoding: Encoding) -> Vec<u8> {
     }
 }
 
-fn decode(bytes: &[u8], encoding: Encoding) -> Vec<u16> {
+fn decode(bytes: &[u8], encoding: Encoding) -> JsString {
     match encoding {
-        Encoding::Utf8 => String::from_utf8_lossy(bytes).encode_utf16().collect(),
-        Encoding::Utf16le => bytes
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|pair| u16::from_le_bytes(*pair))
-            .collect(),
-        Encoding::Latin1 => bytes.iter().map(|&byte| u16::from(byte)).collect(),
-        Encoding::Ascii => bytes.iter().map(|&byte| u16::from(byte & 0x7f)).collect(),
-        Encoding::Base64 => encode_base64(bytes, B64, true),
-        Encoding::Base64Url => encode_base64(bytes, B64_URL, false),
+        Encoding::Utf8 if bytes.is_ascii() => JsString::from_latin1(bytes.to_vec()),
+        Encoding::Utf8 => {
+            JsString::from_utf16(String::from_utf8_lossy(bytes).encode_utf16().collect())
+        }
+        Encoding::Utf16le => JsString::from_utf16(
+            bytes
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|pair| u16::from_le_bytes(*pair))
+                .collect(),
+        ),
+        Encoding::Latin1 => JsString::from_latin1(bytes.to_vec()),
+        Encoding::Ascii => JsString::from_latin1(bytes.iter().map(|&byte| byte & 0x7f).collect()),
+        Encoding::Base64 => JsString::from_latin1(encode_base64(bytes, B64, true)),
+        Encoding::Base64Url => JsString::from_latin1(encode_base64(bytes, B64_URL, false)),
         Encoding::Hex => {
             const DIGITS: &[u8; 16] = b"0123456789abcdef";
-            bytes
-                .iter()
-                .flat_map(|&byte| {
-                    [
-                        u16::from(DIGITS[usize::from(byte >> 4)]),
-                        u16::from(DIGITS[usize::from(byte & 15)]),
-                    ]
-                })
-                .collect()
+            JsString::from_latin1(
+                bytes
+                    .iter()
+                    .flat_map(|&byte| {
+                        [
+                            DIGITS[usize::from(byte >> 4)],
+                            DIGITS[usize::from(byte & 15)],
+                        ]
+                    })
+                    .collect(),
+            )
         }
     }
 }
 
-fn encode_base64(bytes: &[u8], alphabet: &[u8; 64], pad: bool) -> Vec<u16> {
+fn encode_base64(bytes: &[u8], alphabet: &[u8; 64], pad: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
         let group = chunk.iter().enumerate().fold(0u32, |acc, (i, &byte)| {
             acc | u32::from(byte) << (16 - 8 * i)
         });
         for i in 0..=chunk.len() {
-            out.push(u16::from(alphabet[(group >> (18 - 6 * i) & 63) as usize]));
+            out.push(alphabet[(group >> (18 - 6 * i) & 63) as usize]);
         }
         if pad {
-            out.extend(std::iter::repeat_n(u16::from(b'='), 3 - chunk.len()));
+            out.extend(std::iter::repeat_n(b'=', 3 - chunk.len()));
         }
     }
     out

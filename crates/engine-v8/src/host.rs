@@ -271,6 +271,37 @@ impl CallContext for HostContext<'_, '_, '_> {
         Some(bytes)
     }
 
+    fn with_bytes(&mut self, value: &Value, f: &mut dyn FnMut(&[u8])) -> bool {
+        self.with_bytes_mut(value, &mut |bytes| f(bytes))
+    }
+
+    #[allow(unsafe_code)]
+    fn with_bytes_mut(&mut self, value: &Value, f: &mut dyn FnMut(&mut [u8])) -> bool {
+        let Ok(value) = to_v8(self.scope, &self.shared.handles.borrow(), value) else {
+            return false;
+        };
+        let Ok(view) = v8::Local::<v8::ArrayBufferView>::try_from(value) else {
+            return false;
+        };
+        // Materializes an on-heap typed array so `data()` points at stable off-heap memory.
+        // A SharedArrayBuffer can change under us from another thread, so it keeps the copy path.
+        match view.buffer(self.scope) {
+            Some(buffer) if !v8::Local::<v8::Value>::from(buffer).is_shared_array_buffer() => {}
+            _ => return false,
+        }
+        let len = view.byte_length();
+        let ptr = view.data().cast::<u8>();
+        let window: &mut [u8] = if len == 0 || ptr.is_null() {
+            &mut []
+        } else {
+            // SAFETY: `ptr..ptr + len` is the view's live backing-store window; `f` runs no JS, so
+            // nothing can detach or resize the buffer, and this is the only reference to it.
+            unsafe { std::slice::from_raw_parts_mut(ptr, len) }
+        };
+        f(window);
+        true
+    }
+
     #[allow(unsafe_code)]
     fn write_string_utf8(&mut self, text: &JsString, out: &mut Vec<u8>) {
         if let Some(bytes) = text.as_latin1() {

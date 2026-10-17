@@ -31,7 +31,7 @@ function Buffer(arg, encodingOrOffset, length) {
 Buffer.prototype = FastBuffer.prototype;
 Object.defineProperty(FastBuffer.prototype, 'constructor', { value: Buffer, writable: true, configurable: true });
 Object.setPrototypeOf(Buffer, Uint8Array);
-Buffer.poolSize = 8192;
+Buffer.poolSize = 65536;
 
 const isUint8 = (value) => value instanceof Uint8Array;
 const bytesOf = (text, encoding) => new Uint8Array(ops.encode(text, encoding));
@@ -96,8 +96,17 @@ function fromObject(object) {
   return undefined;
 }
 
+// Pool-backed like Node: encode straight into the pool slice; the copy path covers hosts that cannot borrow.
+function fromString(value, encoding) {
+  const length = ops.byteLength(value, encoding);
+  if (length === 0) return new FastBuffer();
+  const buffer = allocUnsafe(length);
+  if (ops.bufferWrite(buffer, value, encoding, 0, length) === length) return buffer;
+  return new FastBuffer(ops.encode(value, encoding));
+}
+
 Buffer.from = function from(value, encodingOrOffset, length) {
-  if (typeof value === 'string') return new FastBuffer(ops.encode(value, getEncoding(encodingOrOffset)));
+  if (typeof value === 'string') return fromString(value, getEncoding(encodingOrOffset));
   if (typeof value === 'object' && value !== null) {
     if (types.isAnyArrayBuffer(value)) return fromArrayBuffer(value, encodingOrOffset, length);
     const valueOf = value.valueOf && value.valueOf();
@@ -172,7 +181,7 @@ proto.toString = function toString(encoding, start, end) {
   if (end === undefined || end > length) end = length;
   else end = Math.trunc(end);
   if (end <= start) return '';
-  return ops.decode(start === 0 && end === length ? this : new Uint8Array(this.buffer, this.byteOffset + start, end - start), name);
+  return ops.decode(this, name, start, end);
 };
 proto.toLocaleString = proto.toString;
 
@@ -266,6 +275,8 @@ proto.write = function write(string, offset, length, encoding) {
     else { validateOffset(length, 'length', 0, this.length); length = Math.min(length, remaining); }
   }
   const name = getEncoding(encoding);
+  const written = ops.bufferWrite(this, string, name, offset, length);
+  if (written >= 0) return written;
   const bytes = bytesOf(string, name);
   let count = Math.min(bytes.length, length);
   if (count < bytes.length) {

@@ -202,6 +202,15 @@ pub trait CallContext {
     fn read_bytes(&mut self, _value: &Value) -> Option<Vec<u8>> {
         None
     }
+    /// Runs `f` over the bytes of an `ArrayBuffer`/view in place, no copy. `false` (and `f` not
+    /// called) when the value is no buffer or the adapter cannot borrow; callers fall back to `read_bytes`.
+    fn with_bytes(&mut self, _value: &Value, _f: &mut dyn FnMut(&[u8])) -> bool {
+        false
+    }
+    /// Like `with_bytes` with write access to the same window.
+    fn with_bytes_mut(&mut self, _value: &Value, _f: &mut dyn FnMut(&mut [u8])) -> bool {
+        false
+    }
     /// Appends `text` to `out` as UTF-8, lone surrogates as U+FFFD (what `TextEncoder` yields).
     /// Engines override it with a faster transcoder; the default goes through a `String`.
     fn write_string_utf8(&mut self, text: &JsString, out: &mut Vec<u8>) {
