@@ -14,7 +14,10 @@
     return arg === undefined ? '' : `${arg}`;
   };
   const op = (cls, method, ...args) => rawOp(cls, method, ...args.map(opText));
+  // Temporal objects with a calendar slot (all iso8601) are read without touching their properties.
+  const CALENDAR_SLOT_CLASSES = ['PlainDate', 'PlainDateTime', 'PlainMonthDay', 'PlainYearMonth', 'ZonedDateTime'];
   const calendarId = (value) => {
+    if (typeof value === 'object' && value !== null && CALENDAR_SLOT_CLASSES.includes(slots.get(value)?.cls)) return 'iso8601';
     if (typeof value !== 'string') throw new TypeError('calendar must be a string');
     return op('Calendar', 'id', value);
   };
@@ -93,7 +96,7 @@
   const diffArgs = (options, withLargest = true) => {
     const o = optionsOf(options);
     const largest = withLargest ? optionText(o, 'largestUnit') : undefined;
-    const increment = optionText(o, 'roundingIncrement');
+    const increment = roundingIncrementText(o);
     const mode = optionText(o, 'roundingMode');
     return [largest, optionText(o, 'smallestUnit'), mode, increment];
   };
@@ -149,6 +152,7 @@
     const proto = Class.prototype;
     tag(proto, `Temporal.${cls}`);
     const same = (a, b) => op(cls, 'compare', a, b) === '0';
+    const intrinsicToString = proto.toString;
     defineMethods(proto, {
       add(duration, options) {
         return fromStr(op(cls, 'add', strOf(this, cls), durationStr(duration), overflowOf(options)));
@@ -170,10 +174,12 @@
         return equals ? op(cls, 'equals', a, b) === 'true' : same(a, b);
       },
       toJSON() {
-        return this.toString();
+        strOf(this, cls);
+        return intrinsicToString.call(this);
       },
       toLocaleString() {
-        return this.toString();
+        strOf(this, cls);
+        return intrinsicToString.call(this);
       },
       valueOf() {
         throw new TypeError(`Temporal.${cls} cannot be converted to a primitive; use compare()`);

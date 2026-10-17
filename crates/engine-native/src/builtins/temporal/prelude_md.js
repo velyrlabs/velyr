@@ -128,13 +128,14 @@
     day() { return Number(fieldsOf(this, 'PlainMonthDay')[1]); },
   });
   tag(PlainMonthDay.prototype, 'Temporal.PlainMonthDay');
+  const intrinsicToString = PlainMonthDay.prototype.toString;
   defineMethods(PlainMonthDay.prototype, {
     equals(other) {
       const a = strOf(this, 'PlainMonthDay');
       return op('PlainMonthDay', 'equals', a, strOf(PlainMonthDay.from(other), 'PlainMonthDay')) === 'true';
     },
-    toJSON() { return this.toString(); },
-    toLocaleString() { return this.toString(); },
+    toJSON() { strOf(this, 'PlainMonthDay'); return intrinsicToString.call(this); },
+    toLocaleString() { strOf(this, 'PlainMonthDay'); return intrinsicToString.call(this); },
     valueOf() { throw new TypeError('Temporal.PlainMonthDay cannot be converted to a primitive'); },
   }, { equals: 1, toJSON: 0, toLocaleString: 0, valueOf: 0 });
   for (const method of ['with', 'toPlainDate']) {
