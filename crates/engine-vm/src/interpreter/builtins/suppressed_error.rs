@@ -39,10 +39,6 @@ fn suppressed_error_constructor(
 
 /// A `SuppressedError` without a message: `error` is the newly thrown disposal error and
 /// `suppressed` the earlier pending one (DisposeResources).
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "consumed by L23 (DisposeResources)")
-)]
 pub(crate) fn make_suppressed(
     vm: &mut Interpreter,
     error: Value,

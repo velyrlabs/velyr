@@ -433,6 +433,23 @@ pub enum Instruction {
     DynamicImport {
         options: Option<Reg>,
     },
+    /// `reg` = a new, empty dispose stack (explicit resource management).
+    CreateDisposeStack(Reg),
+    /// AddDisposableResource(`acc`), hint async-dispose when `is_async`.
+    AddDisposable {
+        stack: Reg,
+        is_async: bool,
+    },
+    /// Pops the last resource and calls its dispose method, `acc` = the result (`undefined`
+    /// for a nullish `await using` value); jumps to `done` when the stack is empty.
+    DisposeNext {
+        stack: Reg,
+        done: Target,
+    },
+    /// `error` = `acc` when it holds the hole, else SuppressedError(`acc`, `error`).
+    DisposeRecordError {
+        error: Reg,
+    },
 }
 
 impl Instruction {
@@ -453,6 +470,7 @@ impl Instruction {
             | Instruction::IteratorUnpack { done: target, .. }
             | Instruction::YieldStarUnpack { done: target, .. }
             | Instruction::AsyncIteratorClose { done: target, .. }
+            | Instruction::DisposeNext { done: target, .. }
             | Instruction::YieldStarCall {
                 on_return: target, ..
             } => Some(target),

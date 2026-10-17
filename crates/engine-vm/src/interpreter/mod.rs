@@ -8,6 +8,7 @@ mod builtins;
 pub(crate) mod class;
 mod construct;
 mod dispatch;
+mod dispose;
 pub(crate) mod environment;
 pub(crate) mod function;
 #[path = "../generator.rs"]

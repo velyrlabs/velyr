@@ -19,6 +19,8 @@ pub(crate) const SYMBOL_SPLIT: SymbolId = SymbolId(11);
 pub(crate) const SYMBOL_TO_PRIMITIVE: SymbolId = SymbolId(12);
 pub(crate) const SYMBOL_TO_STRING_TAG: SymbolId = SymbolId(13);
 pub(crate) const SYMBOL_UNSCOPABLES: SymbolId = SymbolId(14);
+pub(crate) const SYMBOL_DISPOSE: SymbolId = SymbolId(15);
+pub(crate) const SYMBOL_ASYNC_DISPOSE: SymbolId = SymbolId(16);
 
 /// Ids 1 and 2 are retired internal ids; user symbols start after the well-known ones.
 const FIRST_USER_SYMBOL: u32 = 18;

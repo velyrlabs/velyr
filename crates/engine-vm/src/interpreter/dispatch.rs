@@ -203,6 +203,13 @@ impl Interpreter {
             | I::LdaLookupIn { .. }
             | I::StaLookupIn { .. }
             | I::DeclareEvalVar { .. } => self.step_lookup(info, instruction)?,
+            I::CreateDisposeStack(_) | I::AddDisposable { .. } | I::DisposeRecordError { .. } => {
+                self.step_dispose(instruction)?;
+            }
+            I::DisposeNext { stack, done } => match self.dispose_next(*stack)? {
+                Some(outcome) => return Ok(Self::call_outcome(outcome)),
+                None => return self.jump(*done),
+            },
             I::Throw | I::ReThrow => return Err(Abrupt::Throw(acc.clone())),
             I::Call { callee, this, args } => {
                 let (f, this, args) = (
