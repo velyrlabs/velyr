@@ -1,8 +1,8 @@
 'use strict';
 // Intl.NumberFormat (ECMA-402 chapter 15) over `__intl_number_format`. Runs after
 // prelude.js and picks up its shared helpers from `__intl_shared`.
-// shortcut: no unit style and no compact notation (they throw): ICU4X keeps that data in
-// icu_experimental, which engine-native does not depend on yet.
+// shortcut: no compact notation (it throws): ICU4X keeps that data in icu_experimental,
+// which engine-native does not depend on yet.
 (() => {
   const global = globalThis;
   const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocale, resolveLocaleKeys,
@@ -13,7 +13,7 @@
   const SPEC_KEYS = ['minimumIntegerDigits', 'minimumFractionDigits', 'maximumFractionDigits',
     'minimumSignificantDigits', 'maximumSignificantDigits', 'useGrouping', 'style', 'currency',
     'currencyDisplay', 'currencySign', 'notation', 'signDisplay', 'roundingMode', 'roundingIncrement',
-    'roundingPriority', 'trailingZeroDisplay'];
+    'roundingPriority', 'trailingZeroDisplay', 'unit', 'unitDisplay'];
   const specOf = (record) => SPEC_KEYS.map((key) => (record[key] === undefined ? '' : String(record[key]))).join(',');
 
   const ROUNDING_MODES = ['ceil', 'floor', 'expand', 'trunc', 'halfCeil', 'halfFloor', 'halfExpand',
@@ -91,6 +91,16 @@
     return text === 'true' || text === 'false' ? fallback : text;
   };
 
+  // IsWellFormedUnitIdentifier: a sanctioned simple unit, or one sanctioned unit per another.
+  let sanctionedUnits;
+  const isWellFormedUnit = (unit) => {
+    sanctionedUnits ??= ops.supported_values('unit').split('\u0001');
+    if (sanctionedUnits.includes(unit)) return true;
+    const [numerator, denominator, ...rest] = unit.split('-per-');
+    return denominator !== undefined && rest.length === 0 && sanctionedUnits.includes(numerator) &&
+      sanctionedUnits.includes(denominator);
+  };
+
   function NumberFormat(locales = undefined, options = undefined) {
     const self = instance(new.target, this, NumberFormat);
     options = toOptions(options);
@@ -105,22 +115,19 @@
     if (style === 'currency' && currency === undefined) typeError('Currency code is required with currency style.');
     const currencyDisplay = getOption(options, 'currencyDisplay', ['code', 'symbol', 'narrowSymbol', 'name'], 'symbol');
     const currencySign = getOption(options, 'currencySign', ['standard', 'accounting'], 'standard');
-    // N44 plugs the unit table in here; the reads keep the spec order meanwhile.
     const unit = getOption(options, 'unit');
-    getOption(options, 'unitDisplay', ['short', 'narrow', 'long'], 'short');
+    if (unit !== undefined && !isWellFormedUnit(unit)) throw new RangeError(`Invalid unit argument for Intl.NumberFormat() '${unit}'`);
+    const unitDisplay = getOption(options, 'unitDisplay', ['short', 'narrow', 'long'], 'short');
     if (style === 'unit' && unit === undefined) typeError('Unit is required with unit style.');
     const record = { kind: 'NumberFormat', locale, data, numberingSystem: values.nu ?? 'latn', style };
     let fractionDefault = { min: 0, max: style === 'percent' ? 0 : 3 };
     if (style === 'currency') {
       currency = currency.toUpperCase();
       Object.assign(record, { currency, currencyDisplay, currencySign });
-      if (currencyDisplay === 'name') {
-        throw new RangeError('Intl.NumberFormat currencyDisplay "name" is not supported yet');
-      }
       const digits = ops.currency_digits(currency);
       fractionDefault = { min: digits, max: digits };
     }
-    if (style === 'unit') throw new RangeError('Intl.NumberFormat style "unit" is not supported yet');
+    if (style === 'unit') Object.assign(record, { unit, unitDisplay });
     record.notation = getOption(options, 'notation', ['standard', 'scientific', 'engineering', 'compact'], 'standard');
     if (record.notation === 'compact') throw new RangeError('Intl.NumberFormat notation "compact" is not supported yet');
     Object.assign(record, digitOptions(options, fractionDefault.min, fractionDefault.max, record.notation));
@@ -219,7 +226,7 @@
     resolvedOptions() {
       const r = slot(this, 'NumberFormat', 'resolvedOptions');
       const result = { locale: r.locale, numberingSystem: r.numberingSystem, style: r.style };
-      for (const key of ['currency', 'currencyDisplay', 'currencySign', ...RESOLVED_KEYS, ...ROUNDING_KEYS]) {
+      for (const key of ['currency', 'currencyDisplay', 'currencySign', 'unit', 'unitDisplay', ...RESOLVED_KEYS, ...ROUNDING_KEYS]) {
         if (r[key] !== undefined) result[key] = r[key];
       }
       return result;

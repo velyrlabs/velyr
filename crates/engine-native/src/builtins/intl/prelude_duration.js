@@ -1,13 +1,11 @@
 'use strict';
-// Intl.DurationFormat (ECMA-402 stage 4) in JS over Intl.ListFormat and Intl.PluralRules.
-// shortcut: NumberFormat has no unit style yet, so the unit labels are an `en`/`pt` table
-// (every other locale uses the `en` one); the ':' separator and '-' sign are not localized.
-// Upgrade when NumberFormat unit style lands (N44).
+// Intl.DurationFormat (ECMA-402 stage 4) in JS over Intl.ListFormat and Intl.NumberFormat.
+// shortcut: the ':' separator and '-' sign are not localized.
 (() => {
   const global = globalThis;
   const { define, slots, slot, constructor, resolveLocaleKeys, typeOption, getOption, getNumber,
     toOptions, typeError } = global.__intl_shared;
-  const { NumberFormat, ListFormat, PluralRules } = global.Intl;
+  const { NumberFormat, ListFormat } = global.Intl;
 
   const NAMED = ['long', 'short', 'narrow'];
   const ROWS = [
@@ -24,34 +22,6 @@
   ];
   const NUMERIC_STYLES = ['numeric', '2-digit'];
   const CLOCK = ['hours', 'minutes', 'seconds'];
-
-  // Labels [one, other] per style; narrow glues the label to the number.
-  const LABELS = {
-    en: {
-      long: { year: ['year', 'years'], month: ['month', 'months'], week: ['week', 'weeks'], day: ['day', 'days'],
-        hour: ['hour', 'hours'], minute: ['minute', 'minutes'], second: ['second', 'seconds'],
-        millisecond: ['millisecond', 'milliseconds'], microsecond: ['microsecond', 'microseconds'],
-        nanosecond: ['nanosecond', 'nanoseconds'] },
-      short: { year: ['yr', 'yrs'], month: ['mth', 'mths'], week: ['wk', 'wks'], day: ['day', 'days'],
-        hour: ['hr', 'hr'], minute: ['min', 'min'], second: ['sec', 'sec'], millisecond: ['ms', 'ms'],
-        microsecond: ['μs', 'μs'], nanosecond: ['ns', 'ns'] },
-      narrow: { year: ['y', 'y'], month: ['m', 'm'], week: ['w', 'w'], day: ['d', 'd'], hour: ['h', 'h'],
-        minute: ['m', 'm'], second: ['s', 's'], millisecond: ['ms', 'ms'], microsecond: ['μs', 'μs'],
-        nanosecond: ['ns', 'ns'] },
-    },
-    pt: {
-      long: { year: ['ano', 'anos'], month: ['mês', 'meses'], week: ['semana', 'semanas'], day: ['dia', 'dias'],
-        hour: ['hora', 'horas'], minute: ['minuto', 'minutos'], second: ['segundo', 'segundos'],
-        millisecond: ['milissegundo', 'milissegundos'], microsecond: ['microssegundo', 'microssegundos'],
-        nanosecond: ['nanossegundo', 'nanossegundos'] },
-      short: { year: ['ano', 'anos'], month: ['mês', 'meses'], week: ['sem.', 'sem.'], day: ['dia', 'dias'],
-        hour: ['h', 'h'], minute: ['min', 'min'], second: ['s', 's'], millisecond: ['ms', 'ms'],
-        microsecond: ['μs', 'μs'], nanosecond: ['ns', 'ns'] },
-      narrow: { year: ['a', 'a'], month: ['m', 'm'], week: ['sem.', 'sem.'], day: ['d', 'd'], hour: ['h', 'h'],
-        minute: ['min', 'min'], second: ['s', 's'], millisecond: ['ms', 'ms'], microsecond: ['μs', 'μs'],
-        nanosecond: ['ns', 'ns'] },
-    },
-  };
 
   // GetDurationUnitOptions.
   const unitOptions = (row, options, baseStyle, prevStyle) => {
@@ -166,13 +136,10 @@
   const unitParts = (r, row, value, style, negative, fraction) => {
     const numeric = NUMERIC_STYLES.includes(style);
     const digits = { ...fraction, ...(style === '2-digit' ? { minimumIntegerDigits: 2 } : {}), ...(numeric ? { useGrouping: false } : {}) };
-    const formatter = new NumberFormat(r.data, { numberingSystem: r.numberingSystem, ...digits });
+    const unitOptions = numeric ? {} : { style: 'unit', unit: row.unit, unitDisplay: style };
+    const formatter = new NumberFormat(r.data, { numberingSystem: r.numberingSystem, ...digits, ...unitOptions });
     const parts = [...(negative ? [{ type: 'minusSign', value: '-' }] : []), ...formatter.formatToParts(value)];
-    if (numeric) return annotate(parts, row.unit);
-    const labels = (LABELS[r.locale.split('-')[0]] ?? LABELS.en)[style][row.unit];
-    const label = new PluralRules(r.data).select(value) === 'one' ? labels[0] : labels[1];
-    const glue = style === 'narrow' ? [] : [{ type: 'literal', value: ' ' }];
-    return annotate([...parts, ...glue, { type: 'unit', value: label }], row.unit);
+    return annotate(parts, row.unit);
   };
 
   // Zero numeric minutes stay visible between numeric hours and displayed seconds.

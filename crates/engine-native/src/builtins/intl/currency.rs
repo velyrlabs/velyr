@@ -1,16 +1,17 @@
 //! Currency and percent presentation for `Intl.NumberFormat` (VELYR-175).
-//! shortcut: ICU4X 2.x keeps currency and percent patterns in `icu_experimental`, which
-//! this crate does not depend on, so a small table covers the symbols of common currencies
-//! (English and Portuguese columns; other languages use the English symbols) and the
-//! affix layout of the languages listed below (the rest use English's). Replace with
-//! `icu_experimental::dimension` when the dependency is allowed.
+//! shortcut: the `icu_experimental::dimension` currency formatters take over the digits and
+//! cannot yield parts, so tables cover the symbols of common currencies (English and
+//! Portuguese columns; other languages use the English symbols), the display names in
+//! `currency_names.tsv` (English for every code of `supportedValuesOf`, Portuguese for the
+//! common ones, English otherwise) and the affix layout of the languages listed below (the
+//! rest use English's).
 
 use icu_locale::Locale;
 
 pub(crate) const NBSP: &str = "\u{a0}";
 
 /// `(code, English, narrow, Portuguese)`; an empty symbol means the code itself.
-const SYMBOLS: [(&str, &str, &str, &str); 22] = [
+const SYMBOLS: [(&str, &str, &str, &str); 40] = [
     ("USD", "$", "$", "US$"),
     ("EUR", "\u{20ac}", "\u{20ac}", "\u{20ac}"),
     ("GBP", "\u{a3}", "\u{a3}", "\u{a3}"),
@@ -33,6 +34,24 @@ const SYMBOLS: [(&str, &str, &str, &str); 22] = [
     ("CLP", "", "$", ""),
     ("RUB", "", "\u{20bd}", ""),
     ("TRY", "", "\u{20ba}", ""),
+    ("XAF", "FCFA", "FCFA", "FCFA"),
+    ("XCD", "EC$", "$", "EC$"),
+    ("XPF", "CFPF", "CFPF", "CFPF"),
+    ("THB", "", "\u{e3f}", ""),
+    ("UAH", "", "\u{20b4}", ""),
+    ("NGN", "", "\u{20a6}", ""),
+    ("PLN", "", "z\u{142}", ""),
+    ("CZK", "", "K\u{10d}", ""),
+    ("HUF", "", "Ft", ""),
+    ("KZT", "", "\u{20b8}", ""),
+    ("GEL", "", "\u{20be}", ""),
+    ("EGP", "", "E\u{a3}", ""),
+    ("BYN", "", "Br", ""),
+    ("KHR", "", "\u{17db}", ""),
+    ("LAK", "", "\u{20ad}", ""),
+    ("MNT", "", "\u{20ae}", ""),
+    ("PYG", "", "\u{20b2}", ""),
+    ("BDT", "", "\u{9f3}", ""),
 ];
 
 /// Currencies whose minor unit is not two digits (ISO 4217).
@@ -126,7 +145,22 @@ impl Layout {
     }
 }
 
+const NAMES: &str = include_str!("currency_names.tsv");
+
 impl Layout {
+    /// The display name of `code` (`currencyDisplay: 'name'`); an unknown code names itself.
+    pub(crate) fn name(&self, code: &str, one: bool) -> String {
+        let code = code.to_ascii_uppercase();
+        let row: Option<Vec<&str>> = NAMES
+            .lines()
+            .map(|line| line.split('\t').collect())
+            .find(|fields: &Vec<&str>| fields[0] == code);
+        let Some(row) = row else { return code };
+        let column = 1 + usize::from(!one);
+        let own = if self.portuguese { row[column + 2] } else { "" };
+        if own.is_empty() { row[column] } else { own }.to_owned()
+    }
+
     /// Whether a prefixed `symbol` needs a space before the number: the locale's pattern
     /// has one, or the symbol ends in a letter (`CHF 1.00`).
     pub(crate) fn spaces_prefix(&self, symbol: &str) -> bool {

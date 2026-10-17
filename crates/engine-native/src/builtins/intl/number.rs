@@ -12,6 +12,7 @@ use writeable::{Part, Writeable};
 
 use self::digits::{Digits, Spec};
 use super::currency::{self, Layout, NBSP};
+use super::unit::{self, Width};
 use super::{OpResult, Parts, bool_arg, locale, range_error, string_arg};
 
 mod digits;
@@ -157,22 +158,39 @@ fn number_entries(
     Ok(entries)
 }
 
-/// Adds the percent sign or currency symbol around `entries` per the locale's layout.
-fn add_affixes(spec: &Spec, tag: &str, entries: &mut Entries) {
+/// Wraps `entries` in the unit pattern of the locale; `one` selects the singular form.
+fn add_unit(spec: &Spec, tag: &str, one: bool, entries: &mut Entries) {
+    let width = Width::of(spec.text("unitDisplay"));
+    let language = locale(tag).id.language;
+    let pattern = unit::pattern(language.as_str(), spec.text("unit"), width, one);
+    let pattern = pattern.unwrap_or_else(|| format!("{{0}} {}", spec.text("unit")));
+    let (before, after) = pattern.split_once("{0}").unwrap_or(("", ""));
+    entries.splice(0..0, unit::affix_entries(before));
+    entries.extend(unit::affix_entries(after));
+}
+
+/// Adds the percent sign, currency or unit around `entries` per the locale's layout.
+fn add_affixes(spec: &Spec, tag: &str, one: bool, entries: &mut Entries) {
     let layout = Layout::of(&locale(tag));
     match spec.text("style") {
+        "unit" => add_unit(spec, tag, one, entries),
         "percent" => {
             if layout.percent_space {
                 entries.push(("literal", NBSP.into()));
             }
             entries.push(("percentSign", "%".into()));
         }
-        "currency" => add_currency(spec, &layout, entries),
+        "currency" => add_currency(spec, &layout, one, entries),
         _ => {}
     }
 }
 
-fn add_currency(spec: &Spec, layout: &Layout, entries: &mut Entries) {
+fn add_currency(spec: &Spec, layout: &Layout, one: bool, entries: &mut Entries) {
+    if spec.text("currencyDisplay") == "name" {
+        entries.push(("literal", " ".into()));
+        entries.push(("currency", layout.name(spec.text("currency"), one)));
+        return;
+    }
     let symbol = layout.symbol(spec.text("currency"), spec.text("currencyDisplay"));
     if layout.currency_after {
         entries.push(("literal", NBSP.into()));
@@ -201,7 +219,9 @@ pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResul
     let value = args.get(1).cloned().unwrap_or(Value::Undefined);
     let tag = string_arg(args, 0);
     let mut entries = number_entries(vm, &spec, &value, &tag)?;
-    add_affixes(&spec, &tag, &mut entries);
+    let one =
+        uses_plural(&spec) && category(vm, &tag, false, &value, &spec)? == PluralCategory::One;
+    add_affixes(&spec, &tag, one, &mut entries);
     if bool_arg(args, 3) {
         let encoded: Vec<_> = entries
             .iter()
@@ -242,17 +262,37 @@ fn category_name(category: PluralCategory) -> &'static str {
     }
 }
 
+/// The plural category of `value` as it would be formatted with the digit options of `spec`.
+fn category(
+    vm: &mut Interpreter,
+    tag: &str,
+    ordinal: bool,
+    value: &Value,
+    spec: &Spec,
+) -> Result<PluralCategory, Abrupt> {
+    let rules = rules(vm, tag, ordinal)?;
+    if matches!(value, Value::Number(n) if !n.is_finite()) {
+        return Ok(PluralCategory::Other);
+    }
+    let mut decimal = decimal_of(value).unwrap_or_default();
+    Digits::from_spec(spec).apply(&mut decimal);
+    Ok(rules.category_for(&decimal))
+}
+
+/// Only the unit and currency name patterns vary with the plural category.
+fn uses_plural(spec: &Spec) -> bool {
+    spec.text("style") == "unit"
+        || (spec.text("style") == "currency" && spec.text("currencyDisplay") == "name")
+}
+
 /// `(locale, ordinal, value, spec)`: the plural category of the value as it would be
 /// formatted with the digit options of `spec`.
 pub(crate) fn plural_select(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
-    let rules = rules(vm, &string_arg(args, 0), bool_arg(args, 1))?;
     let value = args.get(2).cloned().unwrap_or(Value::Undefined);
-    if matches!(value, Value::Number(n) if !n.is_finite()) {
-        return Ok(Value::str("other"));
-    }
-    let mut decimal = decimal_of(&value).unwrap_or_default();
-    Digits::from_spec(&Spec::parse(&string_arg(args, 3))).apply(&mut decimal);
-    Ok(Value::str(category_name(rules.category_for(&decimal))))
+    let spec = Spec::parse(&string_arg(args, 3));
+    let tag = string_arg(args, 0);
+    let found = category(vm, &tag, bool_arg(args, 1), &value, &spec)?;
+    Ok(Value::str(category_name(found)))
 }
 
 /// `(locale, ordinal)`: the categories of the locale, comma separated, in CLDR order.

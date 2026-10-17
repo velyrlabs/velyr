@@ -15,6 +15,7 @@ mod locale;
 mod number;
 mod relative;
 mod segmenter;
+mod unit;
 
 use std::fmt;
 use std::rc::Rc;

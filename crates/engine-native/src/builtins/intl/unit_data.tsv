@@ -1,0 +1,100 @@
+en	acre	{0} ac	=	{0}ac	{0} acre	{0} acres
+en	bit	{0} bit	=	{0}bit	{0} bit	{0} bits
+en	byte	{0} byte	=	{0}B	{0} byte	{0} bytes
+en	centimeter	{0} cm	=	{0}cm	{0} centimeter	{0} centimeters
+en	fluid-ounce	{0} fl oz	=	{0}fl oz	{0} fluid ounce	{0} fluid ounces
+en	gallon	{0} gal	=	{0}gal	{0} gallon	{0} gallons
+en	gigabit	{0} Gb	=	{0}Gb	{0} gigabit	{0} gigabits
+en	gigabyte	{0} GB	=	{0}GB	{0} gigabyte	{0} gigabytes
+en	gram	{0} g	=	{0}g	{0} gram	{0} grams
+en	hectare	{0} ha	=	{0}ha	{0} hectare	{0} hectares
+en	hour	{0} hr	=	{0}h	{0} hour	{0} hours
+en	kilobit	{0} kb	=	{0}kb	{0} kilobit	{0} kilobits
+en	kilobyte	{0} kB	=	{0}kB	{0} kilobyte	{0} kilobytes
+en	kilogram	{0} kg	=	{0}kg	{0} kilogram	{0} kilograms
+en	kilometer	{0} km	=	{0}km	{0} kilometer	{0} kilometers
+en	liter	{0} L	=	{0}L	{0} liter	{0} liters
+en	megabit	{0} Mb	=	{0}Mb	{0} megabit	{0} megabits
+en	megabyte	{0} MB	=	{0}MB	{0} megabyte	{0} megabytes
+en	meter	{0} m	=	{0}m	{0} meter	{0} meters
+en	microsecond	{0} μs	=	{0}μs	{0} microsecond	{0} microseconds
+en	mile	{0} mi	=	{0}mi	{0} mile	{0} miles
+en	mile-scandinavian	{0} smi	=	{0}smi	{0} mile-scandinavian	{0} miles-scandinavian
+en	milliliter	{0} mL	=	{0}mL	{0} milliliter	{0} milliliters
+en	millimeter	{0} mm	=	{0}mm	{0} millimeter	{0} millimeters
+en	millisecond	{0} ms	=	{0}ms	{0} millisecond	{0} milliseconds
+en	minute	{0} min	=	{0}m	{0} minute	{0} minutes
+en	nanosecond	{0} ns	=	{0}ns	{0} nanosecond	{0} nanoseconds
+en	ounce	{0} oz	=	{0}oz	{0} ounce	{0} ounces
+en	petabyte	{0} PB	=	{0}PB	{0} petabyte	{0} petabytes
+en	pound	{0} lb	=	{0}#	{0} pound	{0} pounds
+en	second	{0} sec	=	{0}s	{0} second	{0} seconds
+en	stone	{0} st	=	{0}st	{0} stone	{0} stone
+en	terabit	{0} Tb	=	{0}Tb	{0} terabit	{0} terabits
+en	terabyte	{0} TB	=	{0}TB	{0} terabyte	{0} terabytes
+en	yard	{0} yd	=	{0}yd	{0} yard	{0} yards
+en	celsius	{0}°C	=	{0}°C	{0} degree Celsius	{0} degrees Celsius
+en	fahrenheit	{0}°F	=	{0}°	{0} degree Fahrenheit	{0} degrees Fahrenheit
+en	degree	{0} deg	=	{0}°	{0} degree	{0} degrees
+en	foot	{0} ft	=	{0}′	{0} foot	{0} feet
+en	inch	{0} in	=	{0}″	{0} inch	{0} inches
+en	percent	{0}%	=	{0}%	{0} percent	=
+en	day	{0} day	{0} days	{0}d	{0} day	{0} days
+en	week	{0} wk	{0} wks	{0}w	{0} week	{0} weeks
+en	month	{0} mth	{0} mths	{0}m	{0} month	{0} months
+en	year	{0} yr	{0} yrs	{0}y	{0} year	{0} years
+en	kilometer-per-hour	{0} km/h	=	{0}km/h	{0} kilometer per hour	{0} kilometers per hour
+en	meter-per-second	{0} m/s	=	{0}m/s	{0} meter per second	{0} meters per second
+en	mile-per-hour	{0} mph	=	{0}mph	{0} mile per hour	{0} miles per hour
+en	mile-per-gallon	{0} mpg	=	{0}mpg	{0} mile per gallon	{0} miles per gallon
+en	per	{0}/{1}	=	{0}/{1}	{0} per {1}	=
+pt	acre	{0} ac	=	{0}ac	{0} acre	{0} acres
+pt	bit	{0} bit	{0} bits	{0}bit	{0} bit	{0} bits
+pt	byte	{0} byte	{0} bytes	{0}B	{0} byte	{0} bytes
+pt	celsius	{0}°C	=	{0}°C	{0} grau Celsius	{0} graus Celsius
+pt	centimeter	{0} cm	=	{0}cm	{0} centímetro	{0} centímetros
+pt	day	{0} dia	{0} dias	{0}d	{0} dia	{0} dias
+pt	degree	{0} grau	{0} graus	{0}°	{0} grau	{0} graus
+pt	fahrenheit	{0}°F	=	{0}°	{0} grau Fahrenheit	{0} graus Fahrenheit
+pt	fluid-ounce	{0} fl oz	=	{0}fl oz	{0} onça fluida	{0} onças fluidas
+pt	foot	{0} pé	{0} pés	{0}′	{0} pé	{0} pés
+pt	gallon	{0} gal	=	{0}gal	{0} galão	{0} galões
+pt	gigabit	{0} Gb	=	{0}Gb	{0} gigabit	{0} gigabits
+pt	gigabyte	{0} GB	=	{0}GB	{0} gigabyte	{0} gigabytes
+pt	gram	{0} g	=	{0}g	{0} grama	{0} gramas
+pt	hectare	{0} ha	=	{0}ha	{0} hectare	{0} hectares
+pt	hour	{0} h	=	{0}h	{0} hora	{0} horas
+pt	inch	{0} pol.	=	{0}″	{0} polegada	{0} polegadas
+pt	kilobit	{0} kb	=	{0}kb	{0} kilobit	{0} kilobits
+pt	kilobyte	{0} kB	=	{0}kB	{0} kilobyte	{0} kilobytes
+pt	kilogram	{0} kg	=	{0}kg	{0} quilograma	{0} quilogramas
+pt	kilometer	{0} km	=	{0}km	{0} quilômetro	{0} quilômetros
+pt	liter	{0} l	=	{0}l	{0} litro	{0} litros
+pt	megabit	{0} Mb	=	{0}Mb	{0} megabit	{0} megabits
+pt	megabyte	{0} MB	=	{0}MB	{0} megabyte	{0} megabytes
+pt	meter	{0} m	=	{0}m	{0} metro	{0} metros
+pt	microsecond	{0} μs	=	{0}μs	{0} microssegundo	{0} microssegundos
+pt	mile	{0} mi	=	{0}mi	{0} milha	{0} milhas
+pt	mile-scandinavian	{0} smi	=	{0}smi	{0} milha escandinava	{0} milhas escandinavas
+pt	milliliter	{0} ml	=	{0}ml	{0} mililitro	{0} mililitros
+pt	millimeter	{0} mm	=	{0}mm	{0} milímetro	{0} milímetros
+pt	millisecond	{0} ms	=	{0}ms	{0} milissegundo	{0} milissegundos
+pt	minute	{0} min	=	{0}min	{0} minuto	{0} minutos
+pt	month	{0} mês	{0} meses	{0}m	{0} mês	{0} meses
+pt	nanosecond	{0} ns	=	{0}ns	{0} nanossegundo	{0} nanossegundos
+pt	ounce	{0} oz	=	{0}oz	{0} onça	{0} onças
+pt	percent	{0}%	=	{0}%	{0} por cento	=
+pt	petabyte	{0} PB	=	{0}PB	{0} petabyte	{0} petabytes
+pt	pound	{0} lb	=	{0}lb	{0} libra	{0} libras
+pt	second	{0} s	=	{0}s	{0} segundo	{0} segundos
+pt	stone	{0} st	=	{0}st	{0} stone	{0} stones
+pt	terabit	{0} Tb	=	{0}Tb	{0} terabit	{0} terabits
+pt	terabyte	{0} TB	=	{0}TB	{0} terabyte	{0} terabytes
+pt	week	{0} sem.	=	{0}sem.	{0} semana	{0} semanas
+pt	yard	{0} jd	=	{0}jd	{0} jarda	{0} jardas
+pt	year	{0} ano	{0} anos	{0}a	{0} ano	{0} anos
+pt	per	{0}/{1}	=	{0}/{1}	{0} por {1}	=
+de	kilometer-per-hour	{0} km/h	=	{0} km/h	{0} Kilometer pro Stunde	=
+ja	kilometer-per-hour	{0}km/h	=	{0}km/h	時速{0}キロメートル	=
+ko	kilometer-per-hour	{0}km/h	=	{0}km/h	시속 {0}킬로미터	=
+zh	kilometer-per-hour	{0} 公里/小時	=	{0}公里/小時	每小時{0}公里	=

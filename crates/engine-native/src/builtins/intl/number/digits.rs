@@ -4,7 +4,7 @@
 use fixed_decimal::{Decimal, RoundingIncrement, SignedRoundingMode, UnsignedRoundingMode};
 
 /// Option names in the order the prelude joins them into the spec.
-pub(super) const KEYS: [&str; 16] = [
+pub(super) const KEYS: [&str; 18] = [
     "minimumIntegerDigits",
     "minimumFractionDigits",
     "maximumFractionDigits",
@@ -21,6 +21,8 @@ pub(super) const KEYS: [&str; 16] = [
     "roundingIncrement",
     "roundingPriority",
     "trailingZeroDisplay",
+    "unit",
+    "unitDisplay",
 ];
 
 pub(super) struct Spec(pub(super) Vec<String>);
