@@ -207,11 +207,13 @@ pub(crate) fn deserialize(
             "SharedArrayBuffer transfer is not enabled for this isolate",
         );
     }
-    let mut state = SabState::default();
-    state.incoming = stores
-        .iter()
-        .map(|store| store.shared.then(|| store.store.clone()))
-        .collect();
+    let state = SabState {
+        incoming: stores
+            .iter()
+            .map(|store| store.shared.then(|| store.store.clone()))
+            .collect(),
+        ..SabState::default()
+    };
     let deserializer =
         v8::ValueDeserializer::new(tc, Box::new(Delegate(Rc::new(state))), &serialized.bytes);
     if deserializer.read_header(context) != Some(true) {
