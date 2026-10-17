@@ -3,11 +3,13 @@
 use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
+use std::ptr::NonNull;
 use std::rc::Rc;
 
 use velyr_engine_api::{
     CallContext, Handle, HostError, HostFn, HostFunctionDef, JsException, JsString,
-    ModuleResolveHook, PromiseState, ResolverId, SerializedValue, Source, Value,
+    ModuleResolveHook, NativeError, NativeScope, NativeScopeFn, NativeTeardown, NativeValue,
+    PromiseState, ResolverId, SerializedValue, Source, V8_ENGINE, Value,
 };
 use velyr_runtime_errors::VelyrError;
 
@@ -189,6 +191,28 @@ pub(crate) fn velyr_error_to_js<'s>(
     error
 }
 
+/// Isolate-slot list of the [`NativeTeardown`]s registered through `on_native_teardown`.
+struct NativeTeardowns(Vec<NativeTeardown>);
+
+/// Lends `scope` to FFI code as a [`NativeScope`] tagged [`V8_ENGINE`].
+fn native_scope<'a>(scope: &'a mut v8::PinScope<'_, '_>) -> NativeScope<'a> {
+    NativeScope::new(V8_ENGINE, NonNull::from(scope).cast())
+}
+
+/// Runs the [`NativeTeardown`]s registered on this isolate. Call once, while disposing it.
+pub(crate) fn run_native_teardown(scope: &mut v8::PinScope<'_, '_>, shared: &Shared) {
+    let hooks = shared
+        .slots
+        .borrow_mut()
+        .remove(&TypeId::of::<NativeTeardowns>());
+    let Some(Ok(hooks)) = hooks.map(|hooks| hooks.downcast::<NativeTeardowns>()) else {
+        return;
+    };
+    for teardown in hooks.0 {
+        teardown(&mut native_scope(scope));
+    }
+}
+
 struct HostContext<'a, 's, 'i> {
     scope: &'a mut v8::PinScope<'s, 'i>,
     shared: &'a Shared,
@@ -365,6 +389,41 @@ impl CallContext for HostContext<'_, '_, '_> {
         crate::continuation::get(self.scope, self.shared)
     }
 
+    #[allow(unsafe_code)]
+    fn with_native_scope(&mut self, f: &mut NativeScopeFn<'_>) -> Result<Value, HostError> {
+        // Native code can run JS whose host functions read slots; release our borrow first.
+        self.slots = None;
+        let result = f(&mut native_scope(self.scope));
+        let mut convert = |raw: NativeValue| {
+            // SAFETY: per the `V8_ENGINE` contract the callback returned the slot pointer of a
+            // `Local` created in the scope it was lent, which is still open; same layout.
+            let value =
+                unsafe { std::mem::transmute::<NativeValue, v8::Local<'_, v8::Value>>(raw) };
+            from_v8(self.scope, &mut self.shared.handles.borrow_mut(), value)
+        };
+        match result {
+            Ok(raw) => Ok(convert(raw)),
+            Err(NativeError::Thrown(raw)) => Err(HostError::Thrown(convert(raw))),
+            Err(NativeError::Host(err)) => Err(err),
+        }
+    }
+
+    fn on_native_teardown(&mut self, teardown: NativeTeardown) -> Result<(), HostError> {
+        let shared = self.shared;
+        let slots = self.slots.get_or_insert_with(|| shared.slots.borrow_mut());
+        let hooks = slots
+            .entry(TypeId::of::<NativeTeardowns>())
+            .or_insert_with(|| Box::new(NativeTeardowns(Vec::new())));
+        if let Some(NativeTeardowns(hooks)) = hooks.downcast_mut::<NativeTeardowns>()
+            && !hooks
+                .iter()
+                .any(|hook| std::ptr::fn_addr_eq(*hook, teardown))
+        {
+            hooks.push(teardown);
+        }
+        Ok(())
+    }
+
     fn slot(&mut self, type_id: TypeId) -> Option<&mut dyn Any> {
         let shared = self.shared;
         let slots = self.slots.get_or_insert_with(|| shared.slots.borrow_mut());
@@ -406,4 +465,91 @@ pub(crate) fn promise_state(
         v8::PromiseState::Fulfilled => PromiseState::Fulfilled(value),
         _ => PromiseState::Rejected(value),
     })
+}
+
+#[cfg(test)]
+#[allow(unsafe_code)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use velyr_engine_api::{Engine, Isolate, IsolateOptions};
+
+    use super::*;
+    use crate::V8Engine;
+
+    fn isolate_with(name: &'static str, callback: HostFn) -> crate::V8Isolate {
+        let mut isolate = V8Engine::new()
+            .create_isolate(IsolateOptions::default())
+            .unwrap();
+        isolate
+            .register_host_function(HostFunctionDef {
+                name,
+                arity: 1,
+                callback,
+            })
+            .unwrap();
+        isolate
+    }
+
+    fn eval(isolate: &mut crate::V8Isolate, code: &str) -> Value {
+        let source = Source {
+            name: "test.js".into(),
+            text: code.into(),
+        };
+        isolate.eval_script(&source).unwrap()
+    }
+
+    /// Returns `"native"`, or throws `7` when called with `true`, from inside a native scope.
+    fn op_native(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+        let throw = matches!(args.first(), Some(Value::Bool(true)));
+        ctx.with_native_scope(&mut |lent| {
+            assert_eq!(lent.engine(), V8_ENGINE);
+            // SAFETY: a `V8_ENGINE` scope points at a live `PinScope` for the callback.
+            let scope = unsafe { lent.as_ptr().cast::<v8::PinScope<'_, '_>>().as_mut() };
+            let value: v8::Local<'_, v8::Value> = if throw {
+                v8::Integer::new(scope, 7).into()
+            } else {
+                v8::String::new(scope, "native").unwrap().into()
+            };
+            // SAFETY: `Local` is a single non-null slot pointer.
+            let raw =
+                unsafe { std::mem::transmute::<v8::Local<'_, v8::Value>, NativeValue>(value) };
+            if throw {
+                Err(NativeError::Thrown(raw))
+            } else {
+                Ok(raw)
+            }
+        })
+    }
+
+    #[test]
+    fn native_scope_values_and_throws_reach_js() {
+        let mut isolate = isolate_with("op_native", op_native);
+        let result = eval(
+            &mut isolate,
+            "let thrown; try { op_native(true); } catch (e) { thrown = e; } op_native() + ':' + thrown",
+        );
+        assert_eq!(result, Value::String(JsString::from("native:7")));
+    }
+
+    static TEARDOWNS: AtomicUsize = AtomicUsize::new(0);
+
+    fn count_teardown(scope: &mut NativeScope<'_>) {
+        assert_eq!(scope.engine(), V8_ENGINE);
+        TEARDOWNS.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn op_register(ctx: &mut dyn CallContext, _args: &[Value]) -> Result<Value, HostError> {
+        ctx.on_native_teardown(count_teardown)?;
+        Ok(Value::Undefined)
+    }
+
+    #[test]
+    fn native_teardown_runs_once_when_the_isolate_is_dropped() {
+        let mut isolate = isolate_with("op_register", op_register);
+        eval(&mut isolate, "op_register(); op_register();");
+        assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 0);
+        drop(isolate);
+        assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 1);
+    }
 }

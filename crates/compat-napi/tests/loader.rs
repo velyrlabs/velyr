@@ -5,6 +5,7 @@ mod support;
 use std::path::{Path, PathBuf};
 
 use velyr_compat_napi::{LoadError, load};
+use velyr_engine_api::{HostError, NativeError, NativeScope, NativeValue, V8_ENGINE};
 use velyr_runtime_errors::ErrorCode;
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -84,5 +85,37 @@ fn legacy_napi_module_register_addons_load_and_reload() {
             velyr_compat_napi::shutdown(scope);
             result.unwrap();
         });
+    }
+}
+
+#[test]
+fn load_native_returns_the_exports_through_a_v8_native_scope() {
+    let _serial = support::serial();
+    let path = support::addon();
+    support::with_context(|scope| {
+        let mut lent = NativeScope::new(V8_ENGINE, std::ptr::NonNull::from(&mut *scope).cast());
+        let exports = velyr_compat_napi::load_native(&mut lent, path, &support::allow_native(path))
+            .expect("the addon loads");
+        // SAFETY: `load_native` returns the bits of a `Local` created in `scope`.
+        let exports =
+            unsafe { std::mem::transmute::<NativeValue, v8::Local<'_, v8::Value>>(exports) };
+        assert!(exports.is_object());
+        velyr_compat_napi::shutdown_native(&mut NativeScope::new(
+            V8_ENGINE,
+            std::ptr::NonNull::from(&mut *scope).cast(),
+        ));
+    });
+}
+
+#[test]
+fn load_native_refuses_a_scope_from_another_engine() {
+    let path = support::addon();
+    // Never dereferenced: the engine tag is checked first.
+    let mut lent = NativeScope::new("native", std::ptr::NonNull::dangling());
+    match velyr_compat_napi::load_native(&mut lent, path, &support::allow_native(path)) {
+        Err(NativeError::Host(HostError::Velyr(err))) => {
+            assert_eq!(err.code(), ErrorCode::Unsupported)
+        }
+        other => panic!("expected an unsupported error, got {other:?}"),
     }
 }

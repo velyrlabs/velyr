@@ -6,9 +6,11 @@
   const resolveOp = global.op_cjs_resolve;
   const readOp = global.op_cjs_read;
   const requireEsmOp = global.op_cjs_require_esm;
+  const dlopenOp = global.op_cjs_dlopen;
   delete global.op_cjs_resolve;
   delete global.op_cjs_read;
   delete global.op_cjs_require_esm;
+  delete global.op_cjs_dlopen;
 
   const cache = Object.create(null);
   // Name -> exports for host-provided modules (`node:fs` and friends); empty until one registers.
@@ -90,6 +92,10 @@
   }
 
   function run(module, format) {
+    if (format === "native") {
+      module.exports = dlopenOp(module.filename);
+      return;
+    }
     const text = readOp(module.filename);
     if (format === "json") {
       try {
@@ -136,6 +142,8 @@
     function require(id) {
       const found = resolveFrom(id, module);
       if (found.builtin !== undefined) return builtins.get(found.builtin);
+      // Node-API addons load by extension, whatever the package `type` says.
+      if (found.path.endsWith(".node")) return load(found.path, module, "native");
       if (found.format === "esm") {
         const namespace = requireEsmOp(found.path);
         if (namespace === undefined) {
@@ -163,6 +171,10 @@
     importCjs: (filename, format) => load(filename, undefined, format),
     // `require` for code that is not CommonJS (ESM, tests): resolves relative to `filename`.
     createRequire: (filename) => makeRequire(new Module(filename, undefined)),
+    // `process.dlopen(module, filename)`: loads a Node-API addon into `module.exports`.
+    dlopen: (module, filename) => {
+      module.exports = dlopenOp(filename);
+    },
     builtins,
     prefixOnly,
   });

@@ -231,6 +231,14 @@ function chdir(directory) {
   }
 }
 
+// ---- native addons --------------------------------------------------------------------------
+// The loader (and its `--allow-native` check) lives in compat-commonjs.
+function dlopen(module, filename) {
+  const commonjs = globalThis[Symbol.for('velyr.commonjs')];
+  if (!commonjs) throw new Error('process.dlopen needs the CommonJS loader');
+  commonjs.dlopen(module, filename);
+}
+
 // ---- assemble (enumerable own keys are the public exports) ----------------------------------
 const args = info.args;
 Object.assign(process, {
@@ -267,4 +275,5 @@ lazyStdio('stderr', () => makeWritable(2));
 lazyStdio('stdin', makeStdin);
 define('_tickCallback', tickCallback);
 define('_uncaught', uncaught);
+define('dlopen', dlopen);
 module.exports = process;

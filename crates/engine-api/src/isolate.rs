@@ -5,8 +5,8 @@ use std::time::Duration;
 use velyr_runtime_errors::VelyrError;
 
 use crate::{
-    CodeCacheStats, EngineError, EngineFeatures, Handle, HostError, JsString, SerializedValue,
-    Value,
+    CodeCacheStats, EngineError, EngineFeatures, Handle, HostError, JsString, NativeScopeFn,
+    NativeTeardown, SerializedValue, Value,
 };
 
 /// Script or module source. `name` is the resolved specifier/URL used in stack traces
@@ -249,6 +249,17 @@ pub trait CallContext {
     fn get_continuation_context(&mut self) -> Value {
         Value::Undefined
     }
+    /// Runs `f` with the engine's own scope and converts the raw value it returns, for FFI
+    /// layers (Node-API) that work on engine handles. Engines without raw access keep the
+    /// default, which fails without calling `f`.
+    fn with_native_scope(&mut self, _f: &mut NativeScopeFn<'_>) -> Result<Value, HostError> {
+        Err(unsupported_native())
+    }
+    /// Registers `teardown` to run in a native scope when the isolate is disposed, before its
+    /// handles are freed. Registering the same function again is a no-op.
+    fn on_native_teardown(&mut self, _teardown: NativeTeardown) -> Result<(), HostError> {
+        Err(unsupported_native())
+    }
     /// Raw slot lookup by type id, as registered with [`Isolate::set_slot`].
     /// Prefer the typed `isolate_slot::<T>()`.
     fn slot(&mut self, type_id: TypeId) -> Option<&mut dyn Any>;
@@ -294,6 +305,12 @@ pub trait Engine: 'static {
     /// Creates an isolate with its own heap and realm. The caller keeps it on
     /// the creating thread.
     fn create_isolate(&self, opts: IsolateOptions) -> Result<Self::Isolate, EngineError>;
+
+    /// `true` when isolates boot from a startup snapshot that already holds the host functions
+    /// and bootstrap scripts: the host must not register those again, only its isolate slots.
+    fn boots_from_snapshot(&self) -> bool {
+        false
+    }
 }
 
 /// One JS heap and realm, owned by one thread. `!Send` by contract: adapters
@@ -444,5 +461,11 @@ pub trait Isolate {
 fn unsupported_modules() -> HostError {
     HostError::Velyr(VelyrError::unsupported(
         "synchronous module loading is not supported by this engine",
+    ))
+}
+
+fn unsupported_native() -> HostError {
+    HostError::Velyr(VelyrError::unsupported(
+        "native addons are not supported by this engine",
     ))
 }

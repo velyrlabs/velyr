@@ -11,6 +11,7 @@ mod code_cache;
 mod error;
 mod features;
 mod isolate;
+mod native;
 mod serialize;
 mod stack_trace;
 mod value;
@@ -21,6 +22,7 @@ pub use code_cache::{
 pub use error::{EngineError, HostError};
 pub use features::EngineFeatures;
 pub use isolate::*;
+pub use native::{NativeError, NativeScope, NativeScopeFn, NativeTeardown, NativeValue, V8_ENGINE};
 pub use serialize::{SerializedValue, TransferredBuffer};
 pub use stack_trace::{MappedPosition, StackFrameMapper};
 pub use value::{Handle, JsBigInt, JsString, Value};

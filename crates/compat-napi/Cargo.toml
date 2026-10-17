@@ -8,6 +8,7 @@ license.workspace = true
 links = "velyr_napi"
 
 [dependencies]
+velyr-engine-api = { path = "../engine-api" }
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 libloading = "0.8"
