@@ -107,9 +107,8 @@
     return Number(match[1]);
   };
 
-  const Temporal = {};
+  const Temporal = global.Temporal;
   tag(Temporal, 'Temporal');
-  defineProperty(global, 'Temporal', { value: Temporal, writable: true, configurable: true });
 
   // Methods shared by every class: arithmetic, comparison and serialization.
   const installCommon = (Class, cls, fromStr, equals) => {

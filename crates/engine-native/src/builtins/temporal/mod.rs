@@ -25,9 +25,9 @@ use temporal_rs::options::{
 use temporal_rs::parsers::Precision;
 use temporal_rs::{Calendar, Duration, TemporalError, TemporalResult, TimeZone};
 use velyr_engine_vm::Value;
-use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, NativeFn};
+use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, LazyInstall, NativeFn};
 
-use crate::bytecode_compiler::compile_named_script;
+use crate::prelude::run_prelude;
 
 const PRELUDES: [(&str, &str); 3] = [
     ("velyr:temporal", include_str!("prelude.js")),
@@ -204,18 +204,21 @@ fn op(vm: &mut Interpreter, _: &Value, args: &[Value]) -> Result<Value, Abrupt> 
         })
 }
 
-/// Defines `Temporal` on `vm`'s realm.
+/// Defines the lazy `Temporal` namespace on `vm`'s realm; the first operation on it defines
+/// the native op and runs the preludes.
 pub(crate) fn install(vm: &mut Interpreter) -> Result<(), String> {
+    let init: LazyInstall =
+        Rc::new(|vm| materialize(vm).map_err(|message| vm.error(ErrorKind::Error, &message)));
+    vm.define_lazy_namespace("Temporal", init)
+        .map_err(|_| "cannot define Temporal".to_owned())
+}
+
+fn materialize(vm: &mut Interpreter) -> Result<(), String> {
     let native: NativeFn = Rc::new(op);
     vm.define_global_function("__temporal_op", 2, native)
         .map_err(|_| "cannot define __temporal_op".to_owned())?;
     for (name, source) in PRELUDES {
-        let code = compile_named_script(name, source).map_err(|error| error.message)?;
-        match vm.run_script(&code) {
-            Ok(_) => {}
-            Err(Abrupt::Throw(value)) => return Err(vm.exception_message(&value)),
-            Err(abrupt) => return Err(format!("{abrupt:?}")),
-        }
+        run_prelude(vm, name, source)?;
     }
     Ok(())
 }

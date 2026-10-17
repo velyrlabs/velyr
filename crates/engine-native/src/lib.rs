@@ -15,6 +15,8 @@ mod intl;
 mod isolate;
 #[path = "builtins/iterator_helpers.rs"]
 pub mod iterator_helpers;
+#[path = "builtins/prelude.rs"]
+mod prelude;
 #[path = "builtins/temporal/mod.rs"]
 mod temporal;
 mod modules;

@@ -4,12 +4,7 @@
 //! behind %IteratorHelperPrototype% objects, so they get suspension and closing for free.
 //! shortcut: `toString` of these functions shows their JS source, not `[native code]`.
 
-use std::rc::Rc;
-
-use velyr_engine_vm::bytecode::{Constant, FunctionCode};
-use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
-
-use crate::bytecode_compiler::compile_named_script;
+use velyr_engine_vm::interpreter::Interpreter;
 
 const PRELUDE: &str = r#"'use strict';
 (() => {
@@ -254,26 +249,7 @@ const PRELUDE: &str = r#"'use strict';
 })();
 "#;
 
-/// Hides the source of every function in `code`, so `toString` shows `[native code]` like
-/// a built-in (an empty source range is the VM's cue).
-fn hide_source(code: &mut Rc<FunctionCode>) {
-    let code = Rc::make_mut(code);
-    code.source_end = code.source_start;
-    for constant in &mut code.constants {
-        if let Constant::Function(inner) = constant {
-            hide_source(inner);
-        }
-    }
-}
-
 /// Defines `Iterator` and the iterator helpers on the realm of `vm`.
 pub fn install(vm: &mut Interpreter) -> Result<(), String> {
-    let mut code =
-        compile_named_script("velyr:iterator_helpers", PRELUDE).map_err(|error| error.message)?;
-    hide_source(&mut code);
-    match vm.run_script(&code) {
-        Ok(_) => Ok(()),
-        Err(Abrupt::Throw(value)) => Err(vm.exception_message(&value)),
-        Err(abrupt) => Err(format!("{abrupt:?}")),
-    }
+    crate::prelude::run_prelude(vm, "velyr:iterator_helpers", PRELUDE)
 }

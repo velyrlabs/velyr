@@ -287,13 +287,12 @@
     },
   });
 
-  const Intl = {};
+  const Intl = global.Intl;
   define(Intl, {
     getCanonicalLocales(locales) { return canonicalLocales(locales); },
     Collator, PluralRules, Segmenter,
   });
   tag(Intl, 'Intl');
-  defineProperty(global, 'Intl', { value: Intl, writable: true, configurable: true });
   defineProperty(global, '__intl_shared', {
     value: freeze({ ops, define, tag, slots, slot, boundGetter, constructor, instance,
       resolveLocale, resolveLocaleKeys, typeOption, toOptions, getOption, getNumber, decodeParts,

@@ -36,6 +36,7 @@ impl NativeIsolate {
             compile_named_script("<anonymous>", source).map_err(|error| error.message)
         }));
         crate::iterator_helpers::install(&mut vm).expect("the iterator helpers prelude runs");
+        crate::prelude::install_lazy_stubs(&mut vm).expect("the lazy stubs prelude runs");
         crate::date::install(&mut vm);
         crate::intl::install(&mut vm).expect("the Intl prelude runs");
         crate::temporal::install(&mut vm).expect("the Temporal prelude runs");
@@ -47,6 +48,12 @@ impl NativeIsolate {
             terminated,
             modules: ModuleGraph::default(),
         }
+    }
+
+    /// Globals still holding an unmaterialized lazy namespace shell, in definition order.
+    #[doc(hidden)]
+    pub fn pending_lazy_globals(&mut self) -> Vec<String> {
+        self.vm.pending_lazy()
     }
 
     /// Maps an abrupt completion of the interpreter onto the engine-api exception.

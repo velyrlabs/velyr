@@ -14,13 +14,12 @@ use std::rc::Rc;
 
 use icu_locale::{Locale, LocaleCanonicalizer};
 use velyr_engine_vm::Value;
-use velyr_engine_vm::bytecode::{Constant, FunctionCode};
-use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, NativeFn};
+use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, LazyInstall, NativeFn};
 use writeable::{Part, PartsWrite};
 
 pub(crate) use datetime::zone_long_name;
 
-use crate::bytecode_compiler::compile_named_script;
+use crate::prelude::run_prelude;
 
 const PRELUDE: &str = include_str!("prelude.js");
 const PRELUDE_NUMBER: &str = include_str!("prelude_number.js");
@@ -142,30 +141,30 @@ impl<F: Fn(Part) -> &'static str> PartsWrite for Parts<F> {
     }
 }
 
-/// Hides the source of every function in `code`, so `toString` shows `[native code]` (an
-/// empty source range is the VM's cue); the same trick as the iterator helpers prelude.
-fn hide_source(code: &mut Rc<FunctionCode>) {
-    let code = Rc::make_mut(code);
-    code.source_end = code.source_start;
-    for constant in &mut code.constants {
-        if let Constant::Function(inner) = constant {
-            hide_source(inner);
-        }
-    }
-}
-
 fn op(vm: &mut Interpreter, name: &str, arity: u32, f: NativeFn) -> Result<(), Abrupt> {
     vm.define_global_function(name, arity, f)
 }
 
-/// Defines `Intl` and the locale-sensitive methods of the built-ins on `vm`'s realm.
+/// Defines the lazy `Intl` namespace on `vm`'s realm; the first operation on it defines the
+/// ops and runs the preludes, which also replace the locale-sensitive built-in stubs.
 pub(crate) fn install(vm: &mut Interpreter) -> Result<(), String> {
+    let init: LazyInstall =
+        Rc::new(|vm| materialize(vm).map_err(|message| vm.error(ErrorKind::Error, &message)));
+    vm.define_lazy_namespace("Intl", init)
+        .map_err(|_| "cannot define Intl".to_owned())
+}
+
+fn materialize(vm: &mut Interpreter) -> Result<(), String> {
     let ops: [(&str, u32, NativeFn); 12] = [
         ("__intl_canonicalize", 1, Rc::new(canonicalize)),
         ("__intl_supported", 1, Rc::new(supported)),
         ("__intl_default_locale", 0, Rc::new(default_locale)),
         ("__intl_number_format", 4, Rc::new(number::format)),
-        ("__intl_currency_digits", 1, Rc::new(number::currency_digits)),
+        (
+            "__intl_currency_digits",
+            1,
+            Rc::new(number::currency_digits),
+        ),
         ("__intl_plural_select", 5, Rc::new(number::plural_select)),
         (
             "__intl_plural_categories",
@@ -190,13 +189,7 @@ pub(crate) fn install(vm: &mut Interpreter) -> Result<(), String> {
         ("velyr:intl_number", PRELUDE_NUMBER),
         ("velyr:intl_formats", PRELUDE_FORMATS),
     ] {
-        let mut code = compile_named_script(name, source).map_err(|error| error.message)?;
-        hide_source(&mut code);
-        match vm.run_script(&code) {
-            Ok(_) => {}
-            Err(Abrupt::Throw(value)) => return Err(vm.exception_message(&value)),
-            Err(abrupt) => return Err(format!("{abrupt:?}")),
-        }
+        run_prelude(vm, name, source)?;
     }
     Ok(())
 }
