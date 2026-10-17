@@ -12,7 +12,7 @@ use oxc_codegen::{Codegen, CodegenOptions};
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
-use oxc_transformer::{TransformOptions, Transformer};
+use oxc_transformer::{EnvOptions, Module, TransformOptions, Transformer};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
 
@@ -54,7 +54,12 @@ fn source_type(media_type: MediaType) -> SourceType {
         MediaType::Cts => "module.cts",
         MediaType::Tsx => "module.tsx",
     };
-    SourceType::from_path(file).unwrap_or_default()
+    let source_type = SourceType::from_path(file).unwrap_or_default();
+    if media_type == MediaType::Cts {
+        source_type
+    } else {
+        source_type.with_module(true)
+    }
 }
 
 /// 1-based line and column (in characters) of a byte offset.
@@ -90,7 +95,7 @@ fn strip(specifier: &str, source: &str, media_type: MediaType) -> Result<Transfo
         .with_enum_eval(true)
         .build(&program);
     let path = Path::new(specifier);
-    let transformed = Transformer::new(&allocator, path, &options())
+    let transformed = Transformer::new(&allocator, path, &options(media_type))
         .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
     if let Some(first) = transformed.diagnostics.first() {
         return Err(failure(
@@ -116,8 +121,21 @@ fn strip(specifier: &str, source: &str, media_type: MediaType) -> Result<Transfo
 }
 
 /// Types are stripped, nothing is downleveled (the engine runs modern JavaScript).
-fn options() -> TransformOptions {
-    TransformOptions::default()
+/// `.cts` is CommonJS (`export =` becomes `module.exports`); everything else is ESM, where oxc
+/// reports `export =` and `import x = require()` as diagnostics.
+fn options(media_type: MediaType) -> TransformOptions {
+    let module = if media_type == MediaType::Cts {
+        Module::CommonJS
+    } else {
+        Module::Esm
+    };
+    TransformOptions {
+        env: EnvOptions {
+            module,
+            ..EnvOptions::default()
+        },
+        ..TransformOptions::default()
+    }
 }
 
 impl SourceTransform for TypeScriptTransform {
@@ -137,7 +155,7 @@ impl SourceTransform for TypeScriptTransform {
                 source_map: None,
             });
         }
-        let options = format!("{:?}", options());
+        let options = format!("{:?}", options(media_type));
         let key = cache::key(&[
             env!("CARGO_PKG_NAME").as_bytes(),
             env!("CARGO_PKG_VERSION").as_bytes(),
