@@ -1,6 +1,6 @@
 //! ES2025 iterator helpers (VELYR-109): the `Iterator` constructor, `Iterator.from` and
 //! `Iterator.prototype.{map, filter, take, drop, flatMap, reduce, toArray, forEach, some,
-//! every, find}`. Written in JS and run once per realm: the lazy helpers are generators
+//! every, find, chunks, windows, includes, join}`. Written in JS and run once per realm: the lazy helpers are generators
 //! behind %IteratorHelperPrototype% objects, so they get suspension and closing for free.
 //! shortcut: `toString` of these functions shows their JS source, not `[native code]`.
 
@@ -34,14 +34,27 @@ const PRELUDE: &str = r#"'use strict';
     try { check(); } catch (error) { closeQuietly(O); throw error; }
     return { iterator: O, next: O.next };
   };
-  const callable = (f) => () => { if (typeof f !== 'function') fail(f + ' is not a function'); };
+  // Messages never interpolate the argument: that would run its `toString`/`valueOf`.
+  const callable = (f) => () => { if (typeof f !== 'function') fail('argument is not a function'); };
   const limit = (value) => {
     const n = Number(value);
-    if (n !== n) throw new RangeError(value + ' must be a number');
+    if (n !== n) throw new RangeError('limit must be a number');
     const integer = Math.trunc(n);
-    if (integer < 0) throw new RangeError(value + ' must be positive');
+    if (integer < 0 || (integer > Number.MAX_SAFE_INTEGER && integer !== Infinity)) {
+      throw new RangeError('limit is out of range');
+    }
     return integer;
   };
+  // A Number with an integral value in [min, max] (no coercion); `Infinity` only when allowed.
+  const integerArg = (value, min, max, allowInfinity) => () => {
+    if (typeof value !== 'number' || value !== value) fail('argument must be a number');
+    if (value === Infinity && allowInfinity) return;
+    if (Math.trunc(value) !== value || (!allowInfinity && Math.abs(value) === Infinity)) {
+      fail('argument must be an integer');
+    }
+    if (value < min || value > max) throw new RangeError('argument is out of range');
+  };
+  const MAX_CHUNK = 2 ** 32 - 1;
   const stepValue = (record) => {
     const result = apply(record.next, record.iterator, []);
     if (!isObject(result)) fail('Iterator result ' + result + ' is not an object');
@@ -196,6 +209,67 @@ const PRELUDE: &str = r#"'use strict';
           }
         }
       });
+    },
+    chunks(chunkSize) {
+      return helper(direct(this, integerArg(chunkSize, 1, MAX_CHUNK)), function* (record) {
+        let buffer = [];
+        for (;;) {
+          const value = stepValue(record);
+          if (value === DONE) break;
+          buffer.push(value);
+          if (buffer.length === chunkSize) {
+            const full = buffer;
+            buffer = [];
+            yield* emit(full, record);
+          }
+        }
+        if (buffer.length > 0) yield buffer;
+      });
+    },
+    windows(windowSize) {
+      const undersized = arguments[1];
+      const validate = () => {
+        integerArg(windowSize, 1, MAX_CHUNK)();
+        if (undersized !== undefined && undersized !== 'only-full' && undersized !== 'allow-partial') {
+          fail("undersized must be 'only-full' or 'allow-partial'");
+        }
+      };
+      return helper(direct(this, validate), function* (record) {
+        const buffer = [];
+        for (;;) {
+          const value = stepValue(record);
+          if (value === DONE) break;
+          buffer.push(value);
+          if (buffer.length > windowSize) buffer.shift();
+          if (buffer.length === windowSize) yield* emit(buffer.slice(), record);
+        }
+        if (undersized === 'allow-partial' && buffer.length > 0 && buffer.length < windowSize) {
+          yield buffer;
+        }
+      });
+    },
+    includes(searchElement) {
+      let skipped = arguments[1] === undefined ? 0 : arguments[1];
+      const record = direct(this, integerArg(skipped, 0, Number.MAX_SAFE_INTEGER, true));
+      for (let value; (value = stepValue(record)) !== DONE; ) {
+        if (skipped > 0) { skipped--; continue; }
+        if (value === searchElement || (value !== value && searchElement !== searchElement)) {
+          close(record.iterator);
+          return true;
+        }
+      }
+      return false;
+    },
+    join(separator) {
+      let text;
+      const record = direct(this, () => { text = separator === undefined ? ',' : `${separator}`; });
+      let result = '';
+      for (let first = true, value; (value = stepValue(record)) !== DONE; first = false) {
+        let part = '';
+        try { if (value != null) part = `${value}`; } catch (error) { closeQuietly(record.iterator); throw error; }
+        result += first ? part : text + part;
+      }
+      return result;
     },
     reduce(reducer) {
       const record = direct(this, callable(reducer));
