@@ -38,7 +38,21 @@
     }
     return seen;
   };
-  const withoutExtensions = (locale) => locale.replace(/-u(-[a-z0-9]{2,8})+/gi, '');
+  // No RegExp in preludes: a regexp exec would overwrite the RegExp legacy statics ($1...).
+  // Splits a tag around its -u- extension: { before, keywords, after } or null.
+  const splitUnicodeExtension = (locale) => {
+    const parts = locale.split('-');
+    const start = parts.indexOf('u', 1);
+    if (start < 0) return null;
+    let end = start + 1;
+    while (end < parts.length && parts[end].length >= 2) end++;
+    if (end === start + 1) return null;
+    return { before: parts.slice(0, start), keywords: parts.slice(start + 1, end), after: parts.slice(end) };
+  };
+  const withoutExtensions = (locale) => {
+    const split = splitUnicodeExtension(locale);
+    return split === null ? locale : split.before.concat(split.after).join('-');
+  };
   // BestAvailableLocale: the longest supported prefix of `locale`.
   const bestAvailable = (locale) => {
     let candidate = withoutExtensions(locale);
@@ -55,16 +69,16 @@
     nu: ['arab', 'arabext', 'beng', 'deva', 'fullwide', 'gujr', 'guru', 'hanidec', 'khmr', 'knda',
       'laoo', 'latn', 'limb', 'mlym', 'mong', 'mymr', 'orya', 'tamldec', 'telu', 'thai', 'tibt'],
     ca: ['buddhist', 'chinese', 'coptic', 'dangi', 'ethioaa', 'ethiopic', 'gregory', 'hebrew', 'indian',
-      'islamic', 'islamic-civil', 'islamic-tbla', 'islamic-umalqura', 'iso8601', 'japanese', 'persian', 'roc'],
+      'islamic-civil', 'islamic-tbla', 'islamic-umalqura', 'iso8601', 'japanese', 'persian', 'roc'],
     hc: ['h11', 'h12', 'h23', 'h24'],
   };
   // The keywords of the -u- extension of a canonical tag: { ca: 'buddhist', nu: 'arab' }.
   const unicodeKeywords = (locale) => {
     const keywords = {};
-    const match = /-u((?:-[a-z0-9]{2,8})+)/i.exec(locale);
-    if (match === null) return keywords;
+    const split = splitUnicodeExtension(locale);
+    if (split === null) return keywords;
     let key;
-    for (const subtag of match[1].slice(1).split('-')) {
+    for (const subtag of split.keywords) {
       if (subtag.length === 2) { key = subtag; keywords[key] = ''; }
       else if (key !== undefined) keywords[key] = keywords[key] === '' ? subtag : `${keywords[key]}-${subtag}`;
     }
@@ -100,10 +114,13 @@
     return { locale: tag(kept), data: tag(values), values };
   };
   const resolveLocale = (locales) => resolveLocaleKeys(locales, {}).locale;
+  const isAsciiAlpha = (c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+  const isAlphanumeric = (text) => [...text].every((c) => isAsciiAlpha(c) || (c >= '0' && c <= '9'));
+  const isUnicodeType = (text) => text.split('-').every((part) => part.length >= 3 && part.length <= 8 && isAlphanumeric(part));
   // A string option holding a Unicode type (numberingSystem, calendar), lowercased.
   const typeOption = (options, name) => {
     const value = getOption(options, name);
-    if (value !== undefined && !/^[a-z0-9]{3,8}(-[a-z0-9]{3,8})*$/i.test(value)) {
+    if (value !== undefined && !isUnicodeType(value)) {
       throw new RangeError(`Invalid ${name} : ${value}`);
     }
     return value === undefined ? value : value.toLowerCase();
@@ -295,7 +312,7 @@
   tag(Intl, 'Intl');
   defineProperty(global, '__intl_shared', {
     value: freeze({ ops, define, tag, slots, slot, boundGetter, constructor, instance,
-      resolveLocale, resolveLocaleKeys, typeOption, toOptions, getOption, getNumber, decodeParts,
+      resolveLocale, resolveLocaleKeys, typeOption, isAsciiAlpha, toOptions, getOption, getNumber, decodeParts,
       typeError }),
     configurable: true,
   });

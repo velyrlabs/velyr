@@ -6,7 +6,7 @@
 (() => {
   const global = globalThis;
   const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocaleKeys,
-    typeOption, toOptions, getOption, getNumber, decodeParts, typeError } = global.__intl_shared;
+    typeOption, isAsciiAlpha, toOptions, getOption, getNumber, decodeParts, typeError } = global.__intl_shared;
   const Intl = global.Intl;
 
   // The order `number.rs` reads the spec in.
@@ -56,7 +56,7 @@
     const { locale, data, values } = resolveLocaleKeys(locales, { nu: numberingSystem });
     const style = getOption(options, 'style', ['decimal', 'percent', 'currency', 'unit'], 'decimal');
     let currency = getOption(options, 'currency');
-    if (currency !== undefined && !/^[A-Za-z]{3}$/.test(currency)) {
+    if (currency !== undefined && (currency.length !== 3 || ![...currency].every(isAsciiAlpha))) {
       throw new RangeError(`Invalid currency code : ${currency}`);
     }
     if (style === 'currency' && currency === undefined) typeError('Currency code is required with currency style.');

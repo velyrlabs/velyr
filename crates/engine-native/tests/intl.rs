@@ -815,3 +815,13 @@ fn date_to_string_names_the_local_zone() {
         "new Date(1704467049000).toTimeString().includes(' (')",
     ]);
 }
+
+#[test]
+fn intl_constructors_leave_regexp_legacy_statics_untouched() {
+    expect_true(&[
+        "new Intl.Collator('de-u-co-phonebk', { numeric: true }); RegExp.$1 === ''",
+        "new Intl.DateTimeFormat('en-u-ca-gregory', { calendar: 'gregory' }); RegExp.$1 === ''",
+        "new Intl.NumberFormat('en-u-nu-latn', { currency: 'usd' }); RegExp.$1 === ''",
+        "new Intl.DateTimeFormat('en-u-ca-buddhist').resolvedOptions().calendar === 'buddhist'",
+    ]);
+}
