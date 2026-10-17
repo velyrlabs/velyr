@@ -1,4 +1,4 @@
-use velyr_engine_api::{Engine, Isolate, IsolateOptions, JsString, Source, Value};
+use velyr_engine_api::{Engine, Isolate, IsolateOptions, Source, Value};
 use velyr_engine_v8::{V8Engine, V8Isolate};
 
 fn isolate() -> V8Isolate {
