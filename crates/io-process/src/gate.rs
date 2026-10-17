@@ -15,6 +15,7 @@
 //!   indistinguishable to a caller that has no grant.
 
 use std::ffi::OsStr;
+#[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
@@ -61,8 +62,15 @@ pub(crate) fn normalize(path: &Path) -> PathBuf {
     out
 }
 
+#[cfg(unix)]
 fn is_executable_file(path: &Path) -> bool {
     std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+}
+
+/// Spawning is unsupported off unix (see `spawn`), so no file counts as executable: fail closed.
+#[cfg(not(unix))]
+fn is_executable_file(_path: &Path) -> bool {
+    false
 }
 
 /// First executable named `name` in an absolute `PATH` entry. Empty and relative entries are
@@ -126,8 +134,19 @@ fn is_runtime_executable(path: &Path) -> bool {
     if own == path {
         return true;
     }
-    match (std::fs::metadata(&own), std::fs::metadata(path)) {
+    same_file(&own, path)
+}
+
+#[cfg(unix)]
+fn same_file(a: &Path, b: &Path) -> bool {
+    match (std::fs::metadata(a), std::fs::metadata(b)) {
         (Ok(a), Ok(b)) => (a.dev(), a.ino()) == (b.dev(), b.ino()),
         _ => false,
     }
+}
+
+/// No inode identity off unix: treat every path as the runtime itself (fail closed).
+#[cfg(not(unix))]
+fn same_file(_a: &Path, _b: &Path) -> bool {
+    true
 }

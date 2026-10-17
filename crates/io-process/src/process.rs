@@ -6,11 +6,14 @@
 
 use std::ffi::OsString;
 use std::io;
+#[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 
+#[cfg(unix)]
 use nix::sys::signal::{Signal, killpg};
+#[cfg(unix)]
 use nix::unistd::Pid;
 use tokio::io::AsyncReadExt;
 use tokio::process::{ChildStderr, ChildStdin, ChildStdout, Command};
@@ -74,19 +77,27 @@ impl From<ExitStatus> for Exit {
     fn from(status: ExitStatus) -> Self {
         Self {
             code: status.code(),
+            #[cfg(unix)]
             signal: status.signal(),
+            #[cfg(not(unix))]
+            signal: None,
         }
     }
 }
 
 /// SIGKILLs the process group led by `pid`. Does nothing for pid 0 (`killpg(0)` would hit our own
 /// group); a group that is already gone is not an error.
+#[cfg(unix)]
 pub(crate) fn kill_group(pid: u32) {
     let Ok(pid) = i32::try_from(pid) else { return };
     if pid > 0 {
         let _ = killpg(Pid::from_raw(pid), Signal::SIGKILL);
     }
 }
+
+/// Nothing to signal off unix: `spawn` never starts a child there.
+#[cfg(not(unix))]
+pub(crate) fn kill_group(_pid: u32) {}
 
 struct GroupGuard {
     pid: u32,
@@ -113,17 +124,23 @@ pub struct Process {
 
 /// Starts `resolved` with `spec`. Needs a Tokio runtime context.
 pub fn spawn(resolved: &Resolved, spec: &SpawnSpec) -> io::Result<Process> {
+    if cfg!(not(unix)) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "spawning processes is not supported on this platform",
+        ));
+    }
     let mut command = Command::new(resolved.path());
     command
-        .arg0(&spec.arg0)
         .args(&spec.args)
         .env_clear()
         .envs(spec.env.iter().map(|(k, v)| (k, v)))
         .stdin(spec.stdin.stdio())
         .stdout(spec.stdout.stdio())
         .stderr(spec.stderr.stdio())
-        .process_group(0)
         .kill_on_drop(true);
+    #[cfg(unix)]
+    command.arg0(&spec.arg0).process_group(0);
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
     }

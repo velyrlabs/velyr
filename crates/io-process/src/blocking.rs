@@ -3,6 +3,7 @@
 //! gate and the same spawn settings as the async path: `Resolved` in, nothing inherited.
 
 use std::io::{self, Read, Write};
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -93,17 +94,23 @@ pub fn run_blocking(
     timeout: Option<Duration>,
     cancelled: &dyn Fn() -> bool,
 ) -> io::Result<BlockingOutput> {
+    if cfg!(not(unix)) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "spawning processes is not supported on this platform",
+        ));
+    }
     let max_buffer = max_buffer.min(MAX_BUFFER_LIMIT);
     let mut command = Command::new(resolved.path());
     command
-        .arg0(&spec.arg0)
         .args(&spec.args)
         .env_clear()
         .envs(spec.env.iter().map(|(k, v)| (k, v)))
         .stdin(stdio(spec.stdin))
         .stdout(stdio(spec.stdout))
-        .stderr(stdio(spec.stderr))
-        .process_group(0);
+        .stderr(stdio(spec.stderr));
+    #[cfg(unix)]
+    command.arg0(&spec.arg0).process_group(0);
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
     }
