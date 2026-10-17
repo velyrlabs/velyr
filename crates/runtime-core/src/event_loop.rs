@@ -373,6 +373,7 @@ where
     let capabilities = config.capabilities.clone();
     let resolver = config.module_resolver.clone();
     let source_transform = config.source_transform.clone();
+    let module_loader = config.module_loader.clone();
     let shutdown = config.shutdown.clone().unwrap_or_default();
     let runtime = Runtime::with_engine(engine, config);
     let mut isolate = runtime
@@ -401,6 +402,7 @@ where
                 capabilities,
                 resolver,
                 source_transform,
+                module_loader,
                 &path,
             )
             .await;

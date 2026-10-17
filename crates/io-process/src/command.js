@@ -13,7 +13,7 @@
 (function (global) {
   "use strict";
 
-  const OPS = ["spawn", "read", "write", "close_stdin", "wait", "kill", "collect", "close"];
+  const OPS = ["spawn", "read", "write", "close_stdin", "wait", "kill", "collect", "close", "set_ref"];
   const op = {};
   for (const name of OPS) {
     op[name] = global[`op_command_${name}`];
@@ -147,6 +147,15 @@
         return new Uint8Array(await op.collect(this.#id, index, maxBuffer));
       } finally {
         this.#release();
+      }
+    }
+
+    // Whether the child's exit (0), stdout (1), stderr (2) or stdin (3) keeps the event loop alive.
+    setRef(target, refd) {
+      try {
+        op.set_ref(this.#id, target, refd);
+      } catch {
+        // Already released: nothing left to keep the loop alive.
       }
     }
 

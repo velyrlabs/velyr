@@ -16,11 +16,14 @@ enum Event {
     Reject(u64, Value),
     Buffer(Vec<u8>),
     Call(Value, Instant),
+    Gc(Instant),
 }
 
 type Log = Rc<RefCell<Vec<Event>>>;
 
-struct MockIsolate(Log, Arc<AtomicUsize>);
+/// Log, termination count, the heap size `heap_stats` reports, and how many more
+/// `run_platform_tasks` calls report outstanding platform work.
+struct MockIsolate(Log, Arc<AtomicUsize>, usize, u32);
 
 impl Isolate for MockIsolate {
     fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
@@ -71,9 +74,18 @@ impl Isolate for MockIsolate {
         MicrotaskProgress::Idle
     }
     fn heap_stats(&self) -> HeapStats {
-        HeapStats::default()
+        HeapStats {
+            used_bytes: self.2,
+            ..HeapStats::default()
+        }
     }
-    fn request_gc(&mut self, _: GcReason) {}
+    fn request_gc(&mut self, _: GcReason) {
+        self.0.borrow_mut().push(Event::Gc(Instant::now()));
+    }
+    fn run_platform_tasks(&mut self) -> bool {
+        self.3 = self.3.saturating_sub(1);
+        self.3 > 0
+    }
     fn termination_handle(&self) -> TerminationHandle {
         let terminations = self.1.clone();
         TerminationHandle::new(move || {
@@ -90,7 +102,10 @@ fn new_loop() -> (EventLoop<MockIsolate>, Log, CancellationToken) {
     let log = Log::default();
     let shutdown = CancellationToken::new();
     (
-        EventLoop::new(MockIsolate(log.clone(), Arc::default()), shutdown.clone()),
+        EventLoop::new(
+            MockIsolate(log.clone(), Arc::default(), 0, 0),
+            shutdown.clone(),
+        ),
         log,
         shutdown,
     )
@@ -342,7 +357,7 @@ fn clearing_a_running_interval_prevents_its_reschedule() {
 fn new_loop_counting_terminations() -> (EventLoop<MockIsolate>, Log, Arc<AtomicUsize>) {
     let log = Log::default();
     let terminations = Arc::new(AtomicUsize::new(0));
-    let isolate = MockIsolate(log.clone(), terminations.clone());
+    let isolate = MockIsolate(log.clone(), terminations.clone(), 0, 0);
     (
         EventLoop::new(isolate, CancellationToken::new()),
         log,
@@ -531,4 +546,140 @@ async fn immediate_created_by_an_immediate_runs_on_the_next_tick() {
     assert_eq!(calls(&log).len(), 1);
     el.tick();
     assert_eq!(calls(&log).len(), 2);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn outstanding_platform_work_keeps_the_loop_alive_and_polled() {
+    let (mut el, _, _) = new_loop();
+    el.isolate().3 = 6;
+    let start = Instant::now();
+    tokio::time::timeout(SEC, el.run())
+        .await
+        .expect("loop slept with platform work outstanding");
+    assert_eq!(el.isolate().3, 0, "returned with platform work left");
+    let elapsed = start.elapsed();
+    assert!(elapsed < 50 * MS, "slow poll: {elapsed:?}");
+}
+
+fn gc_times(log: &Log, start: Instant) -> Vec<Duration> {
+    log.borrow()
+        .iter()
+        .filter_map(|e| match e {
+            Event::Gc(at) => Some(*at - start),
+            _ => None,
+        })
+        .collect()
+}
+
+const SEC: Duration = Duration::from_secs(1);
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn idle_gc_runs_once_after_a_second_of_continuous_idleness() {
+    let (mut el, log, _) = new_loop();
+    el.isolate().2 = 64 << 20;
+    let start = Instant::now();
+    // Busy until 1.5 s (no gap reaches a second), then idle until the 4 s timer.
+    for at in [500, 1000, 1500, 4000] {
+        el.set_timer(at * MS, false, n(1));
+    }
+    el.run().await;
+    assert_eq!(gc_times(&log, start), vec![2500 * MS]);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn idle_gc_waits_for_the_heap_to_grow_since_the_last_one() {
+    let (mut el, log, _) = new_loop();
+    el.isolate().2 = 64 << 20;
+    let start = Instant::now();
+    el.set_timer(3 * SEC, false, n(1));
+    el.run().await;
+    el.set_timer(3 * SEC, false, n(1));
+    el.run().await;
+    assert_eq!(gc_times(&log, start), vec![SEC]);
+    el.isolate().2 = 72 << 20;
+    el.set_timer(3 * SEC, false, n(1));
+    el.run().await;
+    assert_eq!(gc_times(&log, start), vec![SEC, 7 * SEC]);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn idle_gc_never_runs_while_completions_keep_arriving() {
+    let (mut el, log, _) = new_loop();
+    el.isolate().2 = 64 << 20;
+    let sender = el.sender();
+    let producer = tokio::spawn(async move {
+        for id in 0..10 {
+            tokio::time::sleep(900 * MS).await;
+            sender.begin_op().send(ok(id, CompletionValue::Undefined));
+        }
+    });
+    let keep_alive = el.sender().begin_op();
+    tokio::time::timeout(9500 * MS, el.run()).await.ok();
+    drop(keep_alive);
+    producer.await.unwrap();
+    assert!(gc_times(&log, Instant::now()).is_empty());
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn run_ends_while_only_unrefd_ops_are_pending() {
+    let (mut el, _, _) = new_loop();
+    let sender = el.sender();
+    let _op = sender.begin_op_on(7);
+    sender.set_handle_ref(7, false);
+    el.run().await;
+    assert_eq!(el.stats().pending_ops, 1);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn ref_after_unref_makes_the_loop_wait_again() {
+    let (mut el, log, _) = new_loop();
+    let sender = el.sender();
+    let op = sender.begin_op_on(7);
+    sender.set_handle_ref(7, false);
+    sender.set_handle_ref(7, true);
+    let worker = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(20));
+        op.send(ok(3, CompletionValue::Undefined));
+    });
+    el.run().await;
+    worker.join().unwrap();
+    assert_eq!(resolves(&log), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unrefd_op_still_delivers_while_the_loop_runs_for_a_refd_one() {
+    let (mut el, log, _) = new_loop();
+    let sender = el.sender();
+    let quiet = sender.begin_op_on(7);
+    sender.set_handle_ref(7, false);
+    let busy = sender.begin_op();
+    let worker = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(20));
+        quiet.send(ok(1, CompletionValue::Undefined));
+        thread::sleep(Duration::from_millis(20));
+        busy.send(ok(2, CompletionValue::Undefined));
+    });
+    el.run().await;
+    worker.join().unwrap();
+    assert_eq!(resolves(&log), 2);
+    assert_eq!(el.stats().pending_ops, 0);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn an_unrefd_handle_stays_unrefd_for_later_ops() {
+    let (mut el, log, _) = new_loop();
+    let sender = el.sender();
+    sender.begin_op_on(7).send(ok(1, CompletionValue::Undefined));
+    sender.set_handle_ref(7, false);
+    // Same key, started after the first one finished: still unref'd (a handle's state sticks).
+    let later = sender.begin_op_on(7);
+    let other = sender.begin_op();
+    let worker = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(10));
+        other.send(ok(2, CompletionValue::Undefined));
+    });
+    el.run().await;
+    worker.join().unwrap();
+    assert_eq!(resolves(&log), 2);
+    drop(later);
 }

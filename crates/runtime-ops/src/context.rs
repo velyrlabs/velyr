@@ -92,7 +92,8 @@ fn redacted(request: &Request<'_>) -> String {
         | Request::ImportLocal(t)
         | Request::ImportRemote(t)
         | Request::NativeLoad(t)
-        | Request::InspectorBind(t) => t.len(),
+        | Request::InspectorBind(t)
+        | Request::SysInfo(t) => t.len(),
     };
     format!("<redacted len={len}>")
 }

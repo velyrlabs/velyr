@@ -472,3 +472,30 @@ fn a_child_echoing_a_large_request_does_not_deadlock_the_pipes() {
     "#,
     );
 }
+
+#[test]
+fn an_unrefd_child_with_unrefd_stdio_does_not_keep_the_script_alive() {
+    // The esbuild --service shape: a long-lived child nobody waits for. The script must end
+    // by itself, so the watchdog is the failure.
+    let needle = "sleep 7219";
+    let body = r#"
+        const child = cp.spawn('sleep', ['7219']);
+        child.unref();
+        child.stdin.unref();
+        child.stdout.unref();
+        child.stderr.unref();
+        child.stdout.on('data', () => {});
+    "#;
+    let started = Instant::now();
+    assert_eq!(run_in_thread(&["sleep"], body, None), "ok");
+    assert!(started.elapsed() < Duration::from_secs(20));
+    let _ = std::process::Command::new("/usr/bin/pkill").args(["-f", needle]).status();
+}
+
+#[test]
+fn a_child_that_is_not_unrefd_keeps_the_script_alive_until_it_exits() {
+    let body = "const child = cp.spawn('sleep', ['1']); child.ref(); child.stdout.ref();";
+    let started = Instant::now();
+    assert_eq!(run_in_thread(&["sleep"], body, None), "ok");
+    assert!(started.elapsed() >= Duration::from_millis(900), "the loop did not wait for the child");
+}

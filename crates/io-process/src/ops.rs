@@ -13,7 +13,7 @@ use tokio_util::sync::CancellationToken;
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
 use velyr_runtime_event_loop::CompletionValue;
-use velyr_runtime_ops::{CapabilityKind, OpContext, op_async};
+use velyr_runtime_ops::{CapabilityKind, OpContext, op_async_on};
 use velyr_runtime_resources::{QuotaClass, Resource, ResourceId, ResourceTable};
 
 use crate::options::{authorize, parse_options};
@@ -37,7 +37,7 @@ macro_rules! op {
     };
 }
 
-pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 8] = [
+pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 9] = [
     op!(op_command_spawn, 1, ProcessSpawn),
     op!(op_command_read, 3, None),
     op!(op_command_write, 2, None),
@@ -46,6 +46,7 @@ pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 8] = [
     op!(op_command_kill, 1, None),
     op!(op_command_collect, 3, None),
     op!(op_command_close, 1, None),
+    op!(op_command_set_ref, 3, None),
 ];
 
 struct Handle {
@@ -91,6 +92,18 @@ fn handle_arg(
     };
     let id = ResourceId::from_js_number(*id)?;
     Ok(op_context(ctx)?.resources.get::<ProcessRes>(id)?.0.clone())
+}
+
+/// What a ref covers: the child's exit (wait) and each of its pipes.
+const REF_TARGETS: u8 = 4;
+
+/// Loop-ref key of one target of a child: `id * 4 + {0 wait, 1 stdout, 2 stderr, 3 stdin}`.
+fn ref_key(args: &[Value], target: u8, op: &str) -> Result<u64, HostError> {
+    let Some(Value::Number(id)) = args.first() else {
+        return Err(type_error(op, 0, "a resource id"));
+    };
+    let id = ResourceId::from_js_number(*id)?;
+    Ok(id.to_js_number() as u64 * u64::from(REF_TARGETS) + u64::from(target))
 }
 
 /// Which pipe: 1 is stdout, 2 is stderr.
@@ -178,7 +191,8 @@ pub fn op_command_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Valu
         Some(Value::Number(n)) if *n >= 1.0 => (*n as usize).min(MAX_READ),
         _ => return Err(type_error(op, 2, "a byte count")),
     };
-    op_async(ctx, move |token| async move {
+    let key = ref_key(args, stream, op)?;
+    op_async_on(ctx, key, move |token| async move {
         if stream == 1 {
             read_some(&handle.stdout, max, token).await
         } else {
@@ -220,7 +234,8 @@ pub fn op_command_collect(ctx: &mut dyn CallContext, args: &[Value]) -> Result<V
         Some(Value::Number(n)) if *n >= 0.0 && *n <= MAX_BUFFER_LIMIT as f64 => *n as usize,
         _ => return Err(type_error(op, 2, "a byte limit of at most 64 MiB")),
     };
-    op_async(ctx, move |token| async move {
+    let key = ref_key(args, stream, op)?;
+    op_async_on(ctx, key, move |token| async move {
         if stream == 1 {
             collect_all(&handle.stdout, max, &handle.kill, token).await
         } else {
@@ -238,7 +253,8 @@ pub fn op_command_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Val
         .get(1)
         .and_then(|value| ctx.read_bytes(value))
         .ok_or_else(|| type_error(op, 1, "an ArrayBuffer or view"))?;
-    op_async(ctx, move |token| async move {
+    let key = ref_key(args, 3, op)?;
+    op_async_on(ctx, key, move |token| async move {
         let mut guard = handle.stdin.lock().await;
         let stdin = guard.as_mut().ok_or_else(VelyrError::bad_resource)?;
         tokio::select! {
@@ -269,7 +285,8 @@ pub fn op_command_close_stdin(
 /// `op_command_wait(id) -> Promise<string>`: JSON `{code, signal}` once the child ended.
 pub fn op_command_wait(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let handle = handle_arg(ctx, args, "op_command_wait")?;
-    op_async(ctx, move |token| async move {
+    let key = ref_key(args, 0, "op_command_wait")?;
+    op_async_on(ctx, key, move |token| async move {
         let exit = tokio::select! {
             () = token.cancelled() => return Err(VelyrError::cancelled()),
             exit = wait_exit(handle.exit.clone()) => exit,
@@ -291,7 +308,32 @@ pub fn op_command_close(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Val
         return Err(type_error("op_command_close", 0, "a resource id"));
     };
     let id = ResourceId::from_js_number(*id)?;
-    op_context(ctx)?.resources.close(id)?;
+    let op_ctx = op_context(ctx)?;
+    op_ctx.resources.close(id)?;
+    // The child is gone: drop its unref'd keys so the loop does not keep them.
+    for target in 0..REF_TARGETS {
+        let key = ref_key(args, target, "op_command_close")?;
+        op_ctx.sender.set_handle_ref(key, true);
+    }
+    Ok(Value::Undefined)
+}
+
+/// `op_command_set_ref(id, target, refd)`: whether the ops on `target` (0 exit, 1 stdout, 2 stderr,
+/// 3 stdin) keep the event loop alive. Ops still run and deliver while the loop runs anyway.
+pub fn op_command_set_ref(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let op = "op_command_set_ref";
+    let target = match args.get(1) {
+        Some(Value::Number(n)) if (0.0..f64::from(REF_TARGETS)).contains(n) && n.fract() == 0.0 => {
+            *n as u8
+        }
+        _ => return Err(type_error(op, 1, "a target from 0 to 3")),
+    };
+    let Some(Value::Bool(refd)) = args.get(2) else {
+        return Err(type_error(op, 2, "a boolean"));
+    };
+    handle_arg(ctx, args, op)?;
+    let key = ref_key(args, target, op)?;
+    op_context(ctx)?.sender.set_handle_ref(key, *refd);
     Ok(Value::Undefined)
 }
 

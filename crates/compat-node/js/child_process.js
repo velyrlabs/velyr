@@ -119,6 +119,17 @@ function wire(spec) {
 
 // ---- async ----------------------------------------------------------------------------------------
 
+// Targets of `Velyr.Command`'s setRef: the child's exit and each of its pipes.
+const REF_EXIT = 0;
+const REF_STDIN = 3;
+
+/** Node's `ref()`/`unref()` of a pipe: whether its pending reads or writes keep the loop alive. */
+function pipeRef(stream, handle, target) {
+  stream.ref = function ref() { handle.setRef(target, true); return this; };
+  stream.unref = function unref() { handle.setRef(target, false); return this; };
+  return stream;
+}
+
 function readable(web) {
   const reader = web.getReader();
   return new Readable({
@@ -177,9 +188,13 @@ class ChildProcess extends EventEmitter {
     return true;
   }
 
-  ref() {}
+  ref() {
+    this._handle?.setRef(REF_EXIT, true);
+  }
 
-  unref() {}
+  unref() {
+    this._handle?.setRef(REF_EXIT, false);
+  }
 }
 
 function finish(child, spec, handle, options) {
@@ -230,9 +245,9 @@ function start(child, spec, options) {
   }
   Object.defineProperty(child, '_handle', { value: handle, writable: true });
   child.pid = handle.pid;
-  if (handle.stdin) child.stdin = writable(handle.stdin);
-  if (handle.stdout) child.stdout = readable(handle.stdout);
-  if (handle.stderr) child.stderr = readable(handle.stderr);
+  if (handle.stdin) child.stdin = pipeRef(writable(handle.stdin), handle, REF_STDIN);
+  if (handle.stdout) child.stdout = pipeRef(readable(handle.stdout), handle, 1);
+  if (handle.stderr) child.stderr = pipeRef(readable(handle.stderr), handle, 2);
   child.stdio = [child.stdin, child.stdout, child.stderr];
   finish(child, spec, handle, options);
   process.nextTick(() => child.emit('spawn'));

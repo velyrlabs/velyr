@@ -1,7 +1,8 @@
 //! Spawning and supervising one child. A child is owned by a single supervisor task that waits for
 //! it or kills it on request, so `wait` and `kill` never contend for the `Child`. The child is
 //! spawned with `kill_on_drop`, so it dies with the task: when the isolate's runtime ends, nothing
-//! is left running.
+//! is left running. Every child leads its own process group, and kill, timeout and drop signal the
+//! whole group, so grandchildren die with it.
 
 use std::ffi::OsString;
 use std::io;
@@ -9,6 +10,8 @@ use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 
+use nix::sys::signal::{Signal, killpg};
+use nix::unistd::Pid;
 use tokio::io::AsyncReadExt;
 use tokio::process::{ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::watch;
@@ -76,6 +79,28 @@ impl From<ExitStatus> for Exit {
     }
 }
 
+/// SIGKILLs the process group led by `pid`. Does nothing for pid 0 (`killpg(0)` would hit our own
+/// group); a group that is already gone is not an error.
+pub(crate) fn kill_group(pid: u32) {
+    let Ok(pid) = i32::try_from(pid) else { return };
+    if pid > 0 {
+        let _ = killpg(Pid::from_raw(pid), Signal::SIGKILL);
+    }
+}
+
+struct GroupGuard {
+    pid: u32,
+    armed: bool,
+}
+
+impl Drop for GroupGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            kill_group(self.pid);
+        }
+    }
+}
+
 /// A running child: its pipes, a kill switch and the exit status once there is one.
 pub struct Process {
     pub pid: u32,
@@ -97,6 +122,7 @@ pub fn spawn(resolved: &Resolved, spec: &SpawnSpec) -> io::Result<Process> {
         .stdin(spec.stdin.stdio())
         .stdout(spec.stdout.stdio())
         .stderr(spec.stderr.stdio())
+        .process_group(0)
         .kill_on_drop(true);
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
@@ -107,14 +133,21 @@ pub fn spawn(resolved: &Resolved, spec: &SpawnSpec) -> io::Result<Process> {
     let kill = CancellationToken::new();
     let (tx, exit) = watch::channel(None);
     let on_kill = kill.clone();
+    // Armed while the child runs: if the task is dropped, even unpolled (runtime ending), the group dies.
+    let guard = GroupGuard { pid, armed: true };
     tokio::spawn(async move {
+        let mut guard = guard; // move the whole guard in, not just its field
         let status = tokio::select! {
             status = child.wait() => status,
-            () = on_kill.cancelled() => match child.kill().await {
-                Ok(()) => child.wait().await,
-                Err(err) => Err(err),
+            () = on_kill.cancelled() => {
+                kill_group(pid);
+                match child.kill().await {
+                    Ok(()) => child.wait().await,
+                    Err(err) => Err(err),
+                }
             },
         };
+        guard.armed = false;
         // The pipes were taken from `child`; a failed wait still ends the process's story.
         let exit = status.map(Exit::from).unwrap_or(Exit {
             code: None,

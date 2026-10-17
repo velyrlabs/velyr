@@ -254,3 +254,82 @@ fn loader_variables_are_refused_in_the_child_environment() {
     }
     assert!(velyr_io_process::parse_options(&options("LANG")).is_ok());
 }
+
+fn reap(needle: &str) {
+    let _ = std::process::Command::new("/usr/bin/pkill")
+        .args(["-f", needle])
+        .status();
+}
+
+fn gone_soon(needle: &str) -> bool {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while alive(needle) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    !alive(needle)
+}
+
+fn wait_alive(needle: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !alive(needle) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(alive(needle), "the grandchild never started");
+}
+
+#[test]
+fn kill_takes_the_grandchildren_too() {
+    let needle = "sleep 7201";
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let script = "sleep 7201 & wait";
+        let process = spawn(&resolve("sh"), &spec("sh", &["-c", script], &[])).unwrap();
+        let (_, exit) = process.handles();
+        wait_alive(needle);
+        process.kill();
+        within(wait_exit(exit)).await;
+    });
+    let gone = gone_soon(needle);
+    reap(needle);
+    assert!(gone, "the grandchild outlived kill()");
+}
+
+#[test]
+fn dropping_the_runtime_takes_the_grandchildren_too() {
+    let needle = "sleep 7202";
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let process = spawn(&resolve("sh"), &spec("sh", &["-c", "sleep 7202 & wait"], &[])).unwrap();
+        std::mem::forget(process);
+    });
+    wait_alive(needle);
+    drop(runtime);
+    let gone = gone_soon(needle);
+    reap(needle);
+    assert!(gone, "the grandchild outlived the runtime");
+}
+
+#[test]
+fn blocking_timeout_takes_the_grandchildren_too() {
+    let needle = "sleep 7203";
+    let held = spec("sh", &["-c", "sleep 7203 & wait"], &[]);
+    let run = run_blocking(
+        &resolve("sh"),
+        &held,
+        None,
+        1024,
+        Some(Duration::from_millis(300)),
+        &|| false,
+    )
+    .unwrap();
+    assert!(run.timed_out);
+    let gone = gone_soon(needle);
+    reap(needle);
+    assert!(gone, "the grandchild outlived the timeout");
+}

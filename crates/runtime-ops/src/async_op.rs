@@ -15,12 +15,34 @@ where
     F: FnOnce(CancellationToken) -> Fut,
     Fut: Future<Output = Result<CompletionValue, VelyrError>> + Send + 'static,
 {
+    spawn_op(ctx, None, work)
+}
+
+/// [`op_async`] for an op of the handle `key`: it stops keeping the loop alive while the handle
+/// is unref'd (`CompletionSender::set_handle_ref`).
+pub fn op_async_on<F, Fut>(ctx: &mut dyn CallContext, key: u64, work: F) -> Result<Value, HostError>
+where
+    F: FnOnce(CancellationToken) -> Fut,
+    Fut: Future<Output = Result<CompletionValue, VelyrError>> + Send + 'static,
+{
+    spawn_op(ctx, Some(key), work)
+}
+
+fn spawn_op<F, Fut>(
+    ctx: &mut dyn CallContext,
+    key: Option<u64>,
+    work: F,
+) -> Result<Value, HostError>
+where
+    F: FnOnce(CancellationToken) -> Fut,
+    Fut: Future<Output = Result<CompletionValue, VelyrError>> + Send + 'static,
+{
     let sender = ctx
         .isolate_slot::<OpContext>()
         .map(|op_ctx| op_ctx.sender.clone())
         .ok_or_else(|| HostError::TypeError("async ops need an installed OpContext".into()))?;
     let (promise, resolver) = ctx.create_promise();
-    let guard = sender.begin_op();
+    let guard = key.map_or_else(|| sender.begin_op(), |key| sender.begin_op_on(key));
     let future = work(guard.token());
     tokio::spawn(async move {
         let result = future.await;

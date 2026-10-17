@@ -11,7 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::gate::Resolved;
-use crate::process::{Exit, MAX_BUFFER_LIMIT, SpawnSpec, StdioMode};
+use crate::process::{Exit, MAX_BUFFER_LIMIT, SpawnSpec, StdioMode, kill_group};
 
 const POLL: Duration = Duration::from_millis(2);
 /// How long to wait for a pipe to reach EOF once the child is gone: a grandchild that inherited it
@@ -102,7 +102,8 @@ pub fn run_blocking(
         .envs(spec.env.iter().map(|(k, v)| (k, v)))
         .stdin(stdio(spec.stdin))
         .stdout(stdio(spec.stdout))
-        .stderr(stdio(spec.stderr));
+        .stderr(stdio(spec.stderr))
+        .process_group(0);
     if let Some(cwd) = &spec.cwd {
         command.current_dir(cwd);
     }
@@ -131,6 +132,7 @@ pub fn run_blocking(
             Ok(Some(status)) => break Ok(status),
             Ok(None) => {}
             Err(e) => {
+                kill_group(child.id());
                 let _ = child.kill();
                 break Err(e);
             }
@@ -139,6 +141,7 @@ pub fn run_blocking(
         was_cancelled = cancelled();
         if late || was_cancelled || overflow.load(Ordering::Acquire) {
             timed_out = late;
+            kill_group(child.id());
             let _ = child.kill();
             break child.wait();
         }
