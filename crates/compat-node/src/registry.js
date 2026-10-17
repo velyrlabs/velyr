@@ -24,7 +24,7 @@
     exit: "op_process_exit", cwd: "op_process_cwd", chdir: "op_process_chdir",
     hrtime: "op_process_hrtime", uptime: "op_process_uptime", memory: "op_process_memory",
     write: "op_process_write", immediateSet: "op_immediate_set", immediateClear: "op_immediate_clear",
-    immediateRef: "op_immediate_ref",
+    immediateRef: "op_immediate_ref", tickFlags: "op_process_tick_flags",
     ctxSet: "op_async_context_set", ctxGet: "op_async_context_get",
     cryptoSync: "op_node_crypto", cryptoAsync: "op_node_crypto_async",
     fsSync: "op_node_fs", fsAsync: "op_node_fs_async",

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
-use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
+use velyr_engine_api::{CallContext, HostError, HostFunctionDef, TickFlags, Value};
 use velyr_runtime_event_loop::{ImmediateHandle, ImmediateId};
 use velyr_runtime_ops::{OpContext, authorize};
 use velyr_runtime_permissions::Request;
@@ -70,6 +70,7 @@ pub(crate) fn process_host_functions() -> Vec<HostFunctionDef> {
         op!("op_immediate_set", 0, op_immediate_set),
         op!("op_immediate_clear", 1, op_immediate_clear),
         op!("op_immediate_ref", 2, op_immediate_ref),
+        op!("op_process_tick_flags", 0, op_tick_flags),
     ]
 }
 
@@ -304,4 +305,12 @@ fn op_immediate_ref(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, 
     let refd = matches!(args.get(1), Some(Value::Bool(true)));
     immediates(ctx)?.set_ref(ImmediateId(id), refd);
     Ok(Value::Undefined)
+}
+
+/// The shared tick flags as a `Uint8Array`, or `undefined` when the host has none to share.
+fn op_tick_flags(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value, HostError> {
+    let Some(flags) = ctx.isolate_slot::<TickFlags>().cloned() else {
+        return Ok(Value::Undefined);
+    };
+    Ok(ctx.bind_tick_flags(&flags).unwrap_or(Value::Undefined))
 }

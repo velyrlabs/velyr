@@ -2,7 +2,7 @@ use std::cell::Cell;
 
 use velyr_engine_api::{
     CallContext, Engine, EngineError, HostError, HostFunctionDef, Isolate, IsolateOptions,
-    JsString, MicrotaskProgress, ResolverId, Source, Value,
+    JsString, MicrotaskProgress, ResolverId, Source, TickFlags, Value,
 };
 use velyr_engine_v8::{V8Engine, V8Isolate};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
@@ -326,4 +326,29 @@ fn check_script_reports_early_errors_without_running() {
         eval(&mut iso, "typeof ran"),
         Value::String(JsString::from("undefined"))
     );
+}
+
+fn bind_flags(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value, HostError> {
+    let flags = ctx
+        .isolate_slot::<TickFlags>()
+        .cloned()
+        .expect("flags slot");
+    Ok(ctx.bind_tick_flags(&flags).unwrap_or(Value::Undefined))
+}
+
+#[test]
+fn bound_tick_flags_share_memory_with_js() {
+    let mut iso = isolate();
+    let flags = TickFlags::new();
+    iso.set_slot(flags.clone());
+    register(&mut iso, "bind_flags", bind_flags);
+    eval(&mut iso, "globalThis.bytes = bind_flags(); bytes[1] = 1;");
+    assert!(flags.armed() && !flags.has_tick());
+    flags.set_tick();
+    assert_eq!(
+        eval(&mut iso, "bytes[0] + bytes.length"),
+        Value::Number(3.0)
+    );
+    eval(&mut iso, "bytes[0] = 0;");
+    assert!(!flags.has_tick());
 }

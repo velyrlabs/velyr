@@ -8,7 +8,7 @@ use std::thread::{self, ThreadId};
 use velyr_engine_api::{
     CodeCacheStats, Engine, EngineError, GcReason, Handle, HeapStats, HostFunctionDef, Isolate,
     JsException, MicrotaskProgress, ModuleResolveHook, PromiseState, ResolverId, Source,
-    TerminationHandle, Value,
+    TerminationHandle, TickFlags, Value,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, EventLoop, TimerHandle, TimerLease};
@@ -25,15 +25,21 @@ pub struct LoopIsolate<I> {
     depth: u32,
     /// Compat-layer queue (e.g. `process.nextTick`) drained before each promise checkpoint.
     tick_hook: Option<Value>,
+    /// Shared with the compat layer through an isolate slot; once armed by JS, the hook is
+    /// entered only while a tick is queued.
+    tick_flags: TickFlags,
 }
 
-impl<I> LoopIsolate<I> {
-    fn new(inner: I) -> Self {
+impl<I: Isolate> LoopIsolate<I> {
+    fn new(mut inner: I) -> Self {
+        let tick_flags = TickFlags::new();
+        inner.set_slot(tick_flags.clone());
         Self {
             inner,
             owner: thread::current().id(),
             depth: 0,
             tick_hook: None,
+            tick_flags,
         }
     }
 
@@ -43,6 +49,13 @@ impl<I> LoopIsolate<I> {
         self.tick_hook = Some(hook);
     }
 
+    /// The flags the compat layer keeps up to date; see [`TickFlags`].
+    pub fn tick_flags(&self) -> TickFlags {
+        self.tick_flags.clone()
+    }
+}
+
+impl<I> LoopIsolate<I> {
     /// Runs JS-executing engine work as one turn for the loop-lag and heap metrics.
     fn turn<R>(&mut self, work: impl FnOnce(&mut I) -> R) -> R
     where
@@ -176,13 +189,19 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         let Some(hook) = self.tick_hook.clone() else {
             return self.turn(|inner| inner.perform_microtask_checkpoint());
         };
+        let flags = self.tick_flags.clone();
         self.turn(|inner| {
             // `ran` can't come from the engine's progress flag: calling the hook marks it dirty.
-            let call_hook = |inner: &mut I| match inner.call(&hook, &Value::Undefined, &[]) {
-                Ok(value) => value == Value::Bool(true),
-                Err(err) => {
-                    tracing::warn!(message = %err.message, "tick hook threw");
-                    false
+            let call_hook = |inner: &mut I| {
+                if flags.armed() && !flags.has_tick() {
+                    return false;
+                }
+                match inner.call(&hook, &Value::Undefined, &[]) {
+                    Ok(value) => value == Value::Bool(true),
+                    Err(err) => {
+                        tracing::warn!(message = %err.message, "tick hook threw");
+                        false
+                    }
                 }
             };
             // Ticks first, then promises; ticks queued by promises run before the next ones.

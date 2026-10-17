@@ -24,6 +24,11 @@ const define = (name, value) => Object.defineProperty(process, name, { value, wr
 // ---- queues ---------------------------------------------------------------------------------
 let queue = [];
 let draining = false;
+// Bytes shared with the event loop: [0] a tick is queued, [1] armed. Armed, the loop skips the
+// drain while [0] is clear. Hosts without the op or the slot keep the unconditional call.
+let tickFlags;
+try { tickFlags = ops.tickFlags(); } catch { /* host without the op: the loop calls the drain every checkpoint */ }
+if (tickFlags) tickFlags[1] = 1;
 
 function uncaught(error) {
   if (error && error.code === 'VELYR_PROCESS_EXIT') throw error;
@@ -38,6 +43,7 @@ function uncaught(error) {
 function nextTick(callback, ...args) {
   errors.validateFunction(callback, 'callback');
   queue.push({ callback, args, frame: asyncContext.current() });
+  if (tickFlags) tickFlags[0] = 1;
 }
 
 // Drains the whole queue, including ticks queued while draining; true when something ran.
@@ -53,6 +59,7 @@ function tickCallback() {
   } finally {
     queue = [];
     draining = false;
+    if (tickFlags) tickFlags[0] = 0;
   }
   return true;
 }
@@ -274,6 +281,8 @@ lazyStdio('stdout', () => makeWritable(1));
 lazyStdio('stderr', () => makeWritable(2));
 lazyStdio('stdin', makeStdin);
 define('_tickCallback', tickCallback);
+// In-JS drains (batched timer dispatch) run the same queue between callbacks.
+Object.defineProperty(globalThis, Symbol.for('velyr.tick'), { value: tickCallback, configurable: true });
 define('_uncaught', uncaught);
 define('dlopen', dlopen);
 module.exports = process;

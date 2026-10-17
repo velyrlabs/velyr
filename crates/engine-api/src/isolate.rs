@@ -6,7 +6,7 @@ use velyr_runtime_errors::VelyrError;
 
 use crate::{
     CodeCacheStats, EngineError, EngineFeatures, Handle, HostError, JsString, NativeScopeFn,
-    NativeTeardown, SerializedValue, Value,
+    NativeTeardown, SerializedValue, TickFlags, Value,
 };
 
 /// Script or module source. `name` is the resolved specifier/URL used in stack traces
@@ -291,6 +291,11 @@ pub trait CallContext {
     /// handles are freed. Registering the same function again is a no-op.
     fn on_native_teardown(&mut self, _teardown: NativeTeardown) -> Result<(), HostError> {
         Err(unsupported_native())
+    }
+    /// Exposes `flags` to JS as a two-byte `Uint8Array` sharing its memory; `None` when the
+    /// engine cannot (the default), so the loop keeps calling the tick hook unconditionally.
+    fn bind_tick_flags(&mut self, _flags: &TickFlags) -> Option<Value> {
+        None
     }
     /// Raw slot lookup by type id, as registered with [`Isolate::set_slot`].
     /// Prefer the typed `isolate_slot::<T>()`.

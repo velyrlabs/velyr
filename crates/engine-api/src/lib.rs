@@ -15,6 +15,7 @@ mod isolate;
 mod native;
 mod serialize;
 mod stack_trace;
+mod tick_flags;
 mod value;
 
 pub use code_cache::{
@@ -27,4 +28,5 @@ pub use isolate::*;
 pub use native::{NativeError, NativeScope, NativeScopeFn, NativeTeardown, NativeValue, V8_ENGINE};
 pub use serialize::{SerializedValue, TransferredBuffer};
 pub use stack_trace::{MappedPosition, StackFrameMapper};
+pub use tick_flags::TickFlags;
 pub use value::{Handle, JsBigInt, JsString, Value};

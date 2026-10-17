@@ -3,13 +3,14 @@
 use std::any::{Any, TypeId};
 use std::cell::RefMut;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
 use velyr_engine_api::{
     CallContext, Handle, HostError, HostFn, HostFunctionDef, JsException, JsString,
     ModuleResolveHook, NativeError, NativeScope, NativeScopeFn, NativeTeardown, NativeValue,
-    PromiseState, ResolverId, SerializedValue, Source, V8_ENGINE, Value,
+    PromiseState, ResolverId, SerializedValue, Source, TickFlags, V8_ENGINE, Value,
 };
 use velyr_runtime_errors::VelyrError;
 
@@ -445,6 +446,33 @@ impl CallContext for HostContext<'_, '_, '_> {
             hooks.push(teardown);
         }
         Ok(())
+    }
+
+    #[allow(unsafe_code)]
+    fn bind_tick_flags(&mut self, flags: &TickFlags) -> Option<Value> {
+        unsafe extern "C" fn release(_: *mut c_void, _: usize, owner: *mut c_void) {
+            // SAFETY: `owner` is the `Box<TickFlags>` leaked below; V8 calls this once.
+            drop(unsafe { Box::from_raw(owner.cast::<TickFlags>()) });
+        }
+        let owner = Box::into_raw(Box::new(flags.clone()));
+        // SAFETY: the bytes live in the Arc that `owner` keeps alive until V8 frees the store, and
+        // JS and Rust only touch them on the isolate thread.
+        let store = unsafe {
+            v8::ArrayBuffer::new_backing_store_from_ptr(
+                flags.as_ptr().cast(),
+                2,
+                release,
+                owner.cast(),
+            )
+        }
+        .make_shared();
+        let buffer = v8::ArrayBuffer::with_backing_store(self.scope, &store);
+        let view = v8::Uint8Array::new(self.scope, buffer, 0, 2)?;
+        Some(from_v8(
+            self.scope,
+            &mut self.shared.handles.borrow_mut(),
+            view.into(),
+        ))
     }
 
     fn slot(&mut self, type_id: TypeId) -> Option<&mut dyn Any> {
