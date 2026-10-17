@@ -9,7 +9,7 @@ use velyr_runtime_resources::QuotaConfig;
 
 const CAP: usize = 4;
 const READS: usize = 200;
-const FILE_BYTES: usize = 256 << 10;
+const FILE_BYTES: usize = 1 << 20;
 
 #[test]
 fn read_burst_stays_within_the_blocking_thread_cap() {

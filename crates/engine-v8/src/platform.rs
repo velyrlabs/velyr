@@ -81,7 +81,8 @@ pub(crate) fn register(key: usize, waker: PlatformWaker) {
 }
 
 /// Runs the isolate's due tasks on its thread; `true` if any ran. Tasks they post wait for the
-/// next call, which their wake-up schedules.
+/// next call, which their wake-up schedules. Reporting `true` keeps the loop parked until a
+/// wake-up, so one is sent: without it a last batch that posts nothing parks the loop for good.
 pub(crate) fn run_due(key: usize) -> bool {
     let now = Instant::now();
     let due: Vec<Queued> = match queues().get_mut(&key) {
@@ -95,15 +96,30 @@ pub(crate) fn run_due(key: usize) -> bool {
     for queued in due {
         queued.task.run();
     }
+    if ran {
+        wake(key);
+    }
     ran
 }
 
-/// A task for the isolate at `key` is due: the loop must run it before it may exit.
+/// A task for the isolate at `key` is due: the loop must run it before it may exit. Wakes the
+/// loop, as a delayed task that just became due sent no wake-up of its own.
 pub(crate) fn has_due(key: usize) -> bool {
     let now = Instant::now();
-    queues()
+    let due = queues()
         .get(&key)
-        .is_some_and(|queue| queue.tasks.iter().any(|queued| queued.due <= now))
+        .is_some_and(|queue| queue.tasks.iter().any(|queued| queued.due <= now));
+    if due {
+        wake(key);
+    }
+    due
+}
+
+fn wake(key: usize) {
+    let waker = queues().get(&key).and_then(|queue| queue.waker.clone());
+    if let Some(waker) = waker {
+        waker.wake();
+    }
 }
 
 /// Forgets the isolate at `key` once it is disposed, dropping (cancelling) its leftover tasks,
