@@ -184,6 +184,12 @@ fn strip_kind(message: &str) -> &str {
 }
 
 impl Isolate for NativeIsolate {
+    fn set_prepare_stack_trace(&mut self, mapper: velyr_engine_api::StackFrameMapper) {
+        self.vm.set_frame_mapper(Some(Arc::new(move |file, line, column| {
+            mapper(file, line, column).map(|m| (m.file, m.line, m.column))
+        })));
+    }
+
     fn eval_script(&mut self, source: &Source) -> Result<Value, JsException> {
         // Compiling interns atoms, which this isolate's heap must be charged for.
         self.vm.enter_heap();

@@ -2,7 +2,7 @@
 //! `Error.captureStackTrace`, bounded by `Error.stackTraceLimit`.
 
 use super::state::Frame;
-use super::{ErrorKind, Interpreter, JsResult, object_value};
+use super::{ErrorKind, FrameMapper, Interpreter, JsResult, object_value};
 use crate::bytecode::FunctionKind;
 use crate::exception::frame_line;
 use crate::{JsStr, ObjectRef, PropertyDescriptor, Value, strict_equals};
@@ -32,7 +32,7 @@ impl Interpreter {
             })
             .map_or(0, |index| index + 1);
         for frame in frames.iter().rev().skip(skip).take(limit) {
-            text += &describe_frame(frame);
+            text += &describe_frame(frame, self.state.frame_mapper.as_ref());
         }
         let stack = Value::String(JsStr::from_str(&text));
         let key = self.realm.key_str("stack");
@@ -68,7 +68,7 @@ impl Interpreter {
     }
 }
 
-fn describe_frame(frame: &Frame) -> String {
+fn describe_frame(frame: &Frame, mapper: Option<&FrameMapper>) -> String {
     let code = &frame.info.code;
     let location = code
         .script
@@ -78,7 +78,11 @@ fn describe_frame(frame: &Frame) -> String {
             || "<anonymous>".to_owned(),
             |(script, (start, _))| {
                 let (line, column) = script.location(start);
-                format!("{}:{line}:{column}", script.name)
+                let mapped = mapper.and_then(|map| map(&script.name, line, column));
+                match mapped {
+                    Some((file, line, column)) => format!("{file}:{line}:{column}"),
+                    None => format!("{}:{line}:{column}", script.name),
+                }
             },
         );
     let is_construct =

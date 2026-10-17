@@ -47,6 +47,9 @@ use state::{CodeInfo, State};
 /// Fills a lazy namespace shell the first time something touches it.
 pub type LazyInstall = Rc<dyn Fn(&mut Interpreter) -> Result<(), Abrupt>>;
 
+/// Maps a generated `(script name, line, column)` (1-based) to an original position.
+pub type FrameMapper = Arc<dyn Fn(&str, u32, u32) -> Option<(String, u32, u32)> + Send + Sync>;
+
 /// JS frames before a call throws `RangeError`.
 const MAX_FRAMES: usize = 10_000;
 /// Nested `execute` runs (Rust recursion) before a call throws `RangeError`.
@@ -162,6 +165,11 @@ impl Interpreter {
     /// Enables `Function(...)` and indirect `eval` (they throw a SyntaxError without it).
     pub fn set_compile_hook(&mut self, hook: CompileHook) {
         self.compile = Some(hook);
+    }
+
+    /// Remaps the positions printed in captured stacks; `None` restores the raw ones.
+    pub fn set_frame_mapper(&mut self, mapper: Option<FrameMapper>) {
+        self.state.frame_mapper = mapper;
     }
 
     /// Names the entry module for `import.meta.main`; call before creating its record.

@@ -192,6 +192,8 @@ pub(crate) struct State {
     /// Lazy namespace shells not yet materialized; 0 keeps `touch` a single compare.
     /// Never decremented for a shell that was deleted or replaced before it was touched.
     pub lazy_pending: usize,
+    /// Remaps `(script name, line, column)` of each captured stack frame.
+    pub frame_mapper: Option<super::FrameMapper>,
 }
 
 impl Trace for State {

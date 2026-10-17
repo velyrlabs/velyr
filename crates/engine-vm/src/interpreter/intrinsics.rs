@@ -88,6 +88,7 @@ pub(crate) fn create_state(realm: &mut Realm) -> State {
         entry_module: None,
         kept: Default::default(),
         lazy_pending: 0,
+        frame_mapper: None,
     }
 }
 
