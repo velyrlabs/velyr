@@ -8,7 +8,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use velyr_runtime_errors::{ErrorCode, VelyrError};
+#[cfg(unix)]
+use velyr_runtime_errors::ErrorCode;
+use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{
     FsResolver, ModuleId, ModuleResolver, RealpathCache, ResolveContext, ResolvedModule,
     authorize_path,

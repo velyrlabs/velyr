@@ -1,3 +1,4 @@
+#![cfg(unix)] // velyr-io-process spawns children only on unix; Windows returns Unsupported.
 //! Spawning without V8: the environment is explicit, output is bounded, kill works, and a child does
 //! not outlive the runtime that owns it. Every wait has a timeout so a regression fails, not hangs.
 

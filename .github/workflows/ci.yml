@@ -33,7 +33,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --no-fail-fast
       - name: Build velyr-cli (profile-minimal)
         run: cargo build -p velyr-cli --no-default-features --features profile-minimal
       - name: Build velyr-cli (profile-full)

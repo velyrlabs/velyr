@@ -1,3 +1,4 @@
+#![cfg(unix)] // velyr-io-process spawns children only on unix; Windows returns Unsupported.
 //! Variables the runtime reserves for itself (`VELYR_WATCH_REPORT`) never reach a child, whatever
 //! the caller put in its env.
 

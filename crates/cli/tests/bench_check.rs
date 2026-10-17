@@ -80,9 +80,11 @@ fn bench_json_has_the_statistics() {
     let first = &benches[0];
     assert_eq!(first["name"], "sum");
     assert_eq!(first["samples"], 10);
-    for key in ["meanNs", "p50Ns", "p99Ns", "opsPerSec"] {
+    for key in ["meanNs", "p99Ns", "opsPerSec"] {
         assert!(first[key].as_f64().unwrap() > 0.0, "{key}: {first}");
     }
+    // A sample faster than the coarsened timer resolution reads as 0, so the median can be 0.
+    assert!(first["p50Ns"].as_f64().unwrap() >= 0.0, "p50Ns: {first}");
     assert!(first["p99Ns"].as_f64() >= first["p50Ns"].as_f64());
 }
 

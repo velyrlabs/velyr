@@ -1,3 +1,4 @@
+#![cfg(unix)] // velyr-io-process spawns children only on unix; Windows returns Unsupported.
 //! A child never gets more shim authority than its parent: `VELYR_NODE_SHIM_FLAGS` is overwritten
 //! (or dropped) on every spawn, whatever the caller put in its env.
 

@@ -1,3 +1,4 @@
+#![cfg(unix)] // velyr-io-process spawns children only on unix; Windows returns Unsupported.
 //! `Velyr.Command` on V8 under the real event loop, with capability sets built directly. Every run
 //! has a watchdog so a hang fails the test.
 

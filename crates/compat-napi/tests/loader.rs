@@ -1,4 +1,5 @@
 //! Loading `.node` files: `NativeLoad` authorization before `dlopen`, and both registration styles.
+#![cfg(unix)] // dlopen-based checks (RTLD_NOLOAD) only exist on unix loaders.
 
 mod support;
 

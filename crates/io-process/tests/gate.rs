@@ -1,3 +1,4 @@
+#![cfg(unix)] // velyr-io-process spawns children only on unix; Windows returns Unsupported.
 //! The permission matrix of `authorize_spawn`: what a grant by name or by path covers, deny rules,
 //! relative PATH entries, and that a denial never depends on whether the program exists.
 
