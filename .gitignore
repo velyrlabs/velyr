@@ -3,3 +3,5 @@ target/
 compat/vendor/
 compat/results/
 benches/results/
+benches/fixtures/large-app/
+__pycache__/
