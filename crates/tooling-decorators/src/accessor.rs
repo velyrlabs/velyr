@@ -112,7 +112,7 @@ impl<'a> AccessorPass<'a> {
     }
 }
 
-fn base_name(key: &PropertyKey<'_>) -> String {
+pub(crate) fn base_name(key: &PropertyKey<'_>) -> String {
     let name = match key {
         PropertyKey::PrivateIdentifier(p) => Some(p.name.as_str().to_string()),
         other => other.static_name().map(|n| n.into_owned()),
@@ -131,7 +131,7 @@ fn is_plain_identifier(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
-fn private_names(class: &Class<'_>) -> HashSet<String> {
+pub(crate) fn private_names(class: &Class<'_>) -> HashSet<String> {
     class
         .body
         .body
