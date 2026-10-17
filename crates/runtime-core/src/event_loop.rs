@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread::{self, ThreadId};
 
 use velyr_engine_api::{
@@ -10,7 +11,8 @@ use velyr_engine_api::{
     TerminationHandle, Value,
 };
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_event_loop::{CompletionSender, EventLoop, TimerHandle};
+use velyr_runtime_event_loop::{CompletionSender, EventLoop, TimerHandle, TimerLease};
+use velyr_runtime_resources::{QuotaClass, QuotaContext};
 
 use crate::{RunError, Runtime, RuntimeConfig, esm, eval_file};
 
@@ -380,6 +382,7 @@ where
     F: FnOnce(&mut LoopIsolate<E::Isolate>, CompletionSender, TimerHandle),
 {
     let max_completions = config.max_completions_per_tick;
+    let timer_quota = Arc::new(QuotaContext::new(config.quotas.clone().unwrap_or_default()));
     let capabilities = config.capabilities.clone();
     let resolver = config.module_resolver.clone();
     let source_transform = config.source_transform.clone();
@@ -397,6 +400,10 @@ where
         .with_max_completions_per_tick(max_completions);
     let sender = event_loop.sender();
     let timers = event_loop.timer_handle();
+    timers.set_quota(Box::new(move || {
+        let guard = timer_quota.reserve(QuotaClass::Timers, 1)?;
+        Ok(Box::new(guard) as TimerLease)
+    }));
     install(event_loop.isolate(), sender, timers);
 
     let tokio = tokio::runtime::Builder::new_current_thread()

@@ -5330,6 +5330,7 @@ dependencies = [
  "velyr-engine-v8",
  "velyr-runtime-core",
  "velyr-runtime-event-loop",
+ "velyr-runtime-resources",
 ]
 
 [[package]]

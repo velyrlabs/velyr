@@ -13,6 +13,7 @@ encoding_rs = "=0.8.35"
 [dev-dependencies]
 velyr-engine-v8 = { path = "../engine-v8" }
 velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-resources = { path = "../runtime-resources" }
 
 [lints]
 workspace = true

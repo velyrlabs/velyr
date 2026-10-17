@@ -1,5 +1,6 @@
 //! Timer queue with HTML timer semantics: ordered by (deadline, id), nesting clamp.
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -7,12 +8,18 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 use velyr_engine_api::Value;
+use velyr_runtime_errors::VelyrError;
 
 use crate::immediate::ImmediateHandle;
 
 /// Nesting levels above this clamp the delay to [`MIN_NESTED_DELAY`] (HTML timer nesting).
 const MAX_UNCLAMPED_NESTING: u32 = 5;
 const MIN_NESTED_DELAY: Duration = Duration::from_millis(4);
+
+/// Type-erased quota reservation held by a live timer; dropping it releases the quota.
+pub type TimerLease = Box<dyn Any>;
+/// Reserves one unit of the host's timer quota, or fails with the quota error.
+pub type TimerQuotaFn = Box<dyn Fn() -> Result<TimerLease, VelyrError>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TimerId(pub u64);
@@ -140,6 +147,9 @@ pub(crate) struct HostTimers {
     next_id: u64,
     pub commands: Vec<TimerCommand>,
     pub dispatcher: Option<Value>,
+    pub quota: Option<TimerQuotaFn>,
+    /// Quota leases of live host timers, released by `clear` right away (the queue applies it later).
+    pub leases: HashMap<TimerId, TimerLease>,
     pub immediates: ImmediateHandle,
 }
 
@@ -160,7 +170,33 @@ impl HostTimers {
 pub struct TimerHandle(pub(crate) Rc<RefCell<HostTimers>>);
 
 impl TimerHandle {
+    /// Schedules without consulting the quota (host code and tests).
     pub fn set(&self, delay: Duration, repeat: bool) -> TimerId {
+        self.push_set(delay, repeat)
+    }
+
+    /// Like [`set`](Self::set), but reserves the quota first; the lease lives as long as the timer.
+    pub fn try_set(&self, delay: Duration, repeat: bool) -> Result<TimerId, VelyrError> {
+        let lease = self
+            .0
+            .borrow()
+            .quota
+            .as_ref()
+            .map(|reserve| reserve())
+            .transpose()?;
+        let id = self.push_set(delay, repeat);
+        if let Some(lease) = lease {
+            self.0.borrow_mut().leases.insert(id, lease);
+        }
+        Ok(id)
+    }
+
+    /// Installs the quota consulted by [`try_set`](Self::try_set).
+    pub fn set_quota(&self, quota: TimerQuotaFn) {
+        self.0.borrow_mut().quota = Some(quota);
+    }
+
+    fn push_set(&self, delay: Duration, repeat: bool) -> TimerId {
         let mut shared = self.0.borrow_mut();
         let id = shared.alloc_id();
         shared.commands.push(TimerCommand::Set {
@@ -173,7 +209,9 @@ impl TimerHandle {
     }
 
     pub fn clear(&self, id: TimerId) {
-        self.0.borrow_mut().commands.push(TimerCommand::Clear(id));
+        let mut shared = self.0.borrow_mut();
+        shared.leases.remove(&id);
+        shared.commands.push(TimerCommand::Clear(id));
     }
 
     pub fn set_ref(&self, id: TimerId, refd: bool) {

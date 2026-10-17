@@ -79,7 +79,7 @@ fn op_timer_set(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
         ));
     }
     let delay = Duration::from_millis(*delay as u64);
-    let id = handle(ctx)?.set(delay, *repeat);
+    let id = handle(ctx)?.try_set(delay, *repeat)?;
     Ok(Value::Number(id.0 as f64))
 }
 

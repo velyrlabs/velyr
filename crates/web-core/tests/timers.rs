@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RunError, RuntimeConfig, run_file};
+use velyr_runtime_resources::QuotaConfig;
 use velyr_web_core::{install_timers, timer_host_functions};
 
 // run_file executes on its own thread, so the probe records into a process-wide log.
@@ -20,6 +21,10 @@ fn record(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
 }
 
 fn run(script: &str) -> Result<Vec<String>, RunError> {
+    run_with(script, None)
+}
+
+fn run_with(script: &str, quotas: Option<QuotaConfig>) -> Result<Vec<String>, RunError> {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     LOG.lock().unwrap().clear();
     let path: PathBuf = std::env::temp_dir().join(format!(
@@ -36,6 +41,7 @@ fn run(script: &str) -> Result<Vec<String>, RunError> {
     });
     let config = RuntimeConfig {
         platform_init: Some(V8Engine::init_platform),
+        quotas,
         ..RuntimeConfig::default()
     };
     let result = run_file(
@@ -86,21 +92,17 @@ fn non_function_callback_is_a_type_error() {
 
 #[test]
 fn unref_interval_lets_the_loop_finish() {
-    let log = run(
-        r#"const id = setInterval(() => record("tick"), 1000);
+    let log = run(r#"const id = setInterval(() => record("tick"), 1000);
            globalThis[Symbol.for("velyr.timers")].ref(id, false);
-           record("done");"#,
-    );
+           record("done");"#);
     assert_eq!(log.unwrap(), ["done"]);
 }
 
 #[test]
 fn ref_restores_a_timer_and_ignores_unknown_ids() {
-    let log = run(
-        r#"const t = globalThis[Symbol.for("velyr.timers")];
+    let log = run(r#"const t = globalThis[Symbol.for("velyr.timers")];
            const id = setTimeout(() => record("fired"), 1);
-           t.ref(id, false); t.ref(id, true); t.ref(987654, false);"#,
-    );
+           t.ref(id, false); t.ref(id, true); t.ref(987654, false);"#);
     assert_eq!(log.unwrap(), ["fired"]);
 }
 
@@ -111,4 +113,37 @@ fn timer_ids_are_numbers_and_unique() {
            record(typeof a + String(a !== b)); clearInterval(b);"#,
     );
     assert_eq!(log.unwrap(), ["numbertrue"]);
+}
+
+#[test]
+fn timers_quota_rejects_over_limit() {
+    let quotas = QuotaConfig {
+        timers: Some(100),
+        ..QuotaConfig::default()
+    };
+    let log = run_with(
+        r#"const ids = [];
+           for (let i = 0; i < 100; i++) ids.push(setTimeout(() => {}, 1000000));
+           try { setTimeout(() => {}, 1); record("no"); } catch (e) { record(e.message); }
+           clearTimeout(ids[0]);
+           setTimeout(() => record("fired"), 1);
+           for (const id of ids) clearTimeout(id);"#,
+        Some(quotas),
+    );
+    assert_eq!(log.unwrap(), ["timers quota exceeded", "fired"]);
+}
+
+#[test]
+fn fired_timers_release_the_quota() {
+    let quotas = QuotaConfig {
+        timers: Some(2),
+        ..QuotaConfig::default()
+    };
+    let log = run_with(
+        r#"let n = 0;
+           const next = () => { if (++n < 6) setTimeout(next, 1); else record("done"); };
+           setTimeout(next, 1); setTimeout(() => {}, 1);"#,
+        Some(quotas),
+    );
+    assert_eq!(log.unwrap(), ["done"]);
 }

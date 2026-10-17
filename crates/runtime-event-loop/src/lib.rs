@@ -22,7 +22,7 @@ mod timers;
 use handles::Handles;
 pub use immediate::{ImmediateHandle, ImmediateId};
 use timers::{TimerCommand, Timers};
-pub use timers::{TimerHandle, TimerId};
+pub use timers::{TimerHandle, TimerId, TimerLease, TimerQuotaFn};
 
 pub const DEFAULT_MAX_COMPLETIONS_PER_TICK: usize = 1024;
 pub const DEFAULT_SHUTDOWN_DEADLINE: Duration = Duration::from_secs(5);
@@ -336,10 +336,7 @@ impl<I: Isolate> EventLoop<I> {
                 tokio::task::yield_now().await;
                 continue;
             }
-            if self.live_ops() == 0
-                && !self.timers.has_ref()
-                && !self.platform_busy
-            {
+            if self.live_ops() == 0 && !self.timers.has_ref() && !self.platform_busy {
                 return;
             }
             let max = self.max_completions_per_tick;
@@ -400,6 +397,10 @@ impl<I: Isolate> EventLoop<I> {
             let Some(entry) = self.timers.begin_run(id) else {
                 continue;
             };
+            if entry.repeat.is_none() {
+                // Spent once it starts: its callback may schedule a replacement at the limit.
+                self.host_timers.0.borrow_mut().leases.remove(&id);
+            }
             let (func, args) = self.call_target(&entry);
             if let Err(err) = self.isolate.call(&func, &Value::Undefined, &args) {
                 tracing::warn!(message = %err.message, "timer callback threw");
@@ -408,6 +409,7 @@ impl<I: Isolate> EventLoop<I> {
             // `clear` of the running interval must stop the reschedule.
             self.apply_host_timer_commands();
             if let Some(callback) = self.timers.end_run(Instant::now(), entry) {
+                self.host_timers.0.borrow_mut().leases.remove(&id);
                 self.release(&callback);
             }
             self.isolate.perform_microtask_checkpoint();

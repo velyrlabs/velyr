@@ -669,7 +669,9 @@ async fn an_unrefd_op_still_delivers_while_the_loop_runs_for_a_refd_one() {
 async fn an_unrefd_handle_stays_unrefd_for_later_ops() {
     let (mut el, log, _) = new_loop();
     let sender = el.sender();
-    sender.begin_op_on(7).send(ok(1, CompletionValue::Undefined));
+    sender
+        .begin_op_on(7)
+        .send(ok(1, CompletionValue::Undefined));
     sender.set_handle_ref(7, false);
     // Same key, started after the first one finished: still unref'd (a handle's state sticks).
     let later = sender.begin_op_on(7);
@@ -682,4 +684,38 @@ async fn an_unrefd_handle_stays_unrefd_for_later_ops() {
     worker.join().unwrap();
     assert_eq!(resolves(&log), 2);
     drop(later);
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn timer_lease_released_on_finish() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    struct Lease(Rc<Cell<usize>>);
+    impl Drop for Lease {
+        fn drop(&mut self) {
+            self.0.set(self.0.get() - 1);
+        }
+    }
+
+    let (mut el, _, _) = new_loop();
+    let handle = el.timer_handle();
+    handle.set_dispatcher(n(99));
+    let live = Rc::new(Cell::new(0));
+    let counter = live.clone();
+    handle.set_quota(Box::new(move || {
+        if counter.get() >= 2 {
+            return Err(velyr_runtime_errors::VelyrError::quota_exceeded("timers"));
+        }
+        counter.set(counter.get() + 1);
+        Ok(Box::new(Lease(counter.clone())))
+    }));
+    let cleared = handle.try_set(5 * MS, false).unwrap();
+    handle.try_set(MS, false).unwrap();
+    assert!(handle.try_set(MS, false).is_err());
+    assert_eq!(live.get(), 2);
+    handle.clear(cleared);
+    el.run().await;
+    assert_eq!(live.get(), 0);
+    assert!(handle.try_set(MS, false).is_ok());
 }
