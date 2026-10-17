@@ -10,6 +10,7 @@ use oxc_ast::ast::{
 use velyr_engine_vm::bytecode::{ConstIndex, Instruction as I, Reg, RegRange};
 
 use super::assignment::{Place, simple_target_name};
+use super::control::{Breakable, BreakableKind, Control};
 use super::emitter::Label;
 use super::function::{FunctionCompiler, binding_name};
 use super::literal::static_key;
@@ -73,6 +74,7 @@ impl FunctionCompiler<'_> {
     fn array_binding(&mut self, pattern: &ArrayPattern) -> JsResult<()> {
         let record = self.e.alloc_range(3).first;
         self.e.emit(I::GetIterator { record });
+        let guard = self.guard_iterator(record);
         let start = self.e.bound_label();
         for element in &pattern.elements {
             self.step_or_undefined(record);
@@ -84,6 +86,7 @@ impl FunctionCompiler<'_> {
             self.rest_array(record);
             self.bind_pattern(&rest.argument)?;
         }
+        self.release_iterator_guard(guard);
         self.close_iterator(record, start);
         Ok(())
     }
@@ -147,6 +150,7 @@ impl FunctionCompiler<'_> {
     fn array_assignment(&mut self, pattern: &ArrayAssignmentTarget) -> JsResult<()> {
         let record = self.e.alloc_range(3).first;
         self.e.emit(I::GetIterator { record });
+        let guard = self.guard_iterator(record);
         let start = self.e.bound_label();
         for element in &pattern.elements {
             let Some(element) = element else {
@@ -166,6 +170,7 @@ impl FunctionCompiler<'_> {
             self.rest_array(record);
             self.finish_target(&place)?;
         }
+        self.release_iterator_guard(guard);
         self.close_iterator(record, start);
         Ok(())
     }
@@ -285,6 +290,28 @@ impl FunctionCompiler<'_> {
         self.e.jump(I::Jump, head);
         self.e.bind(end);
         self.e.emit(I::Ldar(array));
+    }
+
+    /// In a coroutine a `return()` resumption can arrive at a `yield` inside a target; the
+    /// control entry lets `unwind` close the iterator then (unlabelled `break` skips `Block`).
+    fn guard_iterator(&mut self, record: Reg) -> Option<Label> {
+        self.coroutine.as_ref()?;
+        let break_label = self.e.new_label();
+        self.control.push(Control::Breakable(Breakable {
+            labels: Vec::new(),
+            kind: BreakableKind::Block,
+            break_label,
+            continue_label: None,
+            iterator: Some((record, false)),
+        }));
+        Some(break_label)
+    }
+
+    fn release_iterator_guard(&mut self, guard: Option<Label>) {
+        if let Some(label) = guard {
+            self.control.pop();
+            self.e.bind(label);
+        }
     }
 
     /// Closes the iterator after the elements; a throw from `start` on closes it too.
