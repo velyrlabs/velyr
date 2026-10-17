@@ -273,6 +273,10 @@ impl CallContext for HostContext<'_, '_, '_> {
 
     #[allow(unsafe_code)]
     fn write_string_utf8(&mut self, text: &JsString, out: &mut Vec<u8>) {
+        if let Some(bytes) = text.as_latin1() {
+            write_latin1_as_utf8(bytes, out);
+            return;
+        }
         let units = text.as_utf16();
         // Lone surrogates are rare: the lossy path keeps their U+FFFD.
         if !v8::simdutf::validate_utf16le(units) {
@@ -613,5 +617,16 @@ mod tests {
         assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 0);
         drop(isolate);
         assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 1);
+    }
+}
+
+fn write_latin1_as_utf8(bytes: &[u8], out: &mut Vec<u8>) {
+    if bytes.is_ascii() {
+        out.extend_from_slice(bytes);
+        return;
+    }
+    let mut utf8 = [0u8; 2];
+    for &byte in bytes {
+        out.extend_from_slice(char::from(byte).encode_utf8(&mut utf8).as_bytes());
     }
 }

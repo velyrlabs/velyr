@@ -25,11 +25,12 @@ pub(crate) fn to_v8<'s>(
         Value::Null => v8::null(scope).into(),
         Value::Bool(b) => v8::Boolean::new(scope, *b).into(),
         Value::Number(n) => v8::Number::new(scope, *n).into(),
-        Value::String(s) => {
-            v8::String::new_from_two_byte(scope, s.as_utf16(), v8::NewStringType::Normal)
-                .ok_or_else(|| internal_exception("string too long"))?
-                .into()
+        Value::String(s) => match s.as_latin1() {
+            Some(bytes) => v8::String::new_from_one_byte(scope, bytes, v8::NewStringType::Normal),
+            None => v8::String::new_from_two_byte(scope, s.as_utf16(), v8::NewStringType::Normal),
         }
+        .ok_or_else(|| internal_exception("string too long"))?
+        .into(),
         Value::BigInt(b) => {
             let words = magnitude_to_words(b.magnitude_le());
             v8::BigInt::new_from_words(scope, b.is_negative(), &words)
@@ -68,6 +69,11 @@ pub(crate) fn from_v8(
 }
 
 fn string_to_js(scope: &mut v8::PinScope<'_, '_>, string: v8::Local<'_, v8::String>) -> JsString {
+    if string.is_onebyte() {
+        let mut bytes = vec![0u8; string.length()];
+        string.write_one_byte_v2(scope, 0, &mut bytes, v8::WriteFlags::empty());
+        return JsString::from_latin1(bytes);
+    }
     let mut units = vec![0u16; string.length()];
     string.write_v2(scope, 0, &mut units, v8::WriteFlags::empty());
     JsString::from_utf16(units)

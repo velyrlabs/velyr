@@ -1,5 +1,8 @@
 //! Engine-agnostic JS values. No type here may borrow from an engine scope.
 
+use std::hash::{Hash, Hasher};
+use std::sync::OnceLock;
+
 /// Isolate-scoped reference to an engine-owned object.
 ///
 /// A handle is only meaningful for the isolate that produced it and must be
@@ -29,36 +32,114 @@ pub enum Value {
 /// An ECMAScript string: a sequence of UTF-16 code units, lone surrogates included.
 ///
 /// Rust `String` cannot represent every JS string, so conversion to UTF-8 is
-/// explicit and lossy ([`JsString::to_string_lossy`]).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-pub struct JsString(Vec<u16>);
+/// explicit and lossy ([`JsString::to_string_lossy`]). Internally a string is either
+/// UTF-16 or Latin-1 (one byte per unit, matching V8's one-byte strings); equality
+/// and hashing look only at the code units, never at the representation.
+#[derive(Debug, Clone, Default)]
+pub struct JsString(Repr);
+
+#[derive(Debug, Clone)]
+enum Repr {
+    Latin1 {
+        bytes: Vec<u8>,
+        /// Lazily widened copy so `as_utf16` can keep returning a borrowed slice.
+        widened: OnceLock<Vec<u16>>,
+    },
+    Utf16(Vec<u16>),
+}
+
+impl Default for Repr {
+    fn default() -> Self {
+        Self::Utf16(Vec::new())
+    }
+}
 
 impl JsString {
     pub fn from_utf16(units: Vec<u16>) -> Self {
-        Self(units)
+        Self(Repr::Utf16(units))
+    }
+
+    /// Each byte is one code unit (U+0000..=U+00FF).
+    pub fn from_latin1(bytes: Vec<u8>) -> Self {
+        Self(Repr::Latin1 {
+            bytes,
+            widened: OnceLock::new(),
+        })
     }
 
     #[allow(clippy::should_implement_trait)] // infallible, so `FromStr` would only add noise
     pub fn from_str(s: &str) -> Self {
-        Self(s.encode_utf16().collect())
+        Self(Repr::Utf16(s.encode_utf16().collect()))
     }
 
     /// Lone surrogates become U+FFFD.
     pub fn to_string_lossy(&self) -> String {
-        String::from_utf16_lossy(&self.0)
+        match &self.0 {
+            Repr::Latin1 { bytes, .. } => bytes.iter().map(|&b| char::from(b)).collect(),
+            Repr::Utf16(units) => String::from_utf16_lossy(units),
+        }
     }
 
+    /// Code units as UTF-16. A Latin-1 string is widened once and cached.
     pub fn as_utf16(&self) -> &[u16] {
-        &self.0
+        match &self.0 {
+            Repr::Latin1 { bytes, widened } => {
+                widened.get_or_init(|| bytes.iter().map(|&b| u16::from(b)).collect())
+            }
+            Repr::Utf16(units) => units,
+        }
+    }
+
+    /// The raw bytes when the string is stored one byte per unit.
+    pub fn as_latin1(&self) -> Option<&[u8]> {
+        match &self.0 {
+            Repr::Latin1 { bytes, .. } => Some(bytes),
+            Repr::Utf16(_) => None,
+        }
     }
 
     /// Length in UTF-16 code units, as `String.prototype.length`.
     pub fn len(&self) -> usize {
-        self.0.len()
+        match &self.0 {
+            Repr::Latin1 { bytes, .. } => bytes.len(),
+            Repr::Utf16(units) => units.len(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.len() == 0
+    }
+
+    fn units(&self) -> impl Iterator<Item = u16> + '_ {
+        let (bytes, units) = match &self.0 {
+            Repr::Latin1 { bytes, .. } => (bytes.as_slice(), &[][..]),
+            Repr::Utf16(units) => (&[][..], units.as_slice()),
+        };
+        bytes
+            .iter()
+            .map(|&b| u16::from(b))
+            .chain(units.iter().copied())
+    }
+}
+
+impl PartialEq for JsString {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Repr::Latin1 { bytes: a, .. }, Repr::Latin1 { bytes: b, .. }) => a == b,
+            (Repr::Utf16(a), Repr::Utf16(b)) => a == b,
+            _ => self.len() == other.len() && self.units().eq(other.units()),
+        }
+    }
+}
+
+impl Eq for JsString {}
+
+impl Hash for JsString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.len());
+        for unit in self.units() {
+            state.write_u16(unit);
+        }
     }
 }
 
@@ -123,6 +204,27 @@ mod tests {
         assert_eq!(s.as_utf16().len(), 3);
         assert_eq!(s.to_string_lossy(), "h\u{1F600}");
         assert!(!s.is_empty());
+    }
+
+    #[test]
+    fn latin1_roundtrips_and_widens() {
+        use std::collections::hash_map::DefaultHasher;
+        let latin1 = JsString::from_latin1(b"caf\xe9".to_vec());
+        let utf16 = JsString::from_utf16(vec![0x63, 0x61, 0x66, 0xe9]);
+        assert_eq!(latin1, utf16);
+        assert_eq!(latin1.as_latin1(), Some(&b"caf\xe9"[..]));
+        assert_eq!(utf16.as_latin1(), None);
+        assert_eq!(latin1.as_utf16(), utf16.as_utf16());
+        assert_eq!(latin1.to_string_lossy(), "caf\u{e9}");
+        assert_eq!(latin1.len(), 4);
+        let hash = |s: &JsString| {
+            let mut h = DefaultHasher::new();
+            s.hash(&mut h);
+            h.finish()
+        };
+        assert_eq!(hash(&latin1), hash(&utf16));
+        assert_ne!(latin1, JsString::from_utf16(vec![0x63, 0x61, 0x66, 0x100]));
+        assert_eq!(JsString::from_latin1(Vec::new()), JsString::default());
     }
 
     #[test]
