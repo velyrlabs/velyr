@@ -178,7 +178,7 @@ impl Isolate for NativeIsolate {
                 let result = self.vm.run_script(&code);
                 self.complete(result)
             }
-            Err(error) if is_unsupported(&error) => self.eval_on_tree(source),
+            Err(error) if is_unsupported(&error) => self.eval_on_tree(source).map_err(|_| error),
             Err(error) => Err(error),
         }
     }

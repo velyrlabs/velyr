@@ -102,10 +102,10 @@ fn class_evaluates() {
 
 #[test]
 fn unsupported_expression_is_syntax_error() {
-    let message = error_message("with ({}) {}");
-    assert!(
-        message.starts_with("SyntaxError: unsupported in engine-native bootstrap"),
-        "{message}"
+    assert_eq!(error_message("with ({}) {}"), "SyntaxError: unsupported: with statement");
+    assert_eq!(
+        error_message("function f() { eval('1'); } f();"),
+        "SyntaxError: unsupported: direct eval"
     );
 }
 
