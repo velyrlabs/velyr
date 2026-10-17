@@ -1,9 +1,8 @@
 'use strict';
-// Instant, ZonedDateTime and Now (see prelude.js); the last prelude, so it removes the
-// shared helpers from the global.
+// Instant, ZonedDateTime and Now (see prelude.js); prelude_intl.js removes the shared
+// helpers from the global.
 (() => {
   const T = globalThis.__temporal_shared;
-  delete globalThis.__temporal_shared;
   const {
     op, slots, define, getters, wrap, slotOf, strOf, fieldsOf, toInt, optionsOf, optionText,
     overflowOf, readBag, Temporal, installCommon, stringArgs, roundArgs, calendarSuffix,

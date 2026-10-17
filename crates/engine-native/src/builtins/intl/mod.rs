@@ -6,7 +6,13 @@
 mod collator;
 mod currency;
 mod datetime;
+mod display;
+mod duration;
+mod enumeration;
+mod list;
+mod locale;
 mod number;
+mod relative;
 mod segmenter;
 
 use std::fmt;
@@ -24,6 +30,14 @@ use crate::prelude::run_prelude;
 const PRELUDE: &str = include_str!("prelude.js");
 const PRELUDE_NUMBER: &str = include_str!("prelude_number.js");
 const PRELUDE_FORMATS: &str = include_str!("prelude_formats.js");
+const EXTRA_PRELUDES: &[(&str, &str)] = &[
+    ("velyr:intl_locale", include_str!("prelude_locale.js")),
+    ("velyr:intl_enum", include_str!("prelude_enum.js")),
+    ("velyr:intl_list", include_str!("prelude_list.js")),
+    ("velyr:intl_relative", include_str!("prelude_relative.js")),
+    ("velyr:intl_display", include_str!("prelude_display.js")),
+    ("velyr:intl_duration", include_str!("prelude_duration.js")),
+];
 
 /// Locale used when none of the requested ones is supported.
 const DEFAULT_LOCALE: &str = "en-US";
@@ -155,7 +169,7 @@ pub(crate) fn install(vm: &mut Interpreter) -> Result<(), String> {
 }
 
 fn materialize(vm: &mut Interpreter) -> Result<(), String> {
-    let ops: [(&str, u32, NativeFn); 12] = [
+    let mut ops: Vec<(&str, u32, NativeFn)> = vec![
         ("__intl_canonicalize", 1, Rc::new(canonicalize)),
         ("__intl_supported", 1, Rc::new(supported)),
         ("__intl_default_locale", 0, Rc::new(default_locale)),
@@ -181,6 +195,16 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
         ("__intl_default_zone", 0, Rc::new(datetime::default_zone)),
         ("__intl_segment", 2, Rc::new(segmenter::segment)),
     ];
+    for extra in [
+        locale::ops(),
+        enumeration::ops(),
+        list::ops(),
+        relative::ops(),
+        display::ops(),
+        duration::ops(),
+    ] {
+        ops.extend(extra);
+    }
     for (name, arity, f) in ops {
         op(vm, name, arity, f).map_err(|_| format!("cannot define {name}"))?;
     }
@@ -188,7 +212,10 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
         ("velyr:intl", PRELUDE),
         ("velyr:intl_number", PRELUDE_NUMBER),
         ("velyr:intl_formats", PRELUDE_FORMATS),
-    ] {
+    ]
+    .into_iter()
+    .chain(EXTRA_PRELUDES.iter().copied())
+    {
         run_prelude(vm, name, source)?;
     }
     Ok(())

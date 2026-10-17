@@ -8,8 +8,14 @@
 #[path = "compiler/bytecode/mod.rs"]
 pub mod bytecode_compiler;
 mod compiler;
+#[path = "builtins/array_from_async.rs"]
+mod array_from_async;
+#[path = "builtins/async_disposable.rs"]
+mod async_disposable;
 #[path = "builtins/date.rs"]
 mod date;
+#[path = "builtins/disposable.rs"]
+mod disposable;
 #[path = "builtins/intl/mod.rs"]
 mod intl;
 mod isolate;

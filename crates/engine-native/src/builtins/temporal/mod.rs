@@ -11,7 +11,9 @@ mod instant;
 mod now;
 mod plain_date;
 mod plain_date_time;
+mod plain_month_day;
 mod plain_time;
+mod plain_year_month;
 mod zoned;
 
 use std::cmp::Ordering;
@@ -29,10 +31,13 @@ use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, LazyInstall, 
 
 use crate::prelude::run_prelude;
 
-const PRELUDES: [(&str, &str); 3] = [
+const PRELUDES: &[(&str, &str)] = &[
     ("velyr:temporal", include_str!("prelude.js")),
     ("velyr:temporal_plain", include_str!("prelude_plain.js")),
     ("velyr:temporal_zoned", include_str!("prelude_zoned.js")),
+    ("velyr:temporal_ym", include_str!("prelude_ym.js")),
+    ("velyr:temporal_md", include_str!("prelude_md.js")),
+    ("velyr:temporal_intl", include_str!("prelude_intl.js")),
 ];
 
 type Res = TemporalResult<String>;
@@ -176,6 +181,8 @@ fn run(class: &str, method: &str, a: Args) -> Res {
         "Instant" => instant::run(method, a),
         "ZonedDateTime" => zoned::run(method, a),
         "Duration" => duration::run(method, a),
+        "PlainYearMonth" => plain_year_month::run(method, a),
+        "PlainMonthDay" => plain_month_day::run(method, a),
         "Now" => now::run(method),
         _ => Err(TemporalError::general("unknown Temporal class")),
     }
@@ -217,7 +224,7 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
     let native: NativeFn = Rc::new(op);
     vm.define_global_function("__temporal_op", 2, native)
         .map_err(|_| "cannot define __temporal_op".to_owned())?;
-    for (name, source) in PRELUDES {
+    for &(name, source) in PRELUDES {
         run_prelude(vm, name, source)?;
     }
     Ok(())

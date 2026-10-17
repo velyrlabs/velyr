@@ -37,6 +37,9 @@ impl NativeIsolate {
         }));
         crate::iterator_helpers::install(&mut vm).expect("the iterator helpers prelude runs");
         crate::prelude::install_lazy_stubs(&mut vm).expect("the lazy stubs prelude runs");
+        crate::array_from_async::install(&mut vm).expect("the Array.fromAsync prelude runs");
+        crate::disposable::install(&mut vm).expect("the disposable prelude runs");
+        crate::async_disposable::install(&mut vm).expect("the async disposable prelude runs");
         crate::date::install(&mut vm);
         crate::intl::install(&mut vm).expect("the Intl prelude runs");
         crate::temporal::install(&mut vm).expect("the Temporal prelude runs");
