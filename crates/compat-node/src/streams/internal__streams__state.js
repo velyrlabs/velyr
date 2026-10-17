@@ -5,7 +5,7 @@
 const { MathFloor, NumberIsInteger } = require('internal/streams/ours/primordials')
 const { validateInteger } = require('internal/streams/validators')
 const { ERR_INVALID_ARG_VALUE } = require('internal/streams/ours/errors').codes
-let defaultHighWaterMarkBytes = 16 * 1024
+let defaultHighWaterMarkBytes = 64 * 1024
 let defaultHighWaterMarkObjectMode = 16
 function highWaterMarkFrom(options, isDuplex, duplexKey) {
   return options.highWaterMark != null ? options.highWaterMark : isDuplex ? options[duplexKey] : null
