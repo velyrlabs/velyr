@@ -11,14 +11,14 @@ use super::array_iterator;
 use crate::{JsStr, ObjectKey, ObjectRef, Value, same_value_zero, strict_equals, to_boolean};
 
 pub(super) fn install(vm: &mut Interpreter, proto: ObjectRef) -> JsResult<()> {
-    vm.method(proto, "at", 1, array_at)?;
+    vm.method(proto, "at", 1, array_at::<false>)?;
     vm.method(proto, "concat", 1, array_concat)?;
     vm.method(proto, "entries", 0, array_entries)?;
-    vm.method(proto, "includes", 1, array_includes)?;
-    vm.method(proto, "indexOf", 1, array_index_of)?;
-    vm.method(proto, "join", 1, array_join)?;
+    vm.method(proto, "includes", 1, array_includes::<false>)?;
+    vm.method(proto, "indexOf", 1, array_index_of::<false>)?;
+    vm.method(proto, "join", 1, array_join::<false>)?;
     vm.method(proto, "keys", 0, array_keys)?;
-    vm.method(proto, "lastIndexOf", 1, array_last_index_of)?;
+    vm.method(proto, "lastIndexOf", 1, array_last_index_of::<false>)?;
     vm.method(proto, "slice", 2, array_slice)?;
     vm.method(proto, "toLocaleString", 0, array_to_locale_string)?;
     vm.method(proto, "toString", 0, array_to_string)?;
@@ -28,8 +28,21 @@ pub(super) fn install(vm: &mut Interpreter, proto: ObjectRef) -> JsResult<()> {
 
 /// `ToObject(this)` and its length.
 pub(super) fn this_array(vm: &mut Interpreter, this: &Value) -> JsResult<(ObjectRef, f64)> {
+    this_array_with(vm, this, false)
+}
+
+/// Like `this_array`; with `typed` the length is the typed array's internal length
+/// (the caller already ran ValidateTypedArray) instead of a Get of `"length"`.
+pub(super) fn this_array_with(
+    vm: &mut Interpreter,
+    this: &Value,
+    typed: bool,
+) -> JsResult<(ObjectRef, f64)> {
     let object = vm.coerce_object(this)?;
-    let length = vm.length_of(object)?;
+    let length = match typed.then(|| vm.typed_array_of(this)).flatten() {
+        Some(array) => array.length().unwrap_or(0) as f64,
+        None => vm.length_of(object)?,
+    };
     Ok((object, length))
 }
 
@@ -47,12 +60,12 @@ pub(super) fn relative_arg(
     Ok(relative_index(relative, length))
 }
 
-pub(in super::super) fn array_at(
+pub(in super::super) fn array_at<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     let relative = vm.coerce_integer(&arg(args, 0))?;
     let index = if relative >= 0.0 {
         relative
@@ -113,12 +126,12 @@ fn array_concat(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<
     })
 }
 
-pub(in super::super) fn array_includes(
+pub(in super::super) fn array_includes<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     if length == 0.0 {
         return Ok(Value::Bool(false));
     }
@@ -135,12 +148,12 @@ pub(in super::super) fn array_includes(
     Ok(Value::Bool(false))
 }
 
-pub(in super::super) fn array_index_of(
+pub(in super::super) fn array_index_of<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     if length == 0.0 {
         return Ok(Value::Number(-1.0));
     }
@@ -159,12 +172,12 @@ pub(in super::super) fn array_index_of(
     Ok(Value::Number(-1.0))
 }
 
-pub(in super::super) fn array_last_index_of(
+pub(in super::super) fn array_last_index_of<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     if length == 0.0 {
         return Ok(Value::Number(-1.0));
     }
@@ -193,12 +206,12 @@ pub(in super::super) fn array_last_index_of(
     Ok(Value::Number(-1.0))
 }
 
-pub(in super::super) fn array_join(
+pub(in super::super) fn array_join<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     let separator = match arg(args, 0) {
         Value::Undefined => JsStr::from_str(","),
         value => vm.coerce_string(&value)?,

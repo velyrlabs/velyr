@@ -2,23 +2,23 @@
 //! `filter`, the `find*` family, `reduce`, `reduceRight`, `flat` and `flatMap`.
 
 use super::super::{Interpreter, JsResult, arg, object_value};
-use super::access::this_array;
+use super::access::{this_array, this_array_with};
 use crate::{ObjectRef, Value, to_boolean};
 
 pub(super) fn install(vm: &mut Interpreter, proto: ObjectRef) -> JsResult<()> {
-    vm.method(proto, "every", 1, array_every)?;
+    vm.method(proto, "every", 1, array_every::<false>)?;
     vm.method(proto, "filter", 1, array_filter)?;
-    vm.method(proto, "find", 1, array_find)?;
-    vm.method(proto, "findIndex", 1, array_find_index)?;
-    vm.method(proto, "findLast", 1, array_find_last)?;
-    vm.method(proto, "findLastIndex", 1, array_find_last_index)?;
+    vm.method(proto, "find", 1, array_find::<false>)?;
+    vm.method(proto, "findIndex", 1, array_find_index::<false>)?;
+    vm.method(proto, "findLast", 1, array_find_last::<false>)?;
+    vm.method(proto, "findLastIndex", 1, array_find_last_index::<false>)?;
     vm.method(proto, "flat", 0, array_flat)?;
     vm.method(proto, "flatMap", 1, array_flat_map)?;
-    vm.method(proto, "forEach", 1, array_for_each)?;
+    vm.method(proto, "forEach", 1, array_for_each::<false>)?;
     vm.method(proto, "map", 1, array_map)?;
-    vm.method(proto, "reduce", 1, array_reduce)?;
-    vm.method(proto, "reduceRight", 1, array_reduce_right)?;
-    vm.method(proto, "some", 1, array_some)
+    vm.method(proto, "reduce", 1, array_reduce::<false>)?;
+    vm.method(proto, "reduceRight", 1, array_reduce_right::<false>)?;
+    vm.method(proto, "some", 1, array_some::<false>)
 }
 
 /// What a per-element visitor asks the loop to do next.
@@ -29,20 +29,20 @@ enum Step {
 
 /// Visits present elements `0..length` in order (holes skipped), calling
 /// `callback(element, index, object)` and handing its result to `visit`.
-fn for_each_present(
+fn for_each_present<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
     method: &str,
     mut visit: impl FnMut(&mut Interpreter, ObjectRef, f64, Value, Value) -> JsResult<Step>,
 ) -> JsResult<Option<Value>> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     let callback = vm.callback_arg(args, method)?;
     let this_arg = arg(args, 1);
     let mut k = 0.0;
     while k < length {
         let key = vm.index_key(k);
-        if vm.has_property(object, key)? {
+        if TYPED || vm.has_property(object, key)? {
             let element = vm.get_key(object, key)?;
             vm.keep(&element);
             let call_args = [element.clone(), Value::Number(k), object_value(object)];
@@ -56,12 +56,12 @@ fn for_each_present(
     Ok(None)
 }
 
-pub(in super::super) fn array_every(
+pub(in super::super) fn array_every<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let stopped = for_each_present(vm, this, args, "every", |_, _, _, _, result| {
+    let stopped = for_each_present::<TYPED>(vm, this, args, "every", |_, _, _, _, result| {
         Ok(match to_boolean(&result) {
             true => Step::Continue,
             false => Step::Stop(Value::Bool(false)),
@@ -70,12 +70,12 @@ pub(in super::super) fn array_every(
     Ok(stopped.unwrap_or(Value::Bool(true)))
 }
 
-pub(in super::super) fn array_some(
+pub(in super::super) fn array_some<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let stopped = for_each_present(vm, this, args, "some", |_, _, _, _, result| {
+    let stopped = for_each_present::<TYPED>(vm, this, args, "some", |_, _, _, _, result| {
         Ok(match to_boolean(&result) {
             true => Step::Stop(Value::Bool(true)),
             false => Step::Continue,
@@ -84,12 +84,12 @@ pub(in super::super) fn array_some(
     Ok(stopped.unwrap_or(Value::Bool(false)))
 }
 
-pub(in super::super) fn array_for_each(
+pub(in super::super) fn array_for_each<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    for_each_present(vm, this, args, "forEach", |_, _, _, _, _| {
+    for_each_present::<TYPED>(vm, this, args, "forEach", |_, _, _, _, _| {
         Ok(Step::Continue)
     })?;
     Ok(Value::Undefined)
@@ -141,14 +141,14 @@ fn array_filter(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<
 
 /// FindViaPredicate: visits every index (holes included) in the given direction and
 /// returns `(index, element)` of the first match.
-fn find_via_predicate(
+fn find_via_predicate<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
     method: &str,
     ascending: bool,
 ) -> JsResult<Option<(f64, Value)>> {
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     let predicate = vm.callback_arg(args, method)?;
     let this_arg = arg(args, 1);
     let mut step = 0.0;
@@ -167,45 +167,45 @@ fn find_via_predicate(
     Ok(None)
 }
 
-pub(in super::super) fn array_find(
+pub(in super::super) fn array_find<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let found = find_via_predicate(vm, this, args, "find", true)?;
+    let found = find_via_predicate::<TYPED>(vm, this, args, "find", true)?;
     Ok(found.map_or(Value::Undefined, |(_, value)| value))
 }
 
-pub(in super::super) fn array_find_index(
+pub(in super::super) fn array_find_index<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let found = find_via_predicate(vm, this, args, "findIndex", true)?;
+    let found = find_via_predicate::<TYPED>(vm, this, args, "findIndex", true)?;
     Ok(Value::Number(found.map_or(-1.0, |(index, _)| index)))
 }
 
-pub(in super::super) fn array_find_last(
+pub(in super::super) fn array_find_last<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let found = find_via_predicate(vm, this, args, "findLast", false)?;
+    let found = find_via_predicate::<TYPED>(vm, this, args, "findLast", false)?;
     Ok(found.map_or(Value::Undefined, |(_, value)| value))
 }
 
-pub(in super::super) fn array_find_last_index(
+pub(in super::super) fn array_find_last_index<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    let found = find_via_predicate(vm, this, args, "findLastIndex", false)?;
+    let found = find_via_predicate::<TYPED>(vm, this, args, "findLastIndex", false)?;
     Ok(Value::Number(found.map_or(-1.0, |(index, _)| index)))
 }
 
-fn reduce(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -> JsResult<Value> {
+fn reduce<const TYPED: bool>(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -> JsResult<Value> {
     let method = if ascending { "reduce" } else { "reduceRight" };
-    let (object, length) = this_array(vm, this)?;
+    let (object, length) = this_array_with(vm, this, TYPED)?;
     let callback = vm.callback_arg(args, method)?;
     let index_at = |step: f64| if ascending { step } else { length - 1.0 - step };
     let mut step = 0.0;
@@ -217,7 +217,7 @@ fn reduce(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -
             }
             let key = vm.index_key(index_at(step));
             step += 1.0;
-            if vm.has_property(object, key)? {
+            if TYPED || vm.has_property(object, key)? {
                 break vm.get_key(object, key)?;
             }
         },
@@ -225,7 +225,7 @@ fn reduce(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -
     while step < length {
         let k = index_at(step);
         let key = vm.index_key(k);
-        if vm.has_property(object, key)? {
+        if TYPED || vm.has_property(object, key)? {
             vm.keep(&accumulator);
             let element = vm.get_key(object, key)?;
             let call_args = [accumulator, element, Value::Number(k), object_value(object)];
@@ -236,20 +236,20 @@ fn reduce(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -
     Ok(accumulator)
 }
 
-pub(in super::super) fn array_reduce(
+pub(in super::super) fn array_reduce<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    reduce(vm, this, args, true)
+    reduce::<TYPED>(vm, this, args, true)
 }
 
-pub(in super::super) fn array_reduce_right(
+pub(in super::super) fn array_reduce_right<const TYPED: bool>(
     vm: &mut Interpreter,
     this: &Value,
     args: &[Value],
 ) -> JsResult<Value> {
-    reduce(vm, this, args, false)
+    reduce::<TYPED>(vm, this, args, false)
 }
 
 /// FlattenIntoArray; returns the next target index.

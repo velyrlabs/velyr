@@ -23,24 +23,24 @@ macro_rules! delegated {
 }
 
 delegated! {
-    at => access::array_at, "%TypedArray%.prototype.at";
+    at => access::array_at::<true>, "%TypedArray%.prototype.at";
     copy_within => mutators::array_copy_within, "%TypedArray%.prototype.copyWithin";
     entries => access::array_entries, "%TypedArray%.prototype.entries";
-    every => callbacks::array_every, "%TypedArray%.prototype.every";
-    find => callbacks::array_find, "%TypedArray%.prototype.find";
-    find_index => callbacks::array_find_index, "%TypedArray%.prototype.findIndex";
-    find_last => callbacks::array_find_last, "%TypedArray%.prototype.findLast";
-    find_last_index => callbacks::array_find_last_index, "%TypedArray%.prototype.findLastIndex";
-    for_each => callbacks::array_for_each, "%TypedArray%.prototype.forEach";
-    includes => access::array_includes, "%TypedArray%.prototype.includes";
-    index_of => access::array_index_of, "%TypedArray%.prototype.indexOf";
-    join => access::array_join, "%TypedArray%.prototype.join";
+    every => callbacks::array_every::<true>, "%TypedArray%.prototype.every";
+    find => callbacks::array_find::<true>, "%TypedArray%.prototype.find";
+    find_index => callbacks::array_find_index::<true>, "%TypedArray%.prototype.findIndex";
+    find_last => callbacks::array_find_last::<true>, "%TypedArray%.prototype.findLast";
+    find_last_index => callbacks::array_find_last_index::<true>, "%TypedArray%.prototype.findLastIndex";
+    for_each => callbacks::array_for_each::<true>, "%TypedArray%.prototype.forEach";
+    includes => access::array_includes::<true>, "%TypedArray%.prototype.includes";
+    index_of => access::array_index_of::<true>, "%TypedArray%.prototype.indexOf";
+    join => access::array_join::<true>, "%TypedArray%.prototype.join";
     keys => access::array_keys, "%TypedArray%.prototype.keys";
-    last_index_of => access::array_last_index_of, "%TypedArray%.prototype.lastIndexOf";
-    reduce => callbacks::array_reduce, "%TypedArray%.prototype.reduce";
-    reduce_right => callbacks::array_reduce_right, "%TypedArray%.prototype.reduceRight";
+    last_index_of => access::array_last_index_of::<true>, "%TypedArray%.prototype.lastIndexOf";
+    reduce => callbacks::array_reduce::<true>, "%TypedArray%.prototype.reduce";
+    reduce_right => callbacks::array_reduce_right::<true>, "%TypedArray%.prototype.reduceRight";
     reverse => reorder::array_reverse, "%TypedArray%.prototype.reverse";
-    some => callbacks::array_some, "%TypedArray%.prototype.some";
+    some => callbacks::array_some::<true>, "%TypedArray%.prototype.some";
     to_locale_string => access::array_to_locale_string, "%TypedArray%.prototype.toLocaleString";
     values => access::array_values, "%TypedArray%.prototype.values";
 }
