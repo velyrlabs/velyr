@@ -8,6 +8,7 @@ use temporal_rs::{TimeZone, ZonedDateTime};
 use velyr_engine_vm::interpreter::{Interpreter, LocalTimeZone};
 
 const MS_PER_DAY: f64 = 86_400_000.0;
+const MAX_TIME: f64 = 8.64e15;
 
 /// An IANA zone or offset (`UTC`, `America/Sao_Paulo`, `+05:30`).
 pub(crate) fn parse_zone(id: &str) -> Option<TimeZone> {
@@ -27,8 +28,11 @@ pub(crate) fn offset_ms(zone: TimeZone, t: f64) -> f64 {
 /// before and after, the one that maps back to `local`. Overlaps take the earlier instant,
 /// gaps the offset before the transition (Temporal's `compatible`).
 pub(crate) fn offset_from_local(zone: TimeZone, local: f64) -> f64 {
-    let before = offset_ms(zone, local - MS_PER_DAY);
-    let after = offset_ms(zone, local + MS_PER_DAY);
+    // Sample inside the representable range so wall-clock times just past a limit still
+    // get the zone's offset there instead of 0.
+    let sample = |t: f64| offset_ms(zone, t.clamp(-MAX_TIME, MAX_TIME));
+    let before = sample(local - MS_PER_DAY);
+    let after = sample(local + MS_PER_DAY);
     let fits = |offset: f64| offset_ms(zone, local - offset) == offset;
     match (fits(before), fits(after)) {
         (true, true) => before.max(after),
@@ -95,6 +99,15 @@ mod tests {
             1_636_263_000_000.0
         );
         assert_eq!(offset_ms(new_york, 0.0), -5.0 * 3_600_000.0);
+    }
+
+    #[test]
+    fn local_time_at_the_minimum_time_value_resolves() {
+        let sao_paulo = parse_zone("America/Sao_Paulo").expect("zone");
+        // 2h before the minimum time value, in wall-clock terms: UTC(local) is still in range.
+        let local = -8.64e15 - 2.0 * 3_600_000.0;
+        let utc = local - offset_from_local(sao_paulo, local);
+        assert!(utc >= -8.64e15, "{utc}");
     }
 
     #[test]

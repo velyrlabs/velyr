@@ -76,6 +76,9 @@ impl Interpreter {
     }
 }
 
+/// Largest `maxByteLength` accepted (1 TiB); beyond it the reservation cannot be honored.
+const MAX_BYTE_LENGTH: usize = 1 << 40;
+
 fn construct(vm: &mut Interpreter, args: &[Value], shared: bool) -> JsResult<Value> {
     let new_target = vm.new_target();
     let name = if shared {
@@ -94,6 +97,9 @@ fn construct(vm: &mut Interpreter, args: &[Value], shared: bool) -> JsResult<Val
         },
         None => None,
     };
+    if max.is_some_and(|max| max > MAX_BYTE_LENGTH) {
+        return vm.throw_range("Array buffer allocation failed");
+    }
     if max.is_some_and(|max| length > max) {
         return vm.throw_range(&format!("{name} length exceeds maxByteLength"));
     }
