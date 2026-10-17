@@ -1,0 +1,51 @@
+name: Bug report
+description: Something behaves differently from what the docs or the spec say.
+title: "bug: "
+labels: ["kind/bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Security issue? Do not file it here. Use private reporting (see the issue chooser).
+  - type: input
+    id: version
+    attributes:
+      label: Velyr version
+      description: Output of `velyr --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and target
+      description: For example macOS 15 arm64, Ubuntu 24.04 x86_64-unknown-linux-gnu.
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: The exact command line you ran.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: permissions
+    attributes:
+      label: Permission flags used
+      description: For example `--allow-read=./data --allow-net=example.com`, or "none".
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest script or package that shows the problem.
+      render: javascript
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true

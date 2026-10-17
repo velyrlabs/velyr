@@ -1,0 +1,66 @@
+# Today every path has the same owner. Areas are listed so they can be split later.
+* @velyrlabs/core
+
+# engine
+/crates/engine-api/ @velyrlabs/core
+/crates/engine-api-conformance/ @velyrlabs/core
+/crates/engine-v8/ @velyrlabs/core
+/crates/engine-native/ @velyrlabs/core
+/crates/engine-vm/ @velyrlabs/core
+/crates/engine-gc/ @velyrlabs/core
+
+# runtime
+/crates/runtime-core/ @velyrlabs/core
+/crates/runtime-event-loop/ @velyrlabs/core
+/crates/runtime-modules/ @velyrlabs/core
+/crates/runtime-workers/ @velyrlabs/core
+/crates/runtime-ops/ @velyrlabs/core
+/crates/runtime-inspector/ @velyrlabs/core
+/crates/runtime-telemetry/ @velyrlabs/core
+/crates/runtime-vfs/ @velyrlabs/core
+
+# security
+/crates/runtime-permissions/ @velyrlabs/core
+/crates/runtime-resources/ @velyrlabs/core
+/crates/runtime-errors/ @velyrlabs/core
+/docs/security/ @velyrlabs/core
+/docs/SECURITY.md @velyrlabs/core
+/SECURITY.md @velyrlabs/core
+/unsafe-allowlist.txt @velyrlabs/core
+
+# web
+/crates/web-core/ @velyrlabs/core
+/crates/web-crypto/ @velyrlabs/core
+/crates/web-fetch/ @velyrlabs/core
+/crates/web-streams/ @velyrlabs/core
+/crates/web-websocket/ @velyrlabs/core
+
+# io
+/crates/io-fs/ @velyrlabs/core
+/crates/io-http/ @velyrlabs/core
+/crates/io-net/ @velyrlabs/core
+/crates/io-process/ @velyrlabs/core
+/crates/io-tls/ @velyrlabs/core
+
+# compat
+/crates/compat-commonjs/ @velyrlabs/core
+/crates/compat-napi/ @velyrlabs/core
+/crates/compat-node/ @velyrlabs/core
+/crates/compat-npm/ @velyrlabs/core
+/crates/qa-test262/ @velyrlabs/core
+/crates/qa-wpt/ @velyrlabs/core
+
+# cli and perf
+/crates/cli/ @velyrlabs/core
+/crates/embed/ @velyrlabs/core
+/crates/tooling-decorators/ @velyrlabs/core
+/crates/tooling-jsx/ @velyrlabs/core
+/crates/tooling-test/ @velyrlabs/core
+/crates/tooling-tsconfig/ @velyrlabs/core
+/crates/tooling-typescript/ @velyrlabs/core
+/crates/bench-harness/ @velyrlabs/core
+/benches/ @velyrlabs/core
+
+# CI and release
+/.github/workflows/ @velyrlabs/core
+/docs/adr/ @velyrlabs/core

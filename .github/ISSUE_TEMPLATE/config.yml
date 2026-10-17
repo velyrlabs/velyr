@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/velyrlabs/velyr/discussions
+    about: Ask in Discussions (Q&A). Public surface changes start as an RFC in the Ideas category.
+  - name: Report a security vulnerability
+    url: https://github.com/velyrlabs/velyr/security/advisories/new
+    about: Private reporting only. Do not open a public issue.

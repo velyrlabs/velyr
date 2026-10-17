@@ -1,0 +1,36 @@
+name: Documentation
+description: Docs are missing, wrong or unclear.
+title: "docs: "
+labels: ["kind/docs"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Page or file
+      description: Path in the repo or URL.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Velyr version
+      description: Output of `velyr --version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and target
+      description: For example macOS 15 arm64, Ubuntu 24.04 x86_64-unknown-linux-gnu.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
