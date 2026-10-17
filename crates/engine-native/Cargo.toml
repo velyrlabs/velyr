@@ -28,11 +28,16 @@ writeable = "0.6"
 # Local time zone and the tzdb compiled into temporal_rs, for Date.
 iana-time-zone = "0.1"
 temporal_rs = "0.2.6"
+# Optional ICU4X crates for ListFormat, RelativeTimeFormat, DisplayNames (N34).
+icu_list = { version = "2.3.0", optional = true }
+icu_experimental = { version = "0.6.0", optional = true, default-features = false, features = ["compiled_data"] }
 
 [features]
 default = []
 # Intl negotiates every CLDR locale; without it only en and pt (profile-minimal).
 intl-all-locales = []
+# Experimental ICU4X data (list formatting, relative time, display names).
+intl-experimental = ["dep:icu_list", "dep:icu_experimental"]
 
 [dev-dependencies]
 velyr-engine-api-conformance = { path = "../engine-api-conformance" }
