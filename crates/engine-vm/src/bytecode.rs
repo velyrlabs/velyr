@@ -68,6 +68,8 @@ pub enum Instruction {
     /// PutValue on a global name: strict code throws for a missing name, `const` throws.
     StaGlobal(ConstIndex),
     InitializeGlobalLexical(ConstIndex),
+    /// Annex B.3.2.2: sloppy `[[Set]]` of the accumulator on a global name, skipped when shadowed by a lexical.
+    InitializeAnnexBGlobal(ConstIndex),
     /// Sloppy `delete name`.
     DeleteGlobal(ConstIndex),
 

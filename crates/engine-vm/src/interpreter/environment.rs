@@ -69,6 +69,15 @@ impl Interpreter {
                     None => return Err(self.internal("lexical global was not declared")),
                 }
             }
+            I::InitializeAnnexBGlobal(name) => {
+                let name = self.constant_str(info, *name);
+                if !self.state.lexicals.contains_key(&name) {
+                    let global = self.state.intrinsics.global;
+                    let key = self.string_key(&name);
+                    let value = self.state.acc.clone();
+                    self.set(global, key, value, &object_value(global))?;
+                }
+            }
             I::DeleteGlobal(name) => {
                 let name = self.constant_str(info, *name);
                 let deleted = match self.state.lexicals.contains_key(&name) {
@@ -149,6 +158,15 @@ impl Interpreter {
                 .get_own_property(global, key)
                 .map_err(|e| self.object_error(e))?;
             if own.is_none() {
+                let desc = PropertyDescriptor::data(Value::Undefined, true, true, false);
+                self.define_property(global, key, &desc)?;
+            }
+        }
+        let extensible = self.is_extensible(global)?;
+        for name in &declarations.annex_b {
+            let key = self.string_key(name);
+            let own = self.own_property(global, key)?;
+            if own.is_none() && extensible && !self.state.lexicals.contains_key(name) {
                 let desc = PropertyDescriptor::data(Value::Undefined, true, true, false);
                 self.define_property(global, key, &desc)?;
             }

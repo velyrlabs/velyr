@@ -23,6 +23,8 @@ pub struct GlobalDeclarations {
     pub vars: Vec<JsStr>,
     pub lets: Vec<JsStr>,
     pub consts: Vec<JsStr>,
+    /// Annex B.3.2.2 block-function names, declared as `var` unless a lexical or var-scoped name exists.
+    pub annex_b: Vec<JsStr>,
 }
 
 #[derive(Clone)]
@@ -162,11 +164,12 @@ impl fmt::Debug for Constant {
                 };
                 write!(
                     f,
-                    "globals functions={:?} vars={:?} lets={:?} consts={:?}",
+                    "globals functions={:?} vars={:?} lets={:?} consts={:?} annex_b={:?}",
                     names(&g.functions),
                     names(&g.vars),
                     names(&g.lets),
-                    names(&g.consts)
+                    names(&g.consts),
+                    names(&g.annex_b)
                 )
             }
         }
