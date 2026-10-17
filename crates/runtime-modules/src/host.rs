@@ -289,7 +289,7 @@ mod tests {
             .load(&resolve(&root, "./main.js"), &ctx)
             .await
             .unwrap();
-        assert_eq!(src.text, "// main.js");
+        assert_eq!(&*src.text, "// main.js");
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 
@@ -305,7 +305,7 @@ mod tests {
             .load(&resolve(&root, "../outside/secret.js"), &ctx)
             .await
             .unwrap();
-        assert_eq!(src.text, "// secret.js");
+        assert_eq!(&*src.text, "// secret.js");
     }
 
     #[test]
@@ -355,7 +355,7 @@ mod tests {
             .load(&module, &ctx(&[grant(Capability::ImportLocal, &root)]))
             .await
             .unwrap();
-        assert_eq!(src.text, "export {}");
+        assert_eq!(&*src.text, "export {}");
     }
 
     struct Counting(Arc<AtomicUsize>);
@@ -382,13 +382,13 @@ mod tests {
             ModuleHost::new(Arc::new(FsLoader)).with_transform(Arc::new(Counting(calls.clone())));
         let ctx = ctx(&[grant(Capability::ImportLocal, &root)]);
         let js = host.load(&resolve(&root, "./main.js"), &ctx).await.unwrap();
-        assert_eq!(js.text, "// main.js");
+        assert_eq!(&*js.text, "// main.js");
         assert_eq!(calls.load(Ordering::SeqCst), 0);
         let ts = host
             .load(&resolve(&root, "./typed.ts"), &ctx)
             .await
             .unwrap();
-        assert_eq!(ts.text, "// typed//ts");
+        assert_eq!(&*ts.text, "// typed//ts");
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 }

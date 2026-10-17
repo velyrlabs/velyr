@@ -13,7 +13,7 @@ use std::task::{Context, Poll, Wake, Waker};
 use std::thread::{self, Thread};
 
 use velyr_engine_api::{
-    CallContext, HostError, Isolate, ModuleResolveHook, PromiseState, Source, Value,
+    CallContext, HostError, Isolate, ModuleResolveHook, PromiseState, SharedSource, Source, Value,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{
@@ -162,7 +162,7 @@ impl EsmRequire {
         let source = self.read(&root)?;
         let module = ctx.compile_module(&Source {
             name: root.id.as_str().to_owned(),
-            text: source.text.clone(),
+            text: source.text.to_string(),
         })?;
         let mut hook = SyncHook {
             loader: self,
@@ -195,7 +195,7 @@ struct SyncHook<'a> {
 }
 
 impl SyncHook<'_> {
-    fn load(&self, specifier: &str, referrer: &str) -> Result<Source, VelyrError> {
+    fn load(&self, specifier: &str, referrer: &str) -> Result<SharedSource, VelyrError> {
         let referrer = ModuleId::parse(referrer).ok_or_else(|| {
             VelyrError::invalid_data(format!("referrer is not a module URL: {referrer}"))
         })?;
@@ -204,9 +204,9 @@ impl SyncHook<'_> {
                 .resolver
                 .resolve(specifier, &referrer, &self.loader.resolve_ctx)?;
         let source = self.loader.read(&module)?;
-        Ok(Source {
+        Ok(SharedSource {
             name: module.id.as_str().to_owned(),
-            text: source.text.clone(),
+            text: Arc::clone(&source.text),
         })
     }
 }
@@ -220,6 +220,15 @@ impl ModuleResolveHook for SyncHook<'_> {
     }
 
     fn resolve(&mut self, specifier: &str, referrer: &str) -> Result<Source, HostError> {
+        self.resolve_shared(specifier, referrer)
+            .map(|source| source.to_source())
+    }
+
+    fn resolve_shared(
+        &mut self,
+        specifier: &str,
+        referrer: &str,
+    ) -> Result<SharedSource, HostError> {
         self.load(specifier, referrer).map_err(|err| {
             self.failure = Some(err);
             HostError::Velyr(VelyrError::internal("module resolution failed"))

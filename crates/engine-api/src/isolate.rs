@@ -6,7 +6,7 @@ use velyr_runtime_errors::VelyrError;
 
 use crate::{
     CodeCacheStats, EngineError, EngineFeatures, Handle, HostError, JsString, NativeScopeFn,
-    NativeTeardown, SerializedValue, TickFlags, Value,
+    NativeTeardown, SerializedValue, SharedSource, TickFlags, Value,
 };
 
 /// Script or module source. `name` is the resolved specifier/URL used in stack traces
@@ -177,6 +177,15 @@ pub trait ModuleResolveHook {
     /// module; `Source::name` is its identity, so the engine compiles each
     /// distinct name once. An error aborts instantiation with a JS exception.
     fn resolve(&mut self, specifier: &str, referrer: &str) -> Result<Source, HostError>;
+
+    /// [`resolve`](ModuleResolveHook::resolve) for hosts that keep module text in shared buffers.
+    fn resolve_shared(
+        &mut self,
+        specifier: &str,
+        referrer: &str,
+    ) -> Result<SharedSource, HostError> {
+        self.resolve(specifier, referrer).map(SharedSource::from)
+    }
 
     /// Sealed code cache (see [`seal_code_cache`](crate::seal_code_cache)) for the module that
     /// `resolve` just returned as `name`, if the host has one. The engine falls back to a normal
@@ -389,6 +398,16 @@ pub trait Isolate {
         _cache: Option<&[u8]>,
     ) -> Result<Handle, JsException> {
         self.compile_module(source)
+    }
+
+    /// Like [`compile_module_cached`](Isolate::compile_module_cached) for a shared buffer, which
+    /// an engine may read in place instead of copying. The default compiles a copy.
+    fn compile_module_shared(
+        &mut self,
+        source: &SharedSource,
+        cache: Option<&[u8]>,
+    ) -> Result<Handle, JsException> {
+        self.compile_module_cached(&source.to_source(), cache)
     }
 
     /// Sealed code cache of the compiled module `name` (a `Source::name`); best taken after the

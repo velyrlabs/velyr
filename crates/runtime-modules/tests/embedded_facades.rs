@@ -58,7 +58,7 @@ async fn is_embedded_covers_exactly_the_registered_facade_names() {
     let host = ModuleHost::new(Arc::new(FsLoader));
     let facade = resolved(Path::new("/$velyr/node/path.js"));
     let source = host.load(&facade, &no_grants).await.unwrap();
-    assert_eq!(source.text, "export default \"path\";\n");
+    assert_eq!(&*source.text, "export default \"path\";\n");
 }
 
 #[tokio::test]

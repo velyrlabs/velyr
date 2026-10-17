@@ -21,8 +21,8 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tracing::Instrument;
 use velyr_engine_api::{
-    CallContext, Handle, HostError, HostFunctionDef, Isolate, JsException, JsString, MappedPosition,
-    ModuleResolveHook, PromiseState, ResolverId, Source, Value,
+    CallContext, Handle, HostError, HostFunctionDef, Isolate, JsException, JsString,
+    MappedPosition, ModuleResolveHook, PromiseState, ResolverId, SharedSource, Source, Value,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, EventLoop, OpGuard};
@@ -173,10 +173,10 @@ impl Modules {
                 .as_ref()
                 .and_then(|shared| shared.code(&root.id, &source.hash));
             let handle = isolate
-                .compile_module_cached(
-                    &Source {
+                .compile_module_shared(
+                    &SharedSource {
                         name: root.id.as_str().to_owned(),
-                        text: source.text.clone(),
+                        text: Arc::clone(&source.text),
                     },
                     cache.as_deref(),
                 )
@@ -255,6 +255,15 @@ impl ModuleResolveHook for LinkHook<'_> {
     }
 
     fn resolve(&mut self, specifier: &str, referrer: &str) -> Result<Source, HostError> {
+        self.resolve_shared(specifier, referrer)
+            .map(|source| source.to_source())
+    }
+
+    fn resolve_shared(
+        &mut self,
+        specifier: &str,
+        referrer: &str,
+    ) -> Result<SharedSource, HostError> {
         let Some(referrer) = ModuleId::parse(referrer) else {
             return Err(self.fail(VelyrError::invalid_data(format!(
                 "referrer is not a module URL: {referrer}"
@@ -266,9 +275,9 @@ impl ModuleResolveHook for LinkHook<'_> {
             .map_err(|err| self.fail(err))?;
         let cached = self.modules.loaded.lock().unwrap().get(&module.id).cloned();
         match cached {
-            Some(source) => Ok(Source {
+            Some(source) => Ok(SharedSource {
                 name: module.id.as_str().to_owned(),
-                text: source.text.clone(),
+                text: Arc::clone(&source.text),
             }),
             None => {
                 self.missing = Some(module);

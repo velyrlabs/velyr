@@ -73,7 +73,8 @@ pub struct ResolvedModule {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleSource {
-    pub text: String,
+    /// Shared with the engine, which may read it in place (`Isolate::compile_module_shared`).
+    pub text: Arc<str>,
     /// Lowercase hex sha256 of `text`; input to future transform cache keys.
     pub hash: String,
 }
@@ -81,7 +82,10 @@ pub struct ModuleSource {
 impl ModuleSource {
     pub fn new(text: String) -> Self {
         let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
-        Self { text, hash }
+        Self {
+            text: Arc::from(text),
+            hash,
+        }
     }
 }
 

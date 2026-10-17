@@ -8,14 +8,13 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZeroI32;
 use std::rc::Rc;
 
-use velyr_engine_api::{
-    Handle, HostError, JsException, JsString, ModuleResolveHook, Source, Value,
-};
+use velyr_engine_api::{Handle, HostError, JsException, JsString, ModuleResolveHook, Value};
 use velyr_runtime_errors::VelyrError;
 
 use crate::code_cache;
 use crate::convert::{exception_from, from_v8, internal_exception};
 use crate::host::{SharedSlot, call_named, host_error_to_js};
+use crate::module_text::ModuleInput;
 use crate::shared::Shared;
 
 /// Modules compiled in this isolate, keyed by `Source::name`, plus resolved import edges.
@@ -58,14 +57,15 @@ pub(crate) fn install_callbacks(isolate: &mut v8::Isolate) {
 
 /// Compiles `source` unless a module with the same name exists. The returned handle
 /// carries the module name; the module itself lives in [`ModuleGraph`].
-pub(crate) fn compile(
+pub(crate) fn compile<'a>(
     scope: &mut v8::PinScope<'_, '_>,
     shared: &Shared,
-    source: &Source,
+    source: impl Into<ModuleInput<'a>>,
     cache: Option<&[u8]>,
 ) -> Result<Handle, JsException> {
-    ensure_compiled(scope, shared, source, cache)?;
-    let name = v8::String::new(scope, &source.name)
+    let source = source.into();
+    ensure_compiled(scope, shared, &source, cache)?;
+    let name = v8::String::new(scope, source.name)
         .ok_or_else(|| internal_exception("module name too long"))?;
     let global = v8::Global::new(scope, v8::Local::<v8::Value>::from(name));
     Ok(shared.handles.borrow_mut().alloc(global))
@@ -134,19 +134,18 @@ pub(crate) fn namespace(
 fn ensure_compiled(
     scope: &mut v8::PinScope<'_, '_>,
     shared: &Shared,
-    source: &Source,
+    source: &ModuleInput<'_>,
     cache: Option<&[u8]>,
 ) -> Result<(), JsException> {
-    if shared.modules.borrow().by_name.contains_key(&source.name) {
+    if shared.modules.borrow().by_name.contains_key(source.name) {
         return Ok(());
     }
-    let digest = cache.map(|_| code_cache::digest(&source.text));
-    let payload = cache.zip(digest).map(|(blob, digest)| code_cache::unseal(digest, blob));
+    let digest = cache.map(|_| code_cache::digest(source.text()));
+    let payload = cache
+        .zip(digest)
+        .map(|(blob, digest)| code_cache::unseal(digest, blob));
     v8::tc_scope!(let tc, scope);
-    let (Some(name), Some(text)) = (
-        v8::String::new(tc, &source.name),
-        v8::String::new(tc, &source.text),
-    ) else {
+    let (Some(name), Some(text)) = (v8::String::new(tc, source.name), source.text_to_v8(tc)) else {
         return Err(internal_exception("source too long"));
     };
     let origin = v8::ScriptOrigin::new(
@@ -203,11 +202,11 @@ fn ensure_compiled(
         .by_hash
         .entry(module.get_identity_hash())
         .or_default()
-        .push(source.name.clone());
-    graph.by_name.insert(source.name.clone(), global);
-    graph.texts.insert(source.name.clone(), text);
+        .push(source.name.to_owned());
+    graph.by_name.insert(source.name.to_owned(), global);
+    graph.texts.insert(source.name.to_owned(), text);
     if let Some(digest) = digest {
-        graph.remember_digest(&source.name, digest);
+        graph.remember_digest(source.name, digest);
     }
     Ok(())
 }
@@ -269,10 +268,10 @@ fn resolve_edge(
         return Ok(name.clone());
     }
     let source = hook
-        .resolve(specifier, referrer)
+        .resolve_shared(specifier, referrer)
         .map_err(|err| resolve_exception(specifier, referrer, err))?;
     let cache = hook.code_cache(&source.name);
-    ensure_compiled(scope, shared, &source, cache.as_deref())?;
+    ensure_compiled(scope, shared, &(&source).into(), cache.as_deref())?;
     shared
         .modules
         .borrow_mut()

@@ -7,8 +7,10 @@ mod handles;
 mod heap;
 mod host;
 mod inspector;
+mod module_text;
 mod modules;
 mod platform;
+mod script;
 mod serialize;
 mod shared;
 mod snapshot;
@@ -29,6 +31,7 @@ use velyr_runtime_errors::VelyrError;
 use convert::{exception_from, from_v8, internal_exception, to_v8};
 use heap::HeapGuard;
 use host::SharedSlot;
+pub(crate) use script::{script, script_origin};
 use shared::Shared;
 
 pub use inspector::{InspectorEvent, InspectorOptions};
@@ -220,60 +223,12 @@ impl V8Isolate {
     }
 }
 
-/// Origin of a classic script: `name` is what its stack frames show.
-fn script_origin<'s>(
-    scope: &v8::PinScope<'s, '_>,
-    name: v8::Local<'s, v8::String>,
-) -> v8::ScriptOrigin<'s> {
-    v8::ScriptOrigin::new(
-        scope,
-        name.into(),
-        0,
-        0,
-        false,
-        0,
-        None,
-        false,
-        false,
-        false,
-        None,
-    )
-}
-
 impl Drop for V8Isolate {
     fn drop(&mut self) {
         // Node-API teardown runs addon finalizers in the context: before any Global is released.
         self.enter(host::run_native_teardown);
         // The isolate slot keeps `Shared` alive past this point; release its Globals first.
         self.shared.clear_globals();
-    }
-}
-
-/// Compiles `source` as a classic script and, when `run`, runs it; `undefined` if not run.
-pub(crate) fn script(
-    scope: &mut v8::PinScope<'_, '_>,
-    shared: &Shared,
-    source: &Source,
-    run: bool,
-) -> Result<Value, JsException> {
-    v8::tc_scope!(let tc, scope);
-    let (Some(name), Some(text)) = (
-        v8::String::new(tc, &source.name),
-        v8::String::new(tc, &source.text),
-    ) else {
-        return Err(internal_exception("source too long"));
-    };
-    let origin = script_origin(tc, name);
-    let Some(compiled) = v8::Script::compile(tc, text, Some(&origin)) else {
-        return Err(exception_from(tc, shared));
-    };
-    if !run {
-        return Ok(Value::Undefined);
-    }
-    shared.microtasks_dirty.set(true);
-    match compiled.run(tc) {
-        Some(value) => Ok(from_v8(tc, &mut shared.handles.borrow_mut(), value)),
-        None => Err(exception_from(tc, shared)),
     }
 }
 
@@ -293,6 +248,14 @@ impl Isolate for V8Isolate {
     fn compile_module_cached(
         &mut self,
         source: &Source,
+        cache: Option<&[u8]>,
+    ) -> Result<Handle, JsException> {
+        self.enter(|scope, shared| modules::compile(scope, shared, source, cache))
+    }
+
+    fn compile_module_shared(
+        &mut self,
+        source: &velyr_engine_api::SharedSource,
         cache: Option<&[u8]>,
     ) -> Result<Handle, JsException> {
         self.enter(|scope, shared| modules::compile(scope, shared, source, cache))

@@ -165,7 +165,7 @@ async fn load_graph(host: &ModuleHost, root: &Path, ctx: &LoadContext) -> Vec<St
                 .unwrap();
             queue.push(target.id);
         }
-        texts.push(source.text.clone());
+        texts.push(source.text.to_string());
     }
     texts
 }

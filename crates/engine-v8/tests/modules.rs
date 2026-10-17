@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use velyr_engine_api::{
-    CallContext, Engine, HostError, HostFunctionDef, Isolate, IsolateOptions, JsString,
-    ModuleResolveHook, PromiseState, Source, Value,
+    CallContext, Engine, GcReason, HostError, HostFunctionDef, Isolate, IsolateOptions, JsString,
+    ModuleResolveHook, PromiseState, SharedSource, Source, Value,
 };
 use velyr_engine_v8::{V8Engine, V8Isolate};
 use velyr_runtime_errors::VelyrError;
@@ -330,4 +331,76 @@ fn wide_graph_links_in_bounded_time() {
     run(&mut iso, &src("wide.js", &entry_text), &mut hook);
     let elapsed = started.elapsed();
     assert!(elapsed.as_millis() < 1500, "linking took {elapsed:?}");
+}
+
+fn shared_src(name: &str, text: &Arc<str>) -> SharedSource {
+    SharedSource {
+        name: name.into(),
+        text: Arc::clone(text),
+    }
+}
+
+/// Serves every module from shared buffers, like the runtime's link hook.
+struct SharedHook(HashMap<String, Arc<str>>);
+
+impl ModuleResolveHook for SharedHook {
+    fn resolve(&mut self, _specifier: &str, _referrer: &str) -> Result<Source, HostError> {
+        unreachable!("the engine links through resolve_shared")
+    }
+
+    fn resolve_shared(&mut self, specifier: &str, _: &str) -> Result<SharedSource, HostError> {
+        let text = self.0.get(specifier).expect("known module");
+        Ok(shared_src(specifier, text))
+    }
+}
+
+#[test]
+fn external_ascii_source_matches_copied_source() {
+    let mut iso = isolate();
+    let cases = [
+        ("ascii", "globalThis.ascii_x = 'abc'.length + 1;", true),
+        ("latin1", "globalThis.latin1_x = 'a\u{e7}\u{e3}o'.length;", false),
+        ("utf8", "globalThis.utf8_x = '\u{1f600}\u{4e2d}'.length;", false),
+    ];
+    for (key, text, expect_external) in cases {
+        let shared: Arc<str> = Arc::from(text);
+        let module = iso
+            .compile_module_shared(&shared_src(&format!("{key}.js"), &shared), None)
+            .expect("compile shared");
+        // The external path keeps one clone alive inside V8; the copy path keeps none.
+        assert_eq!(Arc::strong_count(&shared) > 1, expect_external, "{key}");
+        iso.instantiate_module(module, &mut MapHook::default())
+            .expect("instantiate");
+        iso.evaluate_module(module).expect("evaluate");
+        let from_shared = global(&mut iso, &format!("{key}_x"));
+        run(&mut iso, &src(&format!("{key}-copy.js"), text), &mut MapHook::default());
+        assert_eq!(global(&mut iso, &format!("{key}_x")), from_shared, "{key}");
+    }
+    assert_eq!(global(&mut iso, "ascii_x"), Value::Number(4.0));
+}
+
+#[test]
+fn external_source_outlives_module_graph() {
+    let entry: Arc<str> = Arc::from("import { b } from 'b.js'; globalThis.out = b + 1;");
+    let dep: Arc<str> = Arc::from("export const b = 41;");
+    let weak = (Arc::downgrade(&entry), Arc::downgrade(&dep));
+    let mut iso = isolate();
+    let module = iso
+        .compile_module_shared(&shared_src("a.js", &entry), None)
+        .expect("compile");
+    let mut hook = SharedHook(HashMap::from([("b.js".to_owned(), dep)]));
+    iso.instantiate_module(module, &mut hook).expect("instantiate");
+    drop((entry, hook));
+    iso.request_gc(GcReason::Explicit);
+    let promise = iso.evaluate_module(module).expect("evaluate");
+    iso.perform_microtask_checkpoint();
+    assert_eq!(
+        iso.promise_state(&promise),
+        Some(PromiseState::Fulfilled(Value::Undefined))
+    );
+    assert_eq!(global(&mut iso, "out"), Value::Number(42.0));
+    assert!(weak.0.upgrade().is_some() && weak.1.upgrade().is_some());
+    drop(iso);
+    // Isolate teardown runs the finalizers, which release the keepalives.
+    assert!(weak.0.upgrade().is_none() && weak.1.upgrade().is_none());
 }

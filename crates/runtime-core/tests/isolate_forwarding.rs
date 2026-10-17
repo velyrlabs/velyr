@@ -4,7 +4,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use velyr_engine_api::{HostError, Isolate, JsString, ModuleResolveHook, Source, Value};
+use velyr_engine_api::{
+    HostError, Isolate, JsString, ModuleResolveHook, SharedSource, Source, Value,
+};
 use velyr_engine_v8::{V8Engine, V8Isolate};
 use velyr_runtime_core::{LoopIsolate, RuntimeConfig, run_module_file};
 use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
@@ -111,4 +113,19 @@ fn loop_isolate_forwards_compile_function_and_function_cache() {
     });
     assert!(compiled);
     assert!(cached);
+}
+
+#[test]
+fn loop_isolate_forwards_compile_module_shared() {
+    let count = with_loop_isolate(|isolate| {
+        let text: Arc<str> = Arc::from("export const a = 1;");
+        let source = SharedSource {
+            name: "file:///shared.mjs".into(),
+            text: Arc::clone(&text),
+        };
+        isolate.compile_module_shared(&source, None).expect("compile");
+        Arc::strong_count(&text)
+    });
+    // The caller's two clones plus V8's keepalive; the copy default leaves it at 2.
+    assert!(count >= 3, "strong count {count}");
 }

@@ -217,8 +217,8 @@ mod tests {
         let first = worker().load(&module, &ctx_for(dir.path())).await.unwrap();
         std::fs::write(&module.path, "export const a = 22;").unwrap();
         let second = worker().load(&module, &ctx_for(dir.path())).await.unwrap();
-        assert_eq!(first.text, "export const a = 1;");
-        assert_eq!(second.text, "export const a = 22;");
+        assert_eq!(&*first.text, "export const a = 1;");
+        assert_eq!(&*second.text, "export const a = 22;");
     }
 
     fn ctx_for(dir: &std::path::Path) -> LoadContext {

@@ -63,10 +63,10 @@ async fn host_loads_the_transformed_text_with_its_source_map() {
     let host = ModuleHost::new(Arc::new(FsLoader)).with_transform(shout.clone());
     let module = resolve(&root, "a.ts");
     let source = host.load(&module, &ctx).await.unwrap();
-    assert_eq!(source.text, "LET A: NUMBER = 1");
+    assert_eq!(&*source.text, "LET A: NUMBER = 1");
     assert_eq!(
         source.hash,
-        velyr_runtime_modules::ModuleSource::new(source.text.clone()).hash
+        velyr_runtime_modules::ModuleSource::new(source.text.to_string()).hash
     );
     assert_eq!(
         host.source_map(&module.id).as_deref(),
@@ -111,7 +111,7 @@ async fn without_a_transform_text_is_untouched() {
     let (_d, root, ctx) = setup(&[("a.ts", "let a = 1")]);
     let host = ModuleHost::new(Arc::new(FsLoader));
     let source = host.load(&resolve(&root, "a.ts"), &ctx).await.unwrap();
-    assert_eq!(source.text, "let a = 1");
+    assert_eq!(&*source.text, "let a = 1");
 }
 
 #[test]
@@ -153,9 +153,9 @@ async fn untransformed_esm_is_hashed_once() {
     let host = ModuleHost::new(Arc::new(FsLoader)).with_transform(idle.clone());
     let source = host.load(&resolve(&root, "a.js"), &ctx).await.unwrap();
     assert_eq!(*idle.0.lock().unwrap(), 0);
-    assert_eq!(source.text, "export const a = 1;");
+    assert_eq!(&*source.text, "export const a = 1;");
     assert_eq!(
         source.hash,
-        velyr_runtime_modules::ModuleSource::new(source.text.clone()).hash
+        velyr_runtime_modules::ModuleSource::new(source.text.to_string()).hash
     );
 }

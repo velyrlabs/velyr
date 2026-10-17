@@ -60,7 +60,7 @@ mod tests {
         };
 
         assert_eq!(
-            loader.load(&at("/app/a.js"), &ctx).await.unwrap().text,
+            &*loader.load(&at("/app/a.js"), &ctx).await.unwrap().text,
             "export {}"
         );
         assert!(loader.load(&at("/app/b.js"), &ctx).await.is_err());
