@@ -58,6 +58,7 @@ fn is_supervisor_report(path: &Path) -> bool {
 /// A new, empty, owner-only report file with an unpredictable name.
 fn create_report() -> std::result::Result<PathBuf, String> {
     use std::hash::{BuildHasher, Hasher};
+    #[cfg(unix)]
     use std::os::unix::fs::OpenOptionsExt;
     let nonce = std::collections::hash_map::RandomState::new()
         .build_hasher()
@@ -66,10 +67,12 @@ fn create_report() -> std::result::Result<PathBuf, String> {
         "{REPORT_PREFIX}{}-{nonce:x}.txt",
         std::process::id()
     ));
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    // Windows has no mode bits; its per-user temp dir is already private to the owner.
+    #[cfg(unix)]
+    options.mode(0o600);
+    options
         .open(&path)
         .map_err(|e| format!("error: cannot create the watch report: {e}"))?;
     Ok(path)
