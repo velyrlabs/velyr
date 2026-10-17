@@ -1,7 +1,7 @@
 //! Isolate workers (ADR-010, ADR-014, `docs/specs/worker-api.md`).
 //!
 //! Each worker runs an ES module on its own thread, Tokio `current_thread` runtime, isolate
-//! and event loop (`velyr_runtime_core::run_module_file`). Its authority is
+//! and event loop (`velyr_runtime_core::run_module_file_on_current_thread`). Its authority is
 //! `parent ∩ requested ∩ deployment_policy`, it holds one `workers` quota unit of its parent
 //! until its thread exits, its heap never exceeds the parent's, and it talks to the parent through
 //! [`SerializedValue`] channels (see [`worker_host_functions`] for the worker side).
@@ -11,6 +11,7 @@
 //! the op context closes every resource, then the engine isolate is destroyed.
 
 use std::cell::RefCell;
+use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -20,7 +21,7 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 use velyr_engine_api::{Engine, HostFunctionDef, Isolate, SerializedValue, TerminationHandle};
-use velyr_runtime_core::{LoopIsolate, RunError, RuntimeConfig, run_module_file};
+use velyr_runtime_core::{LoopIsolate, RunError, RuntimeConfig, run_module_file_on_current_thread};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, TimerHandle};
 use velyr_runtime_ops::{OpContext, take_leak_report};
@@ -169,13 +170,20 @@ impl WorkerHandle {
         let mut host_functions = options.host_functions;
         host_functions.extend(worker_host_functions());
         let (bootstrap_js, entry) = (options.bootstrap_js, options.entry);
-        // shortcut: `run_module_file` blocks and spawns the isolate thread itself, so each
-        // worker costs two threads; upgrade by exposing a non-joining variant in runtime-core.
         let thread = thread::Builder::new()
             .name("velyr-worker".into())
             .spawn(move || {
-                let outcome =
-                    run_module_file(engine, config, host_functions, bootstrap_js, setup, entry);
+                let outcome = panic::catch_unwind(AssertUnwindSafe(|| {
+                    run_module_file_on_current_thread(
+                        engine,
+                        config,
+                        host_functions,
+                        bootstrap_js,
+                        setup,
+                        entry,
+                    )
+                }))
+                .unwrap_or_else(|_| Err(RunError::Setup("isolate thread panicked".into())));
                 // Free the slot before reporting, so a joined worker never still holds it.
                 drop(quota);
                 // Ordered after every message the worker posted: the parent's `error` event,

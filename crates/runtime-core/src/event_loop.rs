@@ -171,6 +171,31 @@ where
     )
 }
 
+/// Like [`run_module_file`], but the isolate runs on the calling thread instead of a thread
+/// spawned (and joined) here. For callers that already own a dedicated thread, such as workers.
+pub fn run_module_file_on_current_thread<E, F>(
+    engine: E,
+    config: RuntimeConfig,
+    host_functions: Vec<HostFunctionDef>,
+    bootstrap_js: &'static str,
+    install: F,
+    path: PathBuf,
+) -> Result<(), RunError>
+where
+    E: Engine,
+    F: FnOnce(&mut LoopIsolate<E::Isolate>, CompletionSender, TimerHandle),
+{
+    run_on_isolate_thread(
+        Entry::Module,
+        engine,
+        config,
+        host_functions,
+        bootstrap_js,
+        install,
+        path,
+    )
+}
+
 fn run_entry<E, F>(
     entry: Entry,
     engine: E,

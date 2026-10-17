@@ -35,7 +35,7 @@ mod watchdog;
 
 pub use blocking_pool::peak_blocking_threads;
 pub use esm::{EsmRequire, require_esm};
-pub use event_loop::{LoopIsolate, run_file, run_module_file};
+pub use event_loop::{LoopIsolate, run_file, run_module_file, run_module_file_on_current_thread};
 
 static PLATFORM_INIT: Once = Once::new();
 
