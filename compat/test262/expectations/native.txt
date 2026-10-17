@@ -998,45 +998,35 @@ test/built-ins/Array/prototype/splice/create-proto-from-ctor-realm-non-array.js 
 test/built-ins/Array/prototype/toLocaleString/resizable-buffer.js # bytecode compiler unsupported: block-level function in sloppy mode (bootstrap fallback rejects it)
 test/built-ins/Array/prototype/values/resizable-buffer-shrink-mid-iteration.js # Uint8Array built-in out of VELYR-107 scope, not implemented
 test/built-ins/Array/prototype/values/resizable-buffer.js # Uint8Array built-in out of VELYR-107 scope, not implemented
-test/built-ins/ArrayBuffer/options-maxbytelength-allocation-limit.js # Test262Error: `maxByteLength` option is 7 PiB Expected a RangeError but got a ReferenceError
+test/built-ins/ArrayBuffer/options-maxbytelength-allocation-limit.js # Test262Error: `maxByteLength` option is 7 PiB Expected a RangeError to be thrown but no exception was thrown at all
 test/built-ins/ArrayBuffer/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer-resizable.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/immutable/prop-desc.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/immutable/return-immutable.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/immutable/this-has-no-arraybufferdata-internal.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/immutable/this-is-not-object.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/immutable/this-is-sharedarraybuffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/maxByteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resizable/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resize/coerced-new-length-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resize/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resize/this-is-immutable-arraybuffer-object.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/argument-coercion.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/modify-source-after-return.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/not-a-constructor.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/prop-desc.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-becomes-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-grows.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-has-no-arraybufferdata-internal.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-not-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-not-object.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-sharedarraybuffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-shrinks.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-immutable-arraybuffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-immutable-arraybuffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/new-length-coercion.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/not-a-constructor.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/prop-desc.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-has-no-arraybufferdata-internal.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-detachable.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-object.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-sharedarraybuffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/to-larger.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/to-same-or-smaller.js # ReferenceError: ArrayBuffer is not defined
+test/built-ins/ArrayBuffer/prototype/immutable/prop-desc.js # Test262Error: ArrayBuffer.prototype.immutable getter should be a function Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/immutable/return-immutable.js # Test262Error: Expected SameValue(«undefined», «false») to be true
+test/built-ins/ArrayBuffer/prototype/immutable/this-has-no-arraybufferdata-internal.js # TypeError: Cannot read properties of undefined (reading 'get')
+test/built-ins/ArrayBuffer/prototype/immutable/this-is-not-object.js # TypeError: Cannot read properties of undefined (reading 'get')
+test/built-ins/ArrayBuffer/prototype/immutable/this-is-sharedarraybuffer.js # TypeError: Cannot read properties of undefined (reading 'get')
+test/built-ins/ArrayBuffer/prototype/resize/this-is-immutable-arraybuffer-object.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/argument-coercion.js # SyntaxError: unsupported: block-level function in sloppy mode
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/modify-source-after-return.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/not-a-constructor.js # Test262Error: isConstructor invoked with a non-function value
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/prop-desc.js # Test262Error: sliceToImmutable should be a function Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-becomes-detached.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-grows.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-has-no-arraybufferdata-internal.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-not-object.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-sharedarraybuffer.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-shrinks.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transfer/this-is-immutable-arraybuffer.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-immutable-arraybuffer.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/new-length-coercion.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/not-a-constructor.js # Test262Error: isConstructor invoked with a non-function value
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/prop-desc.js # Test262Error: transferToImmutable should be a function Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-has-no-arraybufferdata-internal.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-detachable.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-object.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-sharedarraybuffer.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/to-larger.js # TypeError: undefined is not a function
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/to-same-or-smaller.js # TypeError: undefined is not a function
 test/built-ins/ArrayIteratorPrototype/next/Float32Array.js # ReferenceError: Float32Array is not defined
 test/built-ins/ArrayIteratorPrototype/next/Float64Array.js # ReferenceError: Float64Array is not defined
 test/built-ins/ArrayIteratorPrototype/next/Int16Array.js # ReferenceError: Int16Array is not defined
@@ -1199,7 +1189,6 @@ test/built-ins/Atomics/and/immutable-buffer.js # ReferenceError: Float64Array is
 test/built-ins/Atomics/compareExchange/immutable-buffer.js # ReferenceError: Float64Array is not defined
 test/built-ins/Atomics/exchange/immutable-buffer.js # ReferenceError: Float64Array is not defined
 test/built-ins/Atomics/notify/bigint/notify-all-on-loc.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/notify/bigint/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/notify/count-defaults-to-infinity-missing.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/count-defaults-to-infinity-undefined.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/immutable-buffer-returns-0.js # ReferenceError: Float64Array is not defined
@@ -1215,25 +1204,18 @@ test/built-ins/Atomics/notify/notify-two.js # skip: $262.agent is not available 
 test/built-ins/Atomics/notify/notify-with-no-agents-waiting.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/notify-with-no-matching-agents-waiting.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/notify-zero.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/notify/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-detached.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-resize-to-zero.js # ReferenceError: ArrayBuffer is not defined
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared.js # ReferenceError: ArrayBuffer is not defined
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion.js # ReferenceError: SharedArrayBuffer is not defined
 test/built-ins/Atomics/notify/undefined-index-defaults-to-zero.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/or/immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/Atomics/pause/descriptor.js # ReferenceError: Atomics is not defined
-test/built-ins/Atomics/pause/length.js # ReferenceError: Atomics is not defined
-test/built-ins/Atomics/pause/name.js # ReferenceError: Atomics is not defined
-test/built-ins/Atomics/pause/not-a-constructor.js # ReferenceError: Atomics is not defined
-test/built-ins/Atomics/pause/returns-undefined.js # ReferenceError: Atomics is not defined
 test/built-ins/Atomics/store/immutable-buffer.js # ReferenceError: Float64Array is not defined
 test/built-ins/Atomics/sub/immutable-buffer.js # ReferenceError: Float64Array is not defined
+test/built-ins/Atomics/wait/bigint/cannot-suspend-throws.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
 test/built-ins/Atomics/wait/bigint/false-for-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/bigint/false-for-timeout.js # ReferenceError: BigInt64Array is not defined
 test/built-ins/Atomics/wait/bigint/nan-for-timeout.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/negative-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/bigint/negative-timeout.js # ReferenceError: BigInt64Array is not defined
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-no-operation.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-add.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-and.js # skip: $262.agent is not available through engine-api
@@ -1243,17 +1225,15 @@ test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-or.js # skip: $262.agen
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/bigint/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/wait/bigint/value-not-equal.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/waiterlist-block-indexedposition-wake.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/waiterlist-order-of-operations-is-fifo.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/was-woken-before-timeout.js # skip: $262.agent is not available through engine-api
+test/built-ins/Atomics/wait/cannot-suspend-throws.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
 test/built-ins/Atomics/wait/false-for-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/false-for-timeout.js # ReferenceError: Int32Array is not defined
 test/built-ins/Atomics/wait/good-views.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/nan-for-timeout.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/negative-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/negative-timeout.js # ReferenceError: Int32Array is not defined
 test/built-ins/Atomics/wait/no-spurious-wakeup-no-operation.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-add.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-and.js # skip: $262.agent is not available through engine-api
@@ -1263,18 +1243,14 @@ test/built-ins/Atomics/wait/no-spurious-wakeup-on-or.js # skip: $262.agent is no
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/wait/null-for-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/null-for-timeout.js # ReferenceError: Int32Array is not defined
 test/built-ins/Atomics/wait/object-for-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/object-for-timeout.js # ReferenceError: Int32Array is not defined
 test/built-ins/Atomics/wait/poisoned-object-for-timeout-throws-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/retrieve-length-before-index-coercion.js # ReferenceError: SharedArrayBuffer is not defined
 test/built-ins/Atomics/wait/symbol-for-index-throws-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/symbol-for-timeout-throws-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/symbol-for-value-throws-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/true-for-timeout-agent.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/true-for-timeout.js # ReferenceError: Int32Array is not defined
 test/built-ins/Atomics/wait/undefined-for-timeout.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/undefined-index-defaults-to-zero.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/value-not-equal.js # skip: $262.agent is not available through engine-api
@@ -1387,98 +1363,19 @@ test/built-ins/Atomics/xor/immutable-buffer.js # ReferenceError: Float64Array is
 test/built-ins/BigInt/prototype/valueOf/cross-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Boolean/S9.2_A1_T1.js # bytecode compiler unsupported: direct eval (bootstrap fallback rejects it)
 test/built-ins/Boolean/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/DataView/custom-proto-access-detaches-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/DataView/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/DataView/prototype/buffer/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteLength/instance-has-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteOffset/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-after-bigint-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setBigUint64/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setInt16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setInt32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setInt8/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setUint16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setUint32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
-test/built-ins/DataView/prototype/setUint8/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/immutable-buffer.js # ReferenceError: ArrayBuffer is not defined
+test/built-ins/DataView/prototype/setBigInt64/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setBigUint64/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setFloat16/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setFloat32/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setFloat64/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setInt16/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setInt32/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setInt8/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setUint16/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setUint32/immutable-buffer.js # TypeError: undefined is not a function
+test/built-ins/DataView/prototype/setUint8/immutable-buffer.js # TypeError: undefined is not a function
 test/built-ins/Date/proto-from-ctor-realm-one.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Date/proto-from-ctor-realm-two.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Date/proto-from-ctor-realm-zero.js # skip: $262.createRealm is not available through engine-api
@@ -6887,289 +6784,73 @@ test/built-ins/Temporal/toStringTag/prop-desc.js # ReferenceError: Temporal is n
 test/built-ins/Temporal/toStringTag/string.js # ReferenceError: Temporal is not defined
 test/built-ins/ThrowTypeError/distinct-cross-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/ThrowTypeError/unique-per-realm-non-simple.js # Test262Error: callee.get Expected SameValue(«function () { [native code] }», «undefined») to be true
-test/built-ins/TypedArray/from/from-array-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/from/from-typedarray-into-itself-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/from/from-typedarray-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/Symbol.toStringTag/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/buffer/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/buffer/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteLength/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteOffset/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteOffset/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/copyWithin/BigInt/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/copyWithin/coerced-target-start-end-shrink.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/copyWithin/coerced-values-end-detached-prototype.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/copyWithin/coerced-values-end-detached.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/copyWithin/coerced-values-start-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/copyWithin/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/copyWithin/immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/entries/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/entries/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/every/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/callbackfn-resize.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/every/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/every/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/every/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/fill/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-end-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-start-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-value-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/fill/immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/filter/BigInt/callbackfn-detachbuffer-kept-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/filter/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
 test/built-ins/TypedArray/prototype/filter/speciesctor-destination-backed-by-immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/find/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/BigInt/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/find/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/find/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/find/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/findIndex/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/BigInt/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findIndex/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findIndex/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/findIndex/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/findLast/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/BigInt/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findLast/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findLast/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/findLast/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/findLastIndex/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/BigInt/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findLastIndex/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/get-length-ignores-length-prop.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/findLastIndex/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/findLastIndex/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/forEach/BigInt/arraylength-internal.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/forEach/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/arraylength-internal.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/forEach/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/callbackfn-resize.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/forEach/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/forEach/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-false-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-true-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/includes/detached-buffer-during-fromIndex-returns-false-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/detached-buffer-during-fromIndex-returns-true-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/join/BigInt/detached-buffer-during-fromIndex-returns-single-comma.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/join/detached-buffer-during-fromIndex-returns-single-comma.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/keys/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/keys/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/keys/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/length/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/length/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/map/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
 test/built-ins/TypedArray/prototype/map/speciesctor-destination-backed-by-immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduce/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/callbackfn-resize.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduce/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduce/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/reduce/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduceRight/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/callbackfn-resize.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduceRight/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reduceRight/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/reduceRight/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/reverse/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/reverse/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/reverse/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/reverse/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/reverse/immutable-buffer.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/reverse/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-get-src-value-no-throw.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/set/immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/set/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-get-ctor.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-speciesctor-get-species-custom-ctor-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-get-ctor.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-speciesctor-get-species-custom-ctor-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/slice/speciesctor-destination-backed-by-immutable-buffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/some/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/some/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/callbackfn-resize.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/some/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/some/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/some/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/sort/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/sort/comparefn-resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/sort/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/sort/immutable-buffer.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/sort/resizable-buffer-default-comparator.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/sort/sort-tonumber.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/byteoffset-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toLocaleString/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/toLocaleString/BigInt/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArray/prototype/toLocaleString/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/toLocaleString/get-length-uses-internal-arraylength.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/toLocaleString/resizable-buffer.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/TypedArray/prototype/toReversed/this-value-invalid.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toSorted/this-value-invalid.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toString/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toString/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/values/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/values/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/values/resizable-buffer-shrink-mid-iteration.js # ReferenceError: Uint8Array is not defined
 test/built-ins/TypedArray/prototype/with/BigInt/index-coercion-shrinks.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/with/BigInt/value-coercion-shrinks.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/with/index-coercion-shrinks.js # ReferenceError: Float64Array is not defined
 test/built-ins/TypedArray/prototype/with/value-coercion-shrinks.js # ReferenceError: Float64Array is not defined
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/detachedbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/length-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/no-args/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/object-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/detachedbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/length-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/length-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/no-args/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/object-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/typedarray-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/from/custom-ctor-returns-immutable-arraybuffer.js # ReferenceError: Float64Array is not defined
+test/built-ins/TypedArrayConstructors/from/custom-ctor-returns-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/enumerate-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/enumerate-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/infinity-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/infinity-with-detached-buffer.js # SyntaxError: unsupported: with statement
 test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/infinity-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/TypedArrayConstructors/internals/HasProperty/infinity-with-detached-buffer.js # SyntaxError: unsupported: with statement
 test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/of/custom-ctor-returns-immutable-arraybuffer.js # ReferenceError: Float64Array is not defined
+test/built-ins/TypedArrayConstructors/of/custom-ctor-returns-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/Uint8Array/fromBase64/alphabet.js # ReferenceError: Uint8Array is not defined
 test/built-ins/Uint8Array/fromBase64/descriptor.js # ReferenceError: Uint8Array is not defined
 test/built-ins/Uint8Array/fromBase64/ignores-receiver.js # ReferenceError: Uint8Array is not defined
