@@ -21,7 +21,7 @@ fn ts_without_module_syntax_is_a_module() {
 fn export_equals_in_ts_is_a_diagnostic() {
     let message = transform("export = 1;\n", MediaType::TypeScript).unwrap_err();
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
-    assert!(message.contains("export ="), "{message}");
+    assert!(message.contains("Export assignment"), "{message}");
 
     let message = transform("import fs = require(\"fs\");\n", MediaType::Mts).unwrap_err();
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
