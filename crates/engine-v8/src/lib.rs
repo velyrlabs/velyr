@@ -134,9 +134,11 @@ impl Engine for V8Engine {
                 Box::new(serialize::SharedMemoryAllowed),
             );
         }
-        let heap_guard = opts
-            .heap_limit_bytes
-            .map(|_| HeapGuard::install(&mut isolate, Arc::clone(&shared.heap_exhausted)));
+        // Always installed: without the callback V8 aborts the process at its default limit too.
+        let heap_guard = Some(HeapGuard::install(
+            &mut isolate,
+            Arc::clone(&shared.heap_exhausted),
+        ));
         // ADR-009 item 4: Velyr owns microtask timing.
         isolate.set_microtasks_policy(v8::MicrotasksPolicy::Explicit);
         modules::install_callbacks(&mut isolate);

@@ -38,3 +38,33 @@ fn plain_termination_is_not_reported_as_a_quota_error() {
         .expect_err("terminated");
     assert_eq!(err.quota_class(), None, "{err:?}");
 }
+
+#[test]
+fn an_isolate_hitting_its_limit_does_not_affect_a_sibling() {
+    let mut sibling = limited_isolate();
+    let hog = std::thread::spawn(|| {
+        limited_isolate()
+            .eval_script(&src(
+                "const keep = []; while (true) keep.push(new Array(100000).fill(1));",
+            ))
+            .expect_err("allocation must be stopped")
+            .quota_class()
+            .map(str::to_owned)
+    });
+    assert_eq!(hog.join().expect("hog thread"), Some("heap".to_owned()));
+    sibling
+        .eval_script(&src("[1, 2, 3].length"))
+        .expect("sibling runs");
+}
+
+#[test]
+fn default_options_still_install_the_near_limit_guard() {
+    let mut iso = V8Engine::new()
+        .create_isolate(IsolateOptions::default())
+        .expect("isolate");
+    iso.termination_handle().terminate();
+    let err = iso
+        .eval_script(&src("while (true) {}"))
+        .expect_err("terminated");
+    assert_eq!(err.quota_class(), None, "{err:?}");
+}

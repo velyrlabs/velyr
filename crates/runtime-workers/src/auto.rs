@@ -48,6 +48,8 @@ pub struct Decision {
     pub cpus: usize,
     pub memory_budget: Option<u64>,
     pub source: BudgetSource,
+    /// Old-generation limit for each worker isolate; `None` without a budget.
+    pub heap_limit_bytes: Option<usize>,
 }
 
 /// Resolves `auto` and logs the arithmetic under `velyr.workers.auto`.
@@ -73,12 +75,25 @@ pub fn decide(env: &Environment, memory_mb: Option<u64>) -> Decision {
     let workers = by_memory.map_or(cpus, |fit| {
         cpus.min(usize::try_from(fit).unwrap_or(usize::MAX))
     });
+    let workers = workers.max(1);
     Decision {
-        workers: workers.max(1),
+        workers,
         cpus,
         memory_budget,
         source,
+        heap_limit_bytes: memory_budget.map(|budget| heap_limit_per_worker(budget, workers)),
     }
+}
+
+const HEAP_LIMIT_FLOOR_BYTES: usize = 64 << 20;
+const HEAP_LIMIT_CEILING_BYTES: usize = 4 << 30;
+
+/// `clamp(budget / workers, 64 MiB, 4 GiB)`: the heap limit of one worker isolate.
+pub fn heap_limit_per_worker(budget: u64, workers: usize) -> usize {
+    let share = budget / workers.max(1) as u64;
+    usize::try_from(share)
+        .unwrap_or(usize::MAX)
+        .clamp(HEAP_LIMIT_FLOOR_BYTES, HEAP_LIMIT_CEILING_BYTES)
 }
 
 /// `quotas.memoryMb`, else the cgroup limit, else 75% of the RAM, else no budget.
@@ -253,6 +268,22 @@ mod tests {
         let decision = decide(&env(&dir, 16), None);
         assert_eq!(decision.memory_budget, Some(3 * PER * MIB));
         assert_eq!((decision.workers, decision.source), (3, BudgetSource::Ram));
+    }
+
+    #[test]
+    fn limit_splits_budget_across_workers() {
+        assert_eq!(heap_limit_per_worker(4 << 30, 8), 512 << 20);
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "memory.max", &format!("{}\n", 4u64 << 30));
+        let decision = decide(&env(&dir, 8), None);
+        assert_eq!(decision.heap_limit_bytes, Some(512 << 20));
+    }
+
+    #[test]
+    fn limit_never_below_floor() {
+        assert_eq!(heap_limit_per_worker(100 << 20, 8), HEAP_LIMIT_FLOOR_BYTES);
+        assert_eq!(heap_limit_per_worker(1 << 40, 1), HEAP_LIMIT_CEILING_BYTES);
+        assert_eq!(heap_limit_per_worker(1 << 30, 0), 1 << 30);
     }
 
     #[test]
