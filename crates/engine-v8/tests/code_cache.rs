@@ -159,3 +159,64 @@ fn unknown_module_has_no_cache() {
     let mut iso = isolate();
     assert!(iso.create_code_cache("missing.js").is_none());
 }
+
+const BODY: &str = "return a * 21;";
+
+/// Compiles `BODY` (or `body`) as a function of `params`, consuming `cache`; returns `f(2)`.
+fn call_function(iso: &mut V8Isolate, body: &str, params: &[&str], cache: Option<&[u8]>) -> Value {
+    let function = iso
+        .compile_function(&src("f.js", body), params, cache)
+        .expect("compile_function");
+    iso.call(&function, &Value::Undefined, &[Value::Number(2.0)])
+        .expect("call")
+}
+
+fn function_blob() -> Vec<u8> {
+    let mut iso = isolate();
+    assert_eq!(
+        call_function(&mut iso, BODY, &["a"], None),
+        Value::Number(42.0)
+    );
+    iso.create_function_code_cache("f.js").expect("cache")
+}
+
+#[test]
+fn compile_function_consumes_its_cache() {
+    let blob = function_blob();
+    let mut iso = isolate();
+    let out = call_function(&mut iso, BODY, &["a"], Some(&blob));
+    assert_eq!(out, Value::Number(42.0));
+    assert_eq!(
+        iso.code_cache_stats(),
+        CodeCacheStats {
+            accepted: 1,
+            rejected: 0
+        }
+    );
+}
+
+#[test]
+fn compile_function_rejects_cache_for_changed_source() {
+    let blob = function_blob();
+    let edited = BODY.replace("21", "22");
+    let mut iso = isolate();
+    let out = call_function(&mut iso, &edited, &["a"], Some(&blob));
+    assert_eq!(out, Value::Number(44.0));
+    assert_eq!(
+        iso.code_cache_stats(),
+        CodeCacheStats {
+            accepted: 0,
+            rejected: 1
+        }
+    );
+}
+
+#[test]
+fn compile_function_rejects_cache_for_changed_params() {
+    let blob = function_blob();
+    let mut iso = isolate();
+    let body = "return b * 21;";
+    let out = call_function(&mut iso, body, &["b"], Some(&blob));
+    assert_eq!(out, Value::Number(42.0));
+    assert_eq!(iso.code_cache_stats().rejected, 1);
+}

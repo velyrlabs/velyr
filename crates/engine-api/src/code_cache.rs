@@ -29,6 +29,16 @@ pub fn source_digest(source_text: &str) -> u64 {
     digest(source_text.as_bytes())
 }
 
+/// Identity of a function body for [`seal`] and [`open`]; `params` are part of it, so a
+/// changed parameter list never reuses a blob.
+pub fn function_digest(params: &[&str], body: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(params.join(",").as_bytes());
+    hasher.write(b"\n");
+    hasher.write(body.as_bytes());
+    hasher.finish()
+}
+
 /// Wraps `payload` (engine bytes produced for the source with this `source_digest`) in a
 /// self-checking envelope.
 pub fn seal(source_digest: u64, payload: &[u8]) -> Vec<u8> {

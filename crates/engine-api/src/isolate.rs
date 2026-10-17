@@ -237,6 +237,15 @@ pub trait CallContext {
     fn compile_module(&mut self, _source: &Source) -> Result<Handle, HostError> {
         Err(unsupported_modules())
     }
+    /// See [`Isolate::compile_function`]. Lets an op compile a CommonJS wrapper.
+    fn compile_function(
+        &mut self,
+        _source: &Source,
+        _params: &[&str],
+        _cache: Option<&[u8]>,
+    ) -> Result<Value, HostError> {
+        Err(unsupported_function())
+    }
     /// See [`Isolate::instantiate_module`]. No JS runs while linking, only `hook`.
     fn instantiate_module(
         &mut self,
@@ -379,6 +388,23 @@ pub trait Isolate {
         None
     }
 
+    /// Compiles `source` as the body of a function taking `params` (no wrapper text, so a code
+    /// cache fits) and returns it; `cache` is consumed like in `compile_module_cached`.
+    fn compile_function(
+        &mut self,
+        _source: &Source,
+        _params: &[&str],
+        _cache: Option<&[u8]>,
+    ) -> Result<Value, JsException> {
+        Err(JsException::unsupported("compile_function"))
+    }
+
+    /// Sealed code cache of the function compiled as `name` (a `Source::name`), best taken after
+    /// it ran. `None` if unsupported or unknown.
+    fn create_function_code_cache(&mut self, _name: &str) -> Option<Vec<u8>> {
+        None
+    }
+
     /// Code caches this isolate accepted and rejected, hook-supplied ones included.
     fn code_cache_stats(&self) -> CodeCacheStats {
         CodeCacheStats::default()
@@ -516,6 +542,12 @@ fn unsupported_hook(what: &str) -> HostError {
 fn unsupported_modules() -> HostError {
     HostError::Velyr(VelyrError::unsupported(
         "synchronous module loading is not supported by this engine",
+    ))
+}
+
+fn unsupported_function() -> HostError {
+    HostError::Velyr(VelyrError::unsupported(
+        "compile_function is not supported by this engine",
     ))
 }
 

@@ -11,6 +11,7 @@ use std::sync::atomic::AtomicBool;
 
 use velyr_engine_api::{CodeCacheStats, HostFn, ResolverId, Value};
 
+use crate::code_cache::CompiledFunction;
 use crate::convert::{from_v8, to_v8};
 use crate::handles::HandleTable;
 use crate::modules::{self, ModuleGraph};
@@ -19,6 +20,8 @@ use crate::modules::{self, ModuleGraph};
 pub(crate) struct Shared {
     pub(crate) handles: RefCell<HandleTable>,
     pub(crate) modules: RefCell<ModuleGraph>,
+    /// Functions from `compile_function` by `Source::name`, for `create_function_code_cache`.
+    pub(crate) functions: RefCell<HashMap<String, CompiledFunction>>,
     /// Compile name of the entry module, for `import.meta.main`.
     pub(crate) entry_module: RefCell<Option<String>>,
     pub(crate) slots: RefCell<HashMap<TypeId, Box<dyn Any>>>,
@@ -46,6 +49,7 @@ impl Shared {
         self.resolvers.borrow_mut().clear();
         self.unhandled.borrow_mut().clear();
         *self.modules.borrow_mut() = ModuleGraph::default();
+        self.functions.borrow_mut().clear();
     }
 
     pub(crate) fn new_promise(&self, scope: &mut v8::PinScope<'_, '_>) -> (Value, ResolverId) {

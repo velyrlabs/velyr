@@ -109,6 +109,21 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.create_code_cache(name)
     }
 
+    fn compile_function(
+        &mut self,
+        source: &Source,
+        params: &[&str],
+        cache: Option<&[u8]>,
+    ) -> Result<Value, JsException> {
+        self.on_owner();
+        self.inner.compile_function(source, params, cache)
+    }
+
+    fn create_function_code_cache(&mut self, name: &str) -> Option<Vec<u8>> {
+        self.on_owner();
+        self.inner.create_function_code_cache(name)
+    }
+
     fn code_cache_stats(&self) -> CodeCacheStats {
         self.inner.code_cache_stats()
     }

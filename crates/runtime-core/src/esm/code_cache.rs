@@ -26,6 +26,15 @@ pub(super) fn publish(isolate: &mut impl Isolate, shared: &SharedCache, loaded: 
             produced += 1;
         }
     }
+    for (id, hash) in shared.take_pending_functions() {
+        let blob = id
+            .to_path()
+            .and_then(|path| isolate.create_function_code_cache(&path.to_string_lossy()));
+        if let Some(blob) = blob {
+            shared.insert_code(&id, &hash, Arc::from(blob));
+            produced += 1;
+        }
+    }
     let stats = isolate.code_cache_stats();
     shared.record_uses(stats.accepted, stats.rejected);
     tracing::debug!(

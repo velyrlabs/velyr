@@ -298,6 +298,21 @@ impl Isolate for V8Isolate {
         self.enter(|scope, shared| code_cache::create(scope, shared, name))
     }
 
+    fn compile_function(
+        &mut self,
+        source: &Source,
+        params: &[&str],
+        cache: Option<&[u8]>,
+    ) -> Result<Value, JsException> {
+        self.enter(|scope, shared| {
+            code_cache::compile_function(scope, shared, source, params, cache)
+        })
+    }
+
+    fn create_function_code_cache(&mut self, name: &str) -> Option<Vec<u8>> {
+        self.enter(|scope, shared| code_cache::create_function(scope, shared, name))
+    }
+
     fn code_cache_stats(&self) -> CodeCacheStats {
         self.shared.code_cache_stats.get()
     }

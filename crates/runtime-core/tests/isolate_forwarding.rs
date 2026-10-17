@@ -94,3 +94,21 @@ fn loop_isolate_forwards_check_script() {
     assert!(valid);
     assert!(!invalid);
 }
+
+#[test]
+fn loop_isolate_forwards_compile_function_and_function_cache() {
+    let (compiled, cached) = with_loop_isolate(|isolate| {
+        let source = Source {
+            name: "fn.js".into(),
+            text: "return a + 1;".into(),
+        };
+        // The trait defaults return `Err(unsupported)` and `None`.
+        let compiled = isolate.compile_function(&source, &["a"], None).is_ok();
+        (
+            compiled,
+            isolate.create_function_code_cache("fn.js").is_some(),
+        )
+    });
+    assert!(compiled);
+    assert!(cached);
+}

@@ -19,7 +19,8 @@ mod tick_flags;
 mod value;
 
 pub use code_cache::{
-    CodeCacheStats, open as open_code_cache, seal as seal_code_cache, source_digest,
+    CodeCacheStats, function_digest, open as open_code_cache, seal as seal_code_cache,
+    source_digest,
 };
 pub use error::{EngineError, HostError};
 pub use features::EngineFeatures;

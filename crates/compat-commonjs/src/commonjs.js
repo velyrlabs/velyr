@@ -6,10 +6,12 @@
   const resolveOp = global.op_cjs_resolve;
   const readOp = global.op_cjs_read;
   const requireEsmOp = global.op_cjs_require_esm;
+  const compileOp = global.op_cjs_compile;
   const dlopenOp = global.op_cjs_dlopen;
   delete global.op_cjs_resolve;
   delete global.op_cjs_read;
   delete global.op_cjs_require_esm;
+  delete global.op_cjs_compile;
   delete global.op_cjs_dlopen;
 
   const cache = Object.create(null);
@@ -91,6 +93,29 @@
     }
   }
 
+  // Set once the engine reports it has no `compile_function`; `new Function` takes over.
+  let legacyCompile = false;
+
+  function compileWrapper(filename, body) {
+    if (!legacyCompile) {
+      try {
+        return compileOp(filename, body);
+      } catch (error) {
+        if (error.code !== "VELYR_UNSUPPORTED") throw error;
+        legacyCompile = true;
+      }
+    }
+    return new Function(
+      "exports",
+      "require",
+      "module",
+      "__filename",
+      "__dirname",
+      "__velyrImport",
+      `${body}\n//# sourceURL=${filename}`,
+    );
+  }
+
   function run(module, format) {
     if (format === "native") {
       module.exports = dlopenOp(module.filename);
@@ -107,12 +132,16 @@
       return;
     }
     const body = text.startsWith("#!") ? `//${text}` : text;
-    const factory = new Function(
-      "__velyrImport",
-      `return function (exports, require, module, __filename, __dirname) {${body}\n}\n//# sourceURL=${module.filename}`,
+    const wrapper = compileWrapper(module.filename, body);
+    wrapper.call(
+      module.exports,
+      module.exports,
+      makeRequire(module),
+      module,
+      module.filename,
+      module.path,
+      (specifier) => importFrom(module.filename, specifier),
     );
-    const wrapper = factory((specifier) => importFrom(module.filename, specifier));
-    wrapper.call(module.exports, module.exports, makeRequire(module), module, module.filename, module.path);
   }
 
   function load(filename, parent, format) {

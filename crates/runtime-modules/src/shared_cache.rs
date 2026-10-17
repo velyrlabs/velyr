@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 use crate::{ModuleId, ModuleSource};
 
@@ -37,6 +37,8 @@ static GLOBAL: OnceLock<Arc<SharedCache>> = OnceLock::new();
 pub struct SharedCache {
     sources: RwLock<HashMap<ModuleId, (Stamp, Arc<ModuleSource>)>>,
     code: RwLock<CodeEntries>,
+    /// CommonJS functions compiled without a cache, waiting for `publish` to create one.
+    pending_functions: Mutex<Vec<(ModuleId, String)>>,
     code_bytes: AtomicUsize,
     accepted: AtomicU32,
     rejected: AtomicU32,
@@ -88,6 +90,19 @@ impl SharedCache {
                 self.code_bytes.fetch_add(blob.len(), Ordering::Relaxed);
                 blob
             });
+    }
+
+    /// Records that function `id` was compiled without a cache; `hash` is its key in [`code`](Self::code).
+    pub fn note_function(&self, id: &ModuleId, hash: &str) {
+        self.pending_functions
+            .lock()
+            .unwrap()
+            .push((id.clone(), hash.to_owned()));
+    }
+
+    /// The functions [`note_function`](Self::note_function) recorded since the last call.
+    pub fn take_pending_functions(&self) -> Vec<(ModuleId, String)> {
+        std::mem::take(&mut *self.pending_functions.lock().unwrap())
     }
 
     /// Adds what one isolate consumed: caches the engine accepted and rejected.

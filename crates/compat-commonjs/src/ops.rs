@@ -4,10 +4,12 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use velyr_engine_api::{CallContext, HostError, HostFunctionDef, JsString, Value};
+use velyr_engine_api::{
+    CallContext, HostError, HostFunctionDef, JsString, Source, Value, function_digest,
+};
 use velyr_runtime_core::require_esm;
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::authorize_path;
+use velyr_runtime_modules::{ModuleId, SharedCache, authorize_path};
 use velyr_runtime_ops::CapabilityKind;
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -22,7 +24,7 @@ pub(crate) struct CommonJsState {
     pub conditions: Vec<String>,
 }
 
-pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 3] = [
+pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 4] = [
     (
         HostFunctionDef {
             name: "op_cjs_resolve",
@@ -47,6 +49,24 @@ pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 3] = [
         },
         CapabilityKind::ImportLocal,
     ),
+    (
+        HostFunctionDef {
+            name: "op_cjs_compile",
+            arity: 2,
+            callback: op_cjs_compile,
+        },
+        CapabilityKind::ImportLocal,
+    ),
+];
+
+/// Parameters of a compiled CommonJS module; the sixth is the rewritten dynamic `import()`.
+const WRAPPER_PARAMS: [&str; 6] = [
+    "exports",
+    "require",
+    "module",
+    "__filename",
+    "__dirname",
+    "__velyrImport",
 ];
 
 fn string_arg(args: &[Value], index: usize, op: &str) -> Result<String, HostError> {
@@ -111,4 +131,29 @@ fn op_cjs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostE
 fn op_cjs_require_esm(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let path = string_arg(args, 0, "op_cjs_require_esm")?;
     Ok(require_esm(ctx, Path::new(&path))?.unwrap_or(Value::Undefined))
+}
+
+/// `op_cjs_compile(path, text) -> function`: `text` compiled as the body of a function of
+/// [`WRAPPER_PARAMS`], through the shared code cache when it is on. Engines without
+/// `compile_function` answer `VELYR_UNSUPPORTED` and the loader falls back to `new Function`.
+fn op_cjs_compile(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let path = string_arg(args, 0, "op_cjs_compile")?;
+    let source = Source {
+        name: path,
+        text: string_arg(args, 1, "op_cjs_compile")?,
+    };
+    let shared = SharedCache::global()
+        .zip(ModuleId::from_path(Path::new(&source.name)))
+        .map(|(shared, id)| {
+            let key = format!("fn:{:016x}", function_digest(&WRAPPER_PARAMS, &source.text));
+            (shared, id, key)
+        });
+    let cached = shared
+        .as_ref()
+        .and_then(|(shared, id, key)| shared.code(id, key));
+    let function = ctx.compile_function(&source, &WRAPPER_PARAMS, cached.as_deref())?;
+    if let (None, Some((shared, id, key))) = (cached, shared) {
+        shared.note_function(&id, &key);
+    }
+    Ok(function)
 }

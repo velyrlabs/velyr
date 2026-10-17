@@ -14,6 +14,7 @@ use velyr_engine_api::{
 };
 use velyr_runtime_errors::VelyrError;
 
+use crate::code_cache;
 use crate::convert::{from_v8, to_v8};
 use crate::shared::Shared;
 use crate::{modules, serialize};
@@ -376,6 +377,16 @@ impl CallContext for HostContext<'_, '_, '_> {
 
     fn compile_module(&mut self, source: &Source) -> Result<Handle, HostError> {
         modules::compile(self.scope, self.shared, source, None).map_err(exception_to_host)
+    }
+
+    fn compile_function(
+        &mut self,
+        source: &Source,
+        params: &[&str],
+        cache: Option<&[u8]>,
+    ) -> Result<Value, HostError> {
+        code_cache::compile_function(self.scope, self.shared, source, params, cache)
+            .map_err(exception_to_host)
     }
 
     fn instantiate_module(
