@@ -203,7 +203,12 @@ pub(in super::super) fn array_find_last_index<const TYPED: bool>(
     Ok(Value::Number(found.map_or(-1.0, |(index, _)| index)))
 }
 
-fn reduce<const TYPED: bool>(vm: &mut Interpreter, this: &Value, args: &[Value], ascending: bool) -> JsResult<Value> {
+fn reduce<const TYPED: bool>(
+    vm: &mut Interpreter,
+    this: &Value,
+    args: &[Value],
+    ascending: bool,
+) -> JsResult<Value> {
     let method = if ascending { "reduce" } else { "reduceRight" };
     let (object, length) = this_array_with(vm, this, TYPED)?;
     let callback = vm.callback_arg(args, method)?;
