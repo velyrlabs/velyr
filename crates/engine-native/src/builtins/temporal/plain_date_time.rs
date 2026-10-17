@@ -1,17 +1,15 @@
 //! `Temporal.PlainDateTime` ops; the state is the ISO date-time string.
 
 use temporal_rs::options::DisplayCalendar;
-use temporal_rs::{Calendar, PlainDateTime, TemporalError, TemporalResult};
+use temporal_rs::{PlainDateTime, TemporalError, TemporalResult};
 
 use super::{
-    Args, Res, arg, date_fields, difference, duration, ensure_iso, num, opt, ordering, overflow,
+    Args, Res, arg, calendar, date_fields, difference, duration, num, opt, ordering, overflow,
     rounding, text_options, time_fields, time_zone,
 };
 
-fn parse(text: &str) -> TemporalResult<PlainDateTime> {
-    let value = PlainDateTime::from_utf8(text.as_bytes())?;
-    ensure_iso(value.calendar())?;
-    Ok(value)
+pub(super) fn parse(text: &str) -> TemporalResult<PlainDateTime> {
+    PlainDateTime::from_utf8(text.as_bytes())
 }
 
 fn datetime(a: Args, i: usize) -> TemporalResult<PlainDateTime> {
@@ -44,11 +42,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
                 ms,
                 us,
                 ns,
-                Calendar::ISO,
+                calendar(a, 10)?,
                 overflow,
             )
             .and_then(text)
         }
+        "withCalendar" => Ok(text(datetime(a, 0)?.with_calendar(calendar(a, 1)?))?),
         "fields" => {
             let value = datetime(a, 0)?;
             Ok(format!("{},{}", date_fields!(value), time_fields!(value)))

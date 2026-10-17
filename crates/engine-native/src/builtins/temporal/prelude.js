@@ -14,12 +14,16 @@
     return arg === undefined ? '' : `${arg}`;
   };
   const op = (cls, method, ...args) => rawOp(cls, method, ...args.map(opText));
-  // Temporal objects with a calendar slot (all iso8601) are read without touching their properties.
+  // The calendar lives in the `[u-ca=...]` annotation of a canonical string (none: iso8601).
+  const CALENDAR_ANNOTATION = /\[!?u-ca=([^\]]+)\]/;
+  const slotCalendar = (str) => CALENDAR_ANNOTATION.exec(str)?.[1] ?? 'iso8601';
+  // Temporal objects with a calendar slot are read without touching their properties; with
+  // `allowText`, any ISO string is accepted too (its annotation is the calendar).
   const CALENDAR_SLOT_CLASSES = ['PlainDate', 'PlainDateTime', 'PlainMonthDay', 'PlainYearMonth', 'ZonedDateTime'];
-  const calendarId = (value) => {
-    if (typeof value === 'object' && value !== null && CALENDAR_SLOT_CLASSES.includes(slots.get(value)?.cls)) return 'iso8601';
+  const calendarId = (value, allowText = false) => {
+    if (typeof value === 'object' && value !== null && CALENDAR_SLOT_CLASSES.includes(slots.get(value)?.cls)) return slotCalendar(slots.get(value).str);
     if (typeof value !== 'string') throw new TypeError('calendar must be a string');
-    return op('Calendar', 'id', value);
+    return op('Calendar', allowText ? 'parse' : 'id', value);
   };
   const timeZoneId = (value) => {
     if (typeof value !== 'string') throw new TypeError('timeZone must be a string');
@@ -119,12 +123,17 @@
     const mode = optionText(o, 'roundingMode');
     return [digits, optionText(o, 'smallestUnit'), mode];
   };
-  const calendarSuffix = (str, options) => {
-    const name = optionText(optionsOf(options), 'calendarName');
-    if (name === 'always') return `${str}[u-ca=iso8601]`;
-    if (name === 'critical') return `${str}[!u-ca=iso8601]`;
+  // Applies a validated `calendarName` ('auto' | 'always' | 'never' | 'critical' | undefined) to
+  // a canonical string, which already carries the annotation when the calendar is not iso8601.
+  const withCalendarName = (str, name) => {
+    const id = slotCalendar(str);
+    const bare = str.replace(CALENDAR_ANNOTATION, '');
+    if (name === 'never') return bare;
+    if (name === 'always') return `${bare}[u-ca=${id}]`;
+    if (name === 'critical') return `${bare}[!u-ca=${id}]`;
     return str;
   };
+  const calendarSuffix = (str, options) => withCalendarName(str, optionText(optionsOf(options), 'calendarName'));
 
   // Reads `names` from a property bag in the given order (callers pass spec order), one Get
   // each; undefined properties are skipped.
@@ -411,7 +420,7 @@
   defineProperty(global, '__temporal_shared', {
     value: {
       op, slots, define, defineMethods, calendarId, timeZoneId, getters, tag, wrap, slotOf, strOf, fieldsOf, toInt, toIntOr, optionsOf,
-      optionText, overflowOf, diffArgs, roundArgs, stringArgs, calendarSuffix, readBag,
+      optionText, overflowOf, diffArgs, roundArgs, stringArgs, calendarSuffix, withCalendarName, slotCalendar, readBag,
       monthFromCode, Temporal, installCommon, durationStr, wrapDuration,
     },
     configurable: true,

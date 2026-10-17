@@ -3,8 +3,9 @@
 //! a WeakMap); every operation goes through the single native op `__temporal_op(class,
 //! method, ...string args)`, which parses the strings, calls `temporal_rs` and returns a
 //! string. The prelude captures the op and deletes it from the global.
-//! shortcut: only the iso8601 calendar, no `toLocaleString`, `PlainYearMonth`/`PlainMonthDay`
-//! or `getTimeZoneTransition`; every call re-parses its receiver, so it is not for hot loops.
+//! shortcut: `PlainYearMonth`/`PlainMonthDay` are iso8601 only (N48) and no type does calendar
+//! arithmetic yet (N46); no `toLocaleString`; every call re-parses its receiver, so it is not
+//! for hot loops.
 
 mod duration;
 mod instant;
@@ -126,6 +127,14 @@ fn ordering(order: Ordering) -> Res {
     Ok((order as i8).to_string())
 }
 
+/// The calendar at `a[i]` (`""` is iso8601); a RangeError for an unsupported identifier.
+fn calendar(a: Args, i: usize) -> TemporalResult<Calendar> {
+    match arg(a, i) {
+        "" => Ok(Calendar::ISO),
+        id => Calendar::try_from_utf8(id.as_bytes()),
+    }
+}
+
 fn ensure_iso(calendar: &Calendar) -> TemporalResult<()> {
     match calendar.identifier() {
         "iso8601" => Ok(()),
@@ -178,6 +187,23 @@ fn calendar_id(a: Args) -> Res {
     Calendar::try_from_utf8(arg(a, 0).as_bytes()).map(|c| c.identifier().to_owned())
 }
 
+/// Like `calendar_id`, but also accepts any ISO string and returns its calendar annotation
+/// (`iso8601` without one), as `ToTemporalCalendarIdentifier` does.
+fn calendar_of_text(a: Args) -> Res {
+    let text = arg(a, 0);
+    if let Ok(found) = calendar_id(a) {
+        return Ok(found);
+    }
+    let bytes = text.as_bytes();
+    let id = |c: &Calendar| c.identifier().to_owned();
+    plain_date_time::parse(text)
+        .map(|v| id(v.calendar()))
+        .or_else(|_| plain_date::parse(text).map(|v| id(v.calendar())))
+        .or_else(|_| temporal_rs::PlainTime::from_utf8(bytes).map(|_| "iso8601".to_owned()))
+        .or_else(|_| temporal_rs::PlainYearMonth::from_utf8(bytes).map(|v| id(v.calendar())))
+        .or_else(|_| temporal_rs::PlainMonthDay::from_utf8(bytes).map(|v| id(v.calendar())))
+}
+
 /// Canonical id of a time zone or offset string, or a RangeError.
 fn timezone_id(a: Args) -> Res {
     time_zone(a, 0)?.identifier()
@@ -185,7 +211,10 @@ fn timezone_id(a: Args) -> Res {
 
 fn run(class: &str, method: &str, a: Args) -> Res {
     match class {
-        "Calendar" => calendar_id(a),
+        "Calendar" => match method {
+            "parse" => calendar_of_text(a),
+            _ => calendar_id(a),
+        },
         "TimeZone" => timezone_id(a),
         "PlainDate" => plain_date::run(method, a),
         "PlainTime" => plain_time::run(method, a),

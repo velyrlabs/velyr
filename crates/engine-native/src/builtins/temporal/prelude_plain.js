@@ -5,7 +5,7 @@
   const {
     op, slots, define, getters, wrap, slotOf, strOf, fieldsOf, optionsOf, optionText,
     overflowOf, monthFromCode, Temporal, installCommon, calendarId, defineMethods, durationStr,
-    wrapDuration,
+    wrapDuration, withCalendarName, slotCalendar,
   } = T;
   const { defineProperty } = Object;
 
@@ -25,7 +25,7 @@
   // Getters over the `fields` csv: 12 date fields, then 6 time fields.
   T.installDateGetters = (proto, cls) => {
     const table = {
-      calendarId() { fieldsOf(this, cls); return 'iso8601'; },
+      calendarId() { fieldsOf(this, cls); return slotCalendar(slotOf(this).str); },
       era() { fieldsOf(this, cls); return undefined; },
       eraYear() { fieldsOf(this, cls); return undefined; },
     };
@@ -80,22 +80,11 @@
     if (name === 'monthCode' && !MONTH_CODE_SYNTAX.test(primitive)) throw new RangeError(`Invalid month code ${primitive}`);
     return primitive;
   };
-  // shortcut: year-month and month-day strings are matched by shape only (no PlainYearMonth or
-  // PlainMonthDay parser yet); the other ISO strings go through the native parsers.
-  const YEAR_MONTH_OR_MONTH_DAY = /^(?:[0-9]{4}-[0-9]{2}|[0-9]{2}-[0-9]{2})(?:\[u-ca=iso8601\])?$/;
-  const parsesAsIso = (text) =>
-    YEAR_MONTH_OR_MONTH_DAY.test(text) || ['PlainDateTime', 'PlainTime', 'PlainDate'].some((cls) => {
-      try {
-        op(cls, 'parse', text);
-        return true;
-      } catch (error) {
-        return false;
-      }
-    });
   // The constructors take calendar ids only; everywhere else an ISO string is accepted too.
-  const isoCalendar = (value, allowText = true) => {
-    if (allowText && typeof value === 'string' && parsesAsIso(value)) return;
-    if (calendarId(value) !== 'iso8601') throw new RangeError('Only the iso8601 calendar is supported');
+  const calendarOf = (value, allowText = true) => calendarId(value, allowText);
+  // shortcut: bag fields are read as ISO fields, so a non-iso `calendar` is refused until N46.
+  const bagCalendar = (value) => {
+    if (calendarOf(value) !== 'iso8601') throw new RangeError('Property bags with a non-iso8601 calendar are not supported yet');
   };
   const MINIMUM = { day: 1, month: 1 };
   const readFields = (bag, names) => {
@@ -103,7 +92,7 @@
     for (const name of names) {
       const value = bag[name];
       if (value === undefined) continue;
-      if (name === 'calendar') isoCalendar(value);
+      if (name === 'calendar') bagCalendar(value);
       else out[name] = name === 'monthCode' ? textField(value, name) : numericField(value, name, MINIMUM[name] ?? (TIME_NAMES.includes(name) ? 0 : undefined));
     }
     return out;
@@ -152,8 +141,8 @@
     if (name !== undefined && !CALENDAR_NAMES.includes(name)) throw new RangeError(`${name} is not a valid calendarName`);
     return name;
   };
-  const withCalendarName = (str, name) =>
-    name === 'always' ? `${str}[u-ca=iso8601]` : name === 'critical' ? `${str}[!u-ca=iso8601]` : str;
+  // `str` with `time` between its date-time and its annotations.
+  const withTime = (str, time) => str.replace(/^[^[T]*(?:T[^[]*)?/, (head) => `${head.split('T')[0]}T${time}`);
   const digitsOf = (value) => {
     if (typeof value !== 'number') {
       if (`${value}` !== 'auto') throw new RangeError('fractionalSecondDigits must be auto or 0-9');
@@ -230,8 +219,8 @@
   class PlainDate {
     constructor(year, month, day, calendar = 'iso8601') {
       const parts = [numericField(year, 'year'), numericField(month, 'month', 1), numericField(day, 'day', 1)];
-      isoCalendar(calendar, false);
-      slots.set(this, { cls: 'PlainDate', str: op('PlainDate', 'create', ...parts, 'reject') });
+      const id = calendarOf(calendar, false);
+      slots.set(this, { cls: 'PlainDate', str: op('PlainDate', 'create', ...parts, 'reject', id) });
     }
 
     static from(item, options) {
@@ -260,14 +249,11 @@
     }
 
     withCalendar(calendar) {
-      const str = strOf(this, 'PlainDate');
-      isoCalendar(calendar);
-      return wrapDate(str);
+      return wrapDate(op('PlainDate', 'withCalendar', strOf(this, 'PlainDate'), calendarOf(calendar)));
     }
 
     toPlainDateTime(time) {
-      const str = `${strOf(this, 'PlainDate')}T${timeText(time)}`;
-      return Temporal.PlainDateTime.from(str);
+      return Temporal.PlainDateTime.from(withTime(strOf(this, 'PlainDate'), timeText(time)));
     }
 
     toPlainYearMonth() {
@@ -365,7 +351,7 @@
   const wrapDateTime = (str) => wrap(PlainDateTime.prototype, 'PlainDateTime', str);
   const dateTimeFromSlot = (item) => {
     const slot = fromSlot(item, ['PlainDate', 'PlainDateTime', 'ZonedDateTime']);
-    return op('PlainDateTime', 'parse', slot.cls === 'PlainDate' ? `${slot.str}T00:00:00` : slot.str);
+    return op('PlainDateTime', 'parse', slot.cls === 'PlainDate' ? withTime(slot.str, '00:00:00') : slot.str);
   };
 
   class PlainDateTime {
@@ -373,8 +359,8 @@
       const date = [numericField(year, 'year'), numericField(month, 'month', 1), numericField(day, 'day', 1)];
       const values = [hour, minute, second, millisecond, microsecond, nanosecond];
       const time = values.map((value, i) => numericField(value, TIME_NAMES[i], 0));
-      isoCalendar(calendar, false);
-      slots.set(this, { cls: 'PlainDateTime', str: op('PlainDateTime', 'create', ...date, ...time, 'reject') });
+      const id = calendarOf(calendar, false);
+      slots.set(this, { cls: 'PlainDateTime', str: op('PlainDateTime', 'create', ...date, ...time, 'reject', id) });
     }
 
     static from(item, options) {
@@ -406,14 +392,11 @@
     }
 
     withPlainTime(plainTime) {
-      const date = strOf(this, 'PlainDateTime').split('T')[0];
-      return wrapDateTime(op('PlainDateTime', 'parse', `${date}T${timeText(plainTime)}`));
+      return wrapDateTime(op('PlainDateTime', 'parse', withTime(strOf(this, 'PlainDateTime'), timeText(plainTime))));
     }
 
     withCalendar(calendar) {
-      const str = strOf(this, 'PlainDateTime');
-      isoCalendar(calendar);
-      return wrapDateTime(str);
+      return wrapDateTime(op('PlainDateTime', 'withCalendar', strOf(this, 'PlainDateTime'), calendarOf(calendar)));
     }
 
     round(roundTo) {

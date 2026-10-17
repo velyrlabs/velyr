@@ -48,24 +48,11 @@
   };
   const MONTH_CODE_SYNTAX = /^M[0-9]{2}L?$/;
   const OFFSET_SYNTAX = /^[+-]\d\d(?::\d\d(?::\d\d(?:[.,]\d{1,9})?)?|\d\d(?:\d\d(?:[.,]\d{1,9})?)?)?$/;
-  // shortcut: year-month and month-day strings are matched by shape only; the other ISO
-  // strings go through the native parsers.
-  const YEAR_MONTH_OR_MONTH_DAY = /^(?:[0-9]{4}-[0-9]{2}|[0-9]{2}-[0-9]{2})(?:\[u-ca=iso8601\])?$/;
-  const parsesAsIso = (text) =>
-    YEAR_MONTH_OR_MONTH_DAY.test(text) || ['PlainDateTime', 'PlainTime', 'PlainDate'].some((cls) => {
-      try {
-        op(cls, 'parse', text);
-        return true;
-      } catch (error) {
-        return false;
-      }
-    });
   // Temporal objects carry iso8601; the constructor takes calendar ids only (no ISO strings).
   const calendarField = (value, allowText = true) => {
     const slot = slotOf(value);
-    if (slot !== undefined && slot.cls !== 'Duration') return;
-    if (allowText && typeof value === 'string' && parsesAsIso(value)) return;
-    if (calendarId(value) !== 'iso8601') throw new RangeError('Only the iso8601 calendar is supported');
+    if (slot !== undefined && slot.cls !== 'Duration') return calendarId(value);
+    return calendarId(value, allowText);
   };
   // A time zone identifier, offset or ISO string with a time zone, in canonical form.
   const zoneOf = (value) => {
@@ -280,8 +267,8 @@
       const nanoseconds = toBigInt(epochNanoseconds);
       if (typeof timeZone !== 'string') throw new TypeError('timeZone must be a string');
       const zone = op('ZonedDateTime', 'zoneId', timeZone);
-      if (calendar !== undefined) calendarField(calendar, false);
-      slots.set(this, { cls: 'ZonedDateTime', str: op('ZonedDateTime', 'create', nanoseconds, zone) });
+      const id = calendar === undefined ? 'iso8601' : calendarField(calendar, false);
+      slots.set(this, { cls: 'ZonedDateTime', str: op('ZonedDateTime', 'create', nanoseconds, zone, id) });
     }
 
     static from(item, options) {
@@ -294,7 +281,10 @@
         return wrapZoned(slot.str);
       }
       const calendar = item.calendar;
-      if (calendar !== undefined) calendarField(calendar);
+      // shortcut: bag fields are read as ISO fields, so a non-iso `calendar` is refused until N46.
+      if (calendar !== undefined && calendarField(calendar) !== 'iso8601') {
+        throw new RangeError('Property bags with a non-iso8601 calendar are not supported yet');
+      }
       const given = readFields(item, ZONED_READ_ORDER);
       if (given.timeZone === undefined) throw new TypeError('timeZone is required');
       const choices = readChoices(options);
@@ -327,9 +317,7 @@
     }
 
     withCalendar(calendar) {
-      const str = strOf(this, 'ZonedDateTime');
-      calendarField(calendar);
-      return wrapZoned(str);
+      return wrapZoned(op('ZonedDateTime', 'withCalendar', strOf(this, 'ZonedDateTime'), calendarField(calendar)));
     }
 
     withTimeZone(timeZone) {

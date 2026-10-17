@@ -5,7 +5,7 @@ use temporal_rs::provider::TransitionDirection;
 use temporal_rs::{Instant, PlainTime, TemporalError, TemporalResult, TimeZone, ZonedDateTime};
 
 use super::{
-    Args, Res, arg, date_fields, difference, duration, ensure_iso, opt, ordering, overflow, range,
+    Args, Res, arg, calendar, date_fields, difference, duration, opt, ordering, overflow, range,
     rounding, text_options, time_fields, time_zone,
 };
 
@@ -14,9 +14,7 @@ fn parse(
     disambiguation: Disambiguation,
     offset: OffsetDisambiguation,
 ) -> TemporalResult<ZonedDateTime> {
-    let value = ZonedDateTime::from_utf8(text.as_bytes(), disambiguation, offset)?;
-    ensure_iso(value.calendar())?;
-    Ok(value)
+    ZonedDateTime::from_utf8(text.as_bytes(), disambiguation, offset)
 }
 
 /// A canonical string: its offset is trusted (`use`), since the offset is part of the
@@ -42,8 +40,9 @@ pub(super) fn run(method: &str, a: Args) -> Res {
             let ns = arg(a, 0)
                 .parse()
                 .map_err(|_| range("invalid epoch nanoseconds"))?;
-            ZonedDateTime::try_new_iso(ns, time_zone(a, 1)?).map(text)
+            ZonedDateTime::try_new(ns, time_zone(a, 1)?, calendar(a, 2)?).map(text)
         }
+        "withCalendar" => Ok(text(zoned(a, 0)?.with_calendar(calendar(a, 1)?))),
         "fields" => {
             let z = zoned(a, 0)?;
             Ok(format!(
