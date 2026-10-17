@@ -17,6 +17,7 @@ pub(crate) mod intrinsics;
 mod iteration;
 mod jobs;
 mod literal;
+mod lookup;
 #[path = "../module.rs"]
 pub(crate) mod module;
 pub(crate) mod operators;

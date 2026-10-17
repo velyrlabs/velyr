@@ -39,6 +39,8 @@ pub enum Constant {
     GlobalDeclarations(Rc<GlobalDeclarations>),
     /// Operand of `CallDirectEval`: compiles the eval text in the caller's static scope.
     EvalSite(Rc<dyn EvalCode>),
+    /// Operand of `CreateContextWithNames`: slot `i` binds entry `i` (`true` = lexical).
+    ContextNames(Rc<[(JsStr, bool)]>),
 }
 
 impl Constant {
@@ -187,6 +189,16 @@ impl fmt::Debug for Constant {
                 }
             }
             Constant::EvalSite(_) => write!(f, "eval site"),
+            Constant::ContextNames(names) => {
+                let names: Vec<String> = names
+                    .iter()
+                    .map(|(name, lexical)| match lexical {
+                        true => format!("lexical {}", name.to_string_lossy()),
+                        false => name.to_string_lossy(),
+                    })
+                    .collect();
+                write!(f, "context names {names:?}")
+            }
         }
     }
 }

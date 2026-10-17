@@ -89,6 +89,35 @@ pub enum Instruction {
         depth: u32,
         slot: u32,
     },
+    /// `CreateContext` with a `ContextNames` table; `var_scope`: target of direct-eval `var`s.
+    CreateContextWithNames {
+        count: u32,
+        names: ConstIndex,
+        var_scope: bool,
+    },
+    /// `acc` = new `with` context over ToObject(`reg`) whose parent is the current context.
+    PushWithContext(Reg),
+    /// `acc` = dynamic lookup of a name through `with` and eval-var contexts, then the globals.
+    LdaLookup(ConstIndex),
+    /// Like `LdaLookup` but yields `undefined` for an unresolvable name (`typeof x`).
+    LdaLookupForTypeof(ConstIndex),
+    /// PutValue of `acc` on a dynamically resolved name (value preserved).
+    StaLookup {
+        name: ConstIndex,
+        strict: bool,
+    },
+    /// Sloppy `delete name` on a dynamically resolved name.
+    DeleteLookup(ConstIndex),
+    /// `acc` = the callee named `name`; `receiver` = its `with` object, or `undefined`.
+    LdaLookupCallee {
+        name: ConstIndex,
+        receiver: Reg,
+    },
+    /// EvalDeclarationInstantiation of one `var` (or function) name in the nearest var scope.
+    DeclareEvalVar {
+        name: ConstIndex,
+        function: bool,
+    },
 
     /// ReferenceError `<name> is not initialized` when `acc` is the hole.
     ThrowIfHole(ConstIndex),

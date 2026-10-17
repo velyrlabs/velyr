@@ -192,6 +192,14 @@ impl Interpreter {
             | I::AsyncIteratorClose { .. }
             | I::CheckIteratorResult => return self.step_generator(info, instruction),
             I::LdaModuleImport { .. } | I::DynamicImport { .. } => self.step_module(instruction)?,
+            I::CreateContextWithNames { .. }
+            | I::PushWithContext(_)
+            | I::LdaLookup(_)
+            | I::LdaLookupForTypeof(_)
+            | I::StaLookup { .. }
+            | I::DeleteLookup(_)
+            | I::LdaLookupCallee { .. }
+            | I::DeclareEvalVar { .. } => self.step_lookup(info, instruction)?,
             I::Throw | I::ReThrow => return Err(Abrupt::Throw(acc.clone())),
             I::Call { callee, this, args } => {
                 let (f, this, args) = (

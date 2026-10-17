@@ -104,16 +104,13 @@ impl Interpreter {
     pub fn create_module(&mut self, code: ModuleCode) -> Result<ModuleId, Abrupt> {
         self.scoped(|vm| {
             let slots = vec![HOLE; code.context_size.max(1) as usize];
-            let context = vm.alloc_cell(Context {
-                slots,
-                parent: Value::Undefined,
-            })?;
+            let context = vm.new_context(slots, Value::Undefined, None, None, false)?;
             let module_url = code.url.clone();
             let url = Value::String(JsStr::from_str(&module_url));
             let id = vm.state.modules.len();
             vm.state.modules.push(ModuleRecord {
                 code: Rc::new(code),
-                context: Value::Object(context),
+                context,
                 deps: None,
                 linked: false,
                 namespace: Value::Undefined,
@@ -308,11 +305,7 @@ impl Interpreter {
     /// A one-slot context holding the namespace of `module`, the target of an import pair.
     fn namespace_holder(&mut self, module: usize) -> JsResult<Value> {
         let namespace = self.namespace_of(module)?;
-        let holder = self.alloc_cell(Context {
-            slots: vec![namespace],
-            parent: Value::Undefined,
-        })?;
-        let holder = Value::Object(holder);
+        let holder = self.new_context(vec![namespace], Value::Undefined, None, None, false)?;
         self.keep(&holder);
         Ok(holder)
     }

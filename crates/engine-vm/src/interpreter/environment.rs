@@ -1,8 +1,11 @@
 //! Context chain (captured bindings) and the global environment: script-level
 //! `let`/`const` in a declarative record, `var`/functions on the global object.
 
+use std::rc::Rc;
+
 use velyr_engine_gc::{Gc, Trace, Tracer};
 
+use super::lookup::Extension;
 use super::ops::{HOLE, is_hole};
 use super::state::{CodeInfo, Lexical};
 use super::{ErrorKind, Interpreter, JsResult, object_value};
@@ -14,15 +17,21 @@ pub(crate) struct Context {
     pub(crate) slots: Vec<Value>,
     /// Enclosing context, or `Undefined`.
     pub(crate) parent: Value,
+    /// Slot `i` binds `names[i]` (`true` = lexical) for dynamic lookup; shared with the code constant.
+    pub(crate) names: Option<Rc<[(JsStr, bool)]>>,
+    pub(crate) extension: Option<Extension>,
+    /// Target of sloppy direct-eval `var` declarations (a function or eval var scope).
+    pub(crate) is_var_scope: bool,
 }
 
 impl Trace for Context {
     fn trace(&self, tracer: &mut Tracer) {
         self.slots.trace(tracer);
         self.parent.trace(tracer);
+        self.extension.trace(tracer);
     }
 
-    /// The slots never change size once the context is created.
+    /// The slots never change size once the context is created; `names` belongs to the code.
     fn owned_bytes(&self) -> usize {
         self.slots.capacity() * size_of::<Value>()
     }
@@ -32,11 +41,9 @@ impl Interpreter {
     pub(crate) fn step_environment(&mut self, info: &CodeInfo, instruction: &I) -> JsResult<()> {
         match instruction {
             I::CreateContext(count) => {
-                let context = Context {
-                    slots: vec![HOLE; *count as usize],
-                    parent: self.top().context.clone(),
-                };
-                self.state.acc = Value::Object(self.alloc_cell(context)?);
+                let parent = self.top().context.clone();
+                self.state.acc =
+                    self.new_context(vec![HOLE; *count as usize], parent, None, None, false)?;
             }
             I::PushContext(r) => {
                 let next = self.state.acc.clone();
@@ -80,17 +87,7 @@ impl Interpreter {
             }
             I::DeleteGlobal(name) => {
                 let name = self.constant_str(info, *name);
-                let deleted = match self.state.lexicals.contains_key(&name) {
-                    true => false,
-                    false => {
-                        let key = self.string_key(&name);
-                        let global = self.state.intrinsics.global;
-                        self.realm
-                            .delete(global, key)
-                            .map_err(|e| self.object_error(e))?
-                    }
-                };
-                self.state.acc = Value::Bool(deleted);
+                self.state.acc = Value::Bool(self.delete_global(&name)?);
             }
             other => return self.step_property(info, other),
         }
@@ -108,7 +105,7 @@ impl Interpreter {
         }
     }
 
-    fn context_cell(&self, context: &Value) -> &Context {
+    pub(super) fn context_cell(&self, context: &Value) -> &Context {
         let Value::Object(r) = context else {
             panic!("no context is active");
         };
@@ -131,7 +128,7 @@ impl Interpreter {
     }
 
     /// GlobalDeclarationInstantiation: every conflict throws before any binding exists.
-    fn declare_globals(&mut self, declarations: &GlobalDeclarations) -> JsResult<()> {
+    pub(super) fn declare_globals(&mut self, declarations: &GlobalDeclarations) -> JsResult<()> {
         let global = self.state.intrinsics.global;
         let lexical_names = declarations.lets.iter().chain(&declarations.consts);
         for name in lexical_names.clone() {
@@ -213,12 +210,23 @@ impl Interpreter {
         Ok(())
     }
 
-    fn already_declared(&mut self, name: &JsStr) -> super::Abrupt {
+    pub(super) fn already_declared(&mut self, name: &JsStr) -> super::Abrupt {
         let message = format!(
             "Identifier '{}' has already been declared",
             name.to_string_lossy()
         );
         self.error(ErrorKind::Syntax, &message)
+    }
+
+    pub(super) fn delete_global(&mut self, name: &JsStr) -> JsResult<bool> {
+        if self.state.lexicals.contains_key(name) {
+            return Ok(false);
+        }
+        let key = self.string_key(name);
+        let global = self.state.intrinsics.global;
+        self.realm
+            .delete(global, key)
+            .map_err(|e| self.object_error(e))
     }
 
     fn load_global(
@@ -228,15 +236,23 @@ impl Interpreter {
         inside_typeof: bool,
     ) -> JsResult<Value> {
         let name = self.constant_str(info, name);
-        if let Some(lexical) = self.state.lexicals.get(&name) {
+        self.load_global_name(&name, inside_typeof)
+    }
+
+    pub(super) fn load_global_name(
+        &mut self,
+        name: &JsStr,
+        inside_typeof: bool,
+    ) -> JsResult<Value> {
+        if let Some(lexical) = self.state.lexicals.get(name) {
             let value = lexical.value.clone();
             if is_hole(&value) {
-                return Err(self.not_initialized(&name));
+                return Err(self.not_initialized(name));
             }
             return Ok(value);
         }
         let global = self.state.intrinsics.global;
-        let key = self.string_key(&name);
+        let key = self.string_key(name);
         if self
             .realm
             .has_property(global, key)
@@ -247,15 +263,25 @@ impl Interpreter {
         if inside_typeof {
             return Ok(Value::Undefined);
         }
-        Err(self.not_defined(&name))
+        Err(self.not_defined(name))
     }
 
     fn store_global(&mut self, info: &CodeInfo, name: ConstIndex) -> JsResult<()> {
         let name = self.constant_str(info, name);
         let value = self.state.acc.clone();
-        if let Some(lexical) = self.state.lexicals.get_mut(&name) {
+        let is_strict = self.top().info.code.is_strict;
+        self.store_global_name(&name, value, is_strict)
+    }
+
+    pub(super) fn store_global_name(
+        &mut self,
+        name: &JsStr,
+        value: Value,
+        is_strict: bool,
+    ) -> JsResult<()> {
+        if let Some(lexical) = self.state.lexicals.get_mut(name) {
             if is_hole(&lexical.value) {
-                return Err(self.not_initialized(&name));
+                return Err(self.not_initialized(name));
             }
             if lexical.is_const {
                 let message = format!(
@@ -268,14 +294,13 @@ impl Interpreter {
             return Ok(());
         }
         let global = self.state.intrinsics.global;
-        let key = self.string_key(&name);
-        let is_strict = self.top().info.code.is_strict;
+        let key = self.string_key(name);
         let exists = self
             .realm
             .has_property(global, key)
             .map_err(|e| self.object_error(e))?;
         if !exists && is_strict {
-            return Err(self.not_defined(&name));
+            return Err(self.not_defined(name));
         }
         let done = self.set(global, key, value, &object_value(global))?;
         if !done && is_strict {
@@ -288,12 +313,12 @@ impl Interpreter {
         Ok(())
     }
 
-    fn not_initialized(&mut self, name: &JsStr) -> super::Abrupt {
+    pub(super) fn not_initialized(&mut self, name: &JsStr) -> super::Abrupt {
         let message = format!("{} is not initialized", name.to_string_lossy());
         self.error(ErrorKind::Reference, &message)
     }
 
-    fn not_defined(&mut self, name: &JsStr) -> super::Abrupt {
+    pub(super) fn not_defined(&mut self, name: &JsStr) -> super::Abrupt {
         let message = format!("{} is not defined", name.to_string_lossy());
         self.error(ErrorKind::Reference, &message)
     }
