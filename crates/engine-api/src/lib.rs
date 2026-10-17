@@ -10,6 +10,7 @@
 mod code_cache;
 mod error;
 mod features;
+mod import_meta;
 mod isolate;
 mod native;
 mod serialize;
@@ -21,6 +22,7 @@ pub use code_cache::{
 };
 pub use error::{EngineError, HostError};
 pub use features::EngineFeatures;
+pub use import_meta::file_url_paths;
 pub use isolate::*;
 pub use native::{NativeError, NativeScope, NativeScopeFn, NativeTeardown, NativeValue, V8_ENGINE};
 pub use serialize::{SerializedValue, TransferredBuffer};

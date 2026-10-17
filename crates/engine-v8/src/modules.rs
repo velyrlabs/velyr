@@ -365,6 +365,15 @@ extern "C" fn init_import_meta(
         // Fails only if JS threw; `import.meta.url` is then simply absent.
         let _ = meta.create_data_property(scope, key.into(), url.into());
     }
+    if let Some((filename, dirname)) = velyr_engine_api::file_url_paths(&name) {
+        for (key, value) in [("dirname", dirname), ("filename", filename)] {
+            let key = v8::String::new(scope, key);
+            let value = v8::String::new(scope, &value);
+            if let (Some(key), Some(value)) = (key, value) {
+                let _ = meta.create_data_property(scope, key.into(), value.into());
+            }
+        }
+    }
 }
 
 /// Host op that receives `import()` requests: `(specifier, referrer, resolver id)`. The host

@@ -108,7 +108,8 @@ impl Interpreter {
                 slots,
                 parent: Value::Undefined,
             })?;
-            let url = Value::String(JsStr::from_str(&code.url));
+            let module_url = code.url.clone();
+            let url = Value::String(JsStr::from_str(&module_url));
             let id = vm.state.modules.len();
             vm.state.modules.push(ModuleRecord {
                 code: Rc::new(code),
@@ -122,6 +123,14 @@ impl Interpreter {
             let meta = vm.new_object_with(None)?;
             let key = vm.realm.key_str("url");
             vm.define_property(meta, key, &PropertyDescriptor::data(url, true, true, true))?;
+            if let Some((filename, dirname)) = velyr_engine_api::file_url_paths(&module_url) {
+                for (name, value) in [("dirname", dirname), ("filename", filename)] {
+                    let key = vm.realm.key_str(name);
+                    let value = Value::String(JsStr::from_str(&value));
+                    let attrs = PropertyDescriptor::data(value, true, true, true);
+                    vm.define_property(meta, key, &attrs)?;
+                }
+            }
             vm.module_context(id).slots[0] = object_value(meta);
             Ok(ModuleId(id))
         })
