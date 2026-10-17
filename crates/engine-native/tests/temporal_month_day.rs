@@ -151,7 +151,7 @@ fn reports_shape_and_errors() {
             "Temporal.PlainMonthDay.from({month:2,day:30},{overflow:'reject'})",
             "Temporal.PlainMonthDay.from('--13-01')",
             "new Temporal.PlainMonthDay(2, 30)",
-            "new Temporal.PlainMonthDay(1, 1, 'gregory')",
+            "new Temporal.PlainMonthDay(1, 1, 'nonsense')",
         ],
     );
     expect_throws(

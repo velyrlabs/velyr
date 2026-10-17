@@ -32,9 +32,12 @@ fn number<T: TryFrom<i64>>(a: Args, i: usize) -> TemporalResult<Option<T>> {
             if value.abs() > f64::from(i32::MAX) {
                 return Err(super::range("number out of range"));
             }
+            // A too-large month or day saturates at 255: still invalid for `reject`, clamped by `constrain`.
             T::try_from(value as i64)
+                .ok()
+                .or_else(|| T::try_from(255).ok().filter(|_| value > 0.0))
                 .map(Some)
-                .map_err(|_| super::range("number out of range"))
+                .ok_or_else(|| super::range("number out of range"))
         }
     }
 }

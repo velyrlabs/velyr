@@ -1,11 +1,11 @@
 'use strict';
-// Temporal.PlainYearMonth, iso8601 only (see prelude.js). The slot string is the native
-// `isoYear,isoMonth,referenceDay` state.
+// Temporal.PlainYearMonth (see prelude.js). The slot string is the native
+// `isoYear,isoMonth,referenceDay[u-ca=id]` state.
 (() => {
   const T = globalThis.__temporal_shared;
   const {
     op, slots, getters, wrap, slotOf, strOf, fieldsOf, optionsOf, optionText,
-    overflowOf, monthFromCode, Temporal, installCommon, calendarId, define,
+    overflowOf, monthFromCode, Temporal, installCommon, calendarId, slotCalendar, define,
   } = T;
   const { defineProperty } = Object;
 
@@ -39,27 +39,27 @@
     if (!/^M[0-9]{2}L?$/.test(code)) throw new RangeError(`Invalid month code ${code}`);
     return code;
   };
-  // A calendar property: an iso8601 id, or any string that parses as an ISO date.
-  const checkCalendar = (value) => {
-    if (typeof value === 'string') {
-      try {
-        op('PlainYearMonth', 'parse', value);
-        return;
-      } catch (err) {
-        void err; // not an ISO string: fall through to the calendar id check
-      }
-    }
-    if (calendarId(value) !== 'iso8601') throw new RangeError('Only the iso8601 calendar is supported');
-  };
+  const ISO = 'iso8601';
+  // Calendars with eras also read `era` and `eraYear` (alphabetical order puts them first).
+  const ERA_FREE_CALENDARS = [ISO, 'chinese', 'dangi'];
+  const fieldNames = (calendar) => (ERA_FREE_CALENDARS.includes(calendar)
+    ? ['month', 'monthCode', 'year'] : ['era', 'eraYear', 'month', 'monthCode', 'year']);
+  // The calendar of a property bag (an id or any ISO string), read before any other field.
+  const bagCalendar = (bag) => (bag.calendar === undefined ? ISO : calendarId(bag.calendar, true));
   // Alphabetical, one Get and conversion each.
-  const readFields = (bag, withCalendar) => {
+  const readFields = (bag, names) => {
     const out = {};
-    if (withCalendar && bag.calendar !== undefined) checkCalendar(bag.calendar);
-    if (bag.month !== undefined) out.month = integerField(bag.month, 'month', 1);
-    if (bag.monthCode !== undefined) out.monthCode = monthCodeField(bag.monthCode);
-    if (bag.year !== undefined) out.year = integerField(bag.year, 'year');
+    for (const name of names) {
+      const value = bag[name];
+      if (value === undefined) continue;
+      if (name === 'month') out.month = integerField(value, name, 1);
+      else if (name === 'monthCode') out.monthCode = monthCodeField(value);
+      else if (name === 'era') out.era = `${value}`;
+      else out[name] = integerField(value, name);
+    }
     return out;
   };
+  const calendarFieldArgs = (given) => [given.year, given.month, given.monthCode, undefined, given.era, given.eraYear];
   const resolveMonth = (given) => {
     if (given.monthCode === undefined) return given.month;
     const fromCode = monthFromCode(given.monthCode);
@@ -73,9 +73,9 @@
     constructor(isoYear, isoMonth, calendar = 'iso8601', referenceISODay = 1) {
       const year = integerField(isoYear, 'isoYear');
       const month = integerField(isoMonth, 'isoMonth', 1);
-      if (calendarId(calendar) !== 'iso8601') throw new RangeError('Only the iso8601 calendar is supported');
+      const id = calendarId(calendar);
       const day = integerField(referenceISODay, 'referenceISODay', 1);
-      slots.set(this, { cls: 'PlainYearMonth', str: op('PlainYearMonth', 'create', year, month, day, 'reject') });
+      slots.set(this, { cls: 'PlainYearMonth', str: op('PlainYearMonth', 'create', year, month, day, 'reject', id) });
     }
 
     static from(item, options) {
@@ -90,7 +90,13 @@
         overflowOf(options);
         return wrapYearMonth(slot.str);
       }
-      const given = readFields(item, true);
+      const calendar = bagCalendar(item);
+      const given = readFields(item, fieldNames(calendar));
+      if (calendar !== ISO) {
+        const hasYear = given.year !== undefined || (given.era !== undefined && given.eraYear !== undefined);
+        if (!hasYear || (given.month === undefined && given.monthCode === undefined)) throw new TypeError('year and month are required');
+        return wrapYearMonth(op('PlainYearMonth', 'fromFields', calendar, ...calendarFieldArgs(given), overflowOf(options)));
+      }
       const month = resolveMonth(given);
       if (given.year === undefined || month === undefined) throw new TypeError('year and month are required');
       return wrapYearMonth(createFrom(given.year, month, overflowOf(options)));
@@ -102,9 +108,13 @@
       if (bag.calendar !== undefined || bag.timeZone !== undefined) {
         throw new TypeError('calendar and timeZone cannot be changed here');
       }
-      const given = readFields(bag, false);
+      const calendar = slotCalendar(strOf(this, 'PlainYearMonth'));
+      const given = readFields(bag, fieldNames(calendar));
       if (Object.keys(given).length === 0) throw new TypeError('with() needs at least one recognized property');
       const overflow = overflowOf(options);
+      if (calendar !== ISO) {
+        return wrapYearMonth(op('PlainYearMonth', 'with', strOf(this, 'PlainYearMonth'), ...calendarFieldArgs(given), overflow));
+      }
       const month = resolveMonth(given) ?? Number(base[1]);
       return wrapYearMonth(createFrom(given.year ?? Number(base[0]), month, overflow));
     }
@@ -129,12 +139,13 @@
   }
   defineProperty(PlainYearMonth, 'length', { value: 2, configurable: true });
 
-  // `fields` csv: year, month, monthCode, daysInYear, daysInMonth, monthsInYear, inLeapYear.
+  // `fields` csv: year, month, monthCode, daysInYear, daysInMonth, monthsInYear, inLeapYear, era,
+  // eraYear.
   const FIELD_GETTERS = { year: 0, month: 1, daysInYear: 3, daysInMonth: 4, monthsInYear: 5 };
   const table = {
-    calendarId() { fieldsOf(this, 'PlainYearMonth'); return 'iso8601'; },
-    era() { fieldsOf(this, 'PlainYearMonth'); return undefined; },
-    eraYear() { fieldsOf(this, 'PlainYearMonth'); return undefined; },
+    calendarId() { fieldsOf(this, 'PlainYearMonth'); return slotCalendar(slotOf(this).str); },
+    era() { return fieldsOf(this, 'PlainYearMonth')[7] || undefined; },
+    eraYear() { const year = fieldsOf(this, 'PlainYearMonth')[8]; return year ? Number(year) : undefined; },
     monthCode() { return fieldsOf(this, 'PlainYearMonth')[2]; },
     inLeapYear() { return fieldsOf(this, 'PlainYearMonth')[6] === '1'; },
   };
@@ -142,7 +153,7 @@
     table[name] = function () { return Number(fieldsOf(this, 'PlainYearMonth')[index]); };
   }
   getters(PlainYearMonth.prototype, table);
-  installCommon(PlainYearMonth, 'PlainYearMonth', wrapYearMonth);
+  installCommon(PlainYearMonth, 'PlainYearMonth', wrapYearMonth, true);
   for (const method of ['with', 'toPlainDate', 'toString']) {
     const length = method === 'toString' ? 0 : 1;
     defineProperty(PlainYearMonth.prototype[method], 'length', { value: length, configurable: true });

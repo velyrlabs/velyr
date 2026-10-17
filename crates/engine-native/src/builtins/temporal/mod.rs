@@ -3,9 +3,7 @@
 //! a WeakMap); every operation goes through the single native op `__temporal_op(class,
 //! method, ...string args)`, which parses the strings, calls `temporal_rs` and returns a
 //! string. The prelude captures the op and deletes it from the global.
-//! shortcut: `PlainYearMonth`/`PlainMonthDay` are iso8601 only (N48) and no type does calendar
-//! arithmetic yet (N46); no `toLocaleString`; every call re-parses its receiver, so it is not
-//! for hot loops.
+//! shortcut: no `toLocaleString`; every call re-parses its receiver, so it is not for hot loops.
 
 mod duration;
 mod instant;
@@ -142,13 +140,6 @@ fn parse_calendar(id: &str) -> TemporalResult<Calendar> {
         return Err(range("the islamic calendar is not supported"));
     }
     Calendar::try_from_utf8(id.as_bytes())
-}
-
-fn ensure_iso(calendar: &Calendar) -> TemporalResult<()> {
-    match calendar.identifier() {
-        "iso8601" => Ok(()),
-        _ => Err(range("only the iso8601 calendar is supported")),
-    }
 }
 
 /// `year,month,day,dayOfWeek,dayOfYear,weekOfYear,yearOfWeek,daysInMonth,daysInYear,
