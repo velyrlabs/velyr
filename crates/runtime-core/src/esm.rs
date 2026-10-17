@@ -14,8 +14,9 @@ mod prefetch;
 mod scan;
 mod sync;
 
+use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tracing::Instrument;
@@ -27,7 +28,7 @@ use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, EventLoop, OpGuard};
 use velyr_runtime_modules::{
     FsLoader, FsResolver, LoadContext, ModuleHost, ModuleId, ModuleLoader, ModuleSource,
-    ResolveContext, ResolvedModule, SharedCache, SourceTransform,
+    RealpathCache, ResolveContext, ResolvedModule, SharedCache, SourceTransform,
 };
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -118,6 +119,9 @@ struct Modules {
     load: LoadContext,
     resolve_ctx: ResolveContext,
     resolver: ModuleResolverHandle,
+    /// Edges resolved in this graph load, so prefetch and every link retry resolve each once.
+    resolved: Mutex<HashMap<(ModuleId, String), ResolvedModule>>,
+    realpaths: Arc<RealpathCache>,
     loaded: SourceCache,
     /// Process-wide immutable layer, when `--experimental-shared-code-cache` is on.
     shared: Option<Arc<SharedCache>>,
@@ -126,9 +130,23 @@ struct Modules {
 }
 
 impl Modules {
+    /// Memoized per epoch; failures are not stored.
     fn resolve(&self, specifier: &str, referrer: &ModuleId) -> Result<ResolvedModule, VelyrError> {
-        self.resolver
-            .resolve(specifier, referrer, &self.resolve_ctx)
+        let key = (referrer.clone(), specifier.to_owned());
+        if let Some(hit) = self.resolved.lock().unwrap().get(&key) {
+            return Ok(hit.clone());
+        }
+        let module = self
+            .resolver
+            .resolve(specifier, referrer, &self.resolve_ctx)?;
+        self.resolved.lock().unwrap().insert(key, module.clone());
+        Ok(module)
+    }
+
+    /// A graph load starts here: resolutions and canonical directories are observed afresh.
+    fn begin_epoch(&self) {
+        self.resolved.lock().unwrap().clear();
+        self.realpaths.clear();
     }
 
     async fn fetch(&mut self, module: &ResolvedModule) -> Result<Arc<ModuleSource>, VelyrError> {
@@ -197,6 +215,7 @@ impl Modules {
         specifier: &str,
         referrer: &str,
     ) -> Result<String, LoadError> {
+        self.begin_epoch();
         let referrer = ModuleId::parse(referrer).unwrap_or_else(|| self.entry.clone());
         let module = self.resolve(specifier, &referrer)?;
         let handle = self.load_graph(isolate, &module).await?;
@@ -354,11 +373,17 @@ pub(crate) async fn run<I: Isolate>(
     if let Some(shared) = &shared {
         require = require.with_shared(Arc::clone(shared));
     }
+    let realpaths = Arc::new(RealpathCache::default());
     let mut modules = Modules {
         host,
         load: LoadContext { permissions },
-        resolve_ctx: ResolveContext::default(),
+        resolve_ctx: ResolveContext {
+            realpaths: Some(Arc::clone(&realpaths)),
+            ..ResolveContext::default()
+        },
         resolver: resolver.unwrap_or_else(|| Arc::new(FsResolver)),
+        resolved: Mutex::default(),
+        realpaths,
         loaded: SourceCache::default(),
         shared,
         entry,
@@ -413,6 +438,7 @@ async fn start(
     path: &Path,
 ) -> Result<Value, RunError> {
     let specifier = path.to_string_lossy();
+    modules.begin_epoch();
     let root = modules
         .resolve(&specifier, &modules.entry)
         .map_err(RunError::Load)?;

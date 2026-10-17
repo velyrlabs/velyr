@@ -2,7 +2,9 @@
 //! instantiated once, not once per module that was not read yet. Counted through the
 //! `velyr.core.instantiate` tracing event the loader emits per instantiate call.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, Once};
 
@@ -10,6 +12,9 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::layer::{Context, SubscriberExt};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RuntimeConfig, run_module_file};
+use velyr_runtime_modules::{
+    FsResolver, ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result as ModuleResult,
+};
 use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 
 static INSTANTIATES: AtomicUsize = AtomicUsize::new(0);
@@ -37,8 +42,33 @@ fn fixture(name: &str) -> PathBuf {
     dir
 }
 
+/// Delegates to `FsResolver`, counting calls and distinct `(referrer, specifier)` edges.
+#[derive(Default)]
+struct Counting {
+    calls: AtomicUsize,
+    edges: Mutex<HashSet<(String, String)>>,
+}
+
+impl ModuleResolver for Counting {
+    fn resolve(
+        &self,
+        specifier: &str,
+        referrer: &ModuleId,
+        ctx: &ResolveContext,
+    ) -> ModuleResult<ResolvedModule> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let edge = (referrer.as_str().to_owned(), specifier.to_owned());
+        self.edges.lock().unwrap().insert(edge);
+        FsResolver.resolve(specifier, referrer, ctx)
+    }
+}
+
 /// Runs `main.mjs` of `dir`; how many instantiate calls it took.
 fn instantiates(dir: &Path) -> usize {
+    run_main(dir, None)
+}
+
+fn run_main(dir: &Path, module_resolver: Option<Arc<dyn ModuleResolver + Send + Sync>>) -> usize {
     static SUBSCRIBER: Once = Once::new();
     SUBSCRIBER.call_once(|| {
         tracing::subscriber::set_global_default(
@@ -57,6 +87,7 @@ fn instantiates(dir: &Path) -> usize {
                 .build(),
         ),
         platform_init: Some(V8Engine::init_platform),
+        module_resolver,
         ..RuntimeConfig::default()
     };
     run_module_file(
@@ -133,4 +164,21 @@ fn imports_the_scan_cannot_read_are_still_loaded() {
         2,
         "the missed module costs one more link"
     );
+}
+
+#[test]
+fn each_edge_is_resolved_once_per_graph_load() {
+    let dir = fixture("edges");
+    write_graph(&dir, 100);
+    std::fs::write(
+        dir.join("main.mjs"),
+        "import { total } from './m0.mjs';\n\
+         if (total !== 4950) throw new Error('total ' + total);",
+    )
+    .unwrap();
+    let resolver = Arc::new(Counting::default());
+    run_main(&dir, Some(resolver.clone()));
+    let edges = resolver.edges.lock().unwrap().len();
+    assert!(edges >= 198, "every edge of the graph is seen: {edges}");
+    assert_eq!(resolver.calls.load(Ordering::SeqCst), edges);
 }
