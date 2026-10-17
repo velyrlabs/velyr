@@ -180,7 +180,7 @@ impl Engine for V8Engine {
             context,
             inspector,
             isolate: RefCell::new(isolate),
-            _heap_guard: heap_guard,
+            heap_guard,
             platform_queue,
         })
     }
@@ -200,23 +200,27 @@ pub struct V8Isolate {
     // `RefCell` only because `Isolate::heap_stats(&self)` needs `&mut v8::Isolate`.
     isolate: RefCell<v8::OwnedIsolate>,
     // Declared after `isolate`: V8 may call the heap callback until the isolate is gone.
-    _heap_guard: Option<Box<HeapGuard>>,
+    heap_guard: Option<Box<HeapGuard>>,
     // Declared after `isolate`: drops the tasks V8 posted until the isolate was gone.
     platform_queue: platform::QueueGuard,
 }
 
 impl V8Isolate {
     /// Runs `f` inside the isolate's context. Cancels a termination that `f` observed so
-    /// the isolate stays usable.
+    /// the isolate stays usable, unless it hit its heap limit.
     fn enter<R>(&mut self, f: impl FnOnce(&mut v8::PinScope<'_, '_>, &Shared) -> R) -> R {
         let isolate = self.isolate.get_mut();
+        if heap::is_exhausted(self.heap_guard.as_deref()) {
+            // Keeps it terminated: its JS must not allocate past the one headroom grant.
+            isolate.terminate_execution();
+        }
         let out = {
             v8::scope!(let handle_scope, &mut *isolate);
             let context = v8::Local::new(handle_scope, &self.context);
             let scope = &mut v8::ContextScope::new(handle_scope, context);
             f(scope, &self.shared)
         };
-        if self.shared.terminated.take() {
+        if self.shared.terminated.take() && !heap::is_exhausted(self.heap_guard.as_deref()) {
             isolate.cancel_terminate_execution();
         }
         out
@@ -382,6 +386,9 @@ impl Isolate for V8Isolate {
     // shortcut: V8 exposes no queue length, so Progressed means JS ran (or a promise was
     // settled) since the last checkpoint; upgrade to a promise hook if the loop needs exactness.
     fn perform_microtask_checkpoint(&mut self) -> MicrotaskProgress {
+        if self.heap_exhausted() {
+            return MicrotaskProgress::Idle;
+        }
         self.isolate.get_mut().perform_microtask_checkpoint();
         if self.shared.microtasks_dirty.take() {
             MicrotaskProgress::Progressed
@@ -400,6 +407,10 @@ impl Isolate for V8Isolate {
             // V8's HeapStatistics has no cell count or collection counters.
             ..HeapStats::default()
         }
+    }
+
+    fn heap_exhausted(&self) -> bool {
+        heap::is_exhausted(self.heap_guard.as_deref())
     }
 
     fn request_gc(&mut self, _reason: GcReason) {

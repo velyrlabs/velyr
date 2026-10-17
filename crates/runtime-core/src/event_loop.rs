@@ -9,7 +9,7 @@ use velyr_engine_api::{Engine, HostFunctionDef, Isolate, TickFlags, Value};
 use velyr_runtime_event_loop::{CompletionSender, EventLoop, TimerHandle, TimerLease};
 use velyr_runtime_resources::{QuotaClass, QuotaContext};
 
-use crate::{RunError, Runtime, RuntimeConfig, esm, eval_file};
+use crate::{RunError, Runtime, RuntimeConfig, esm, eval_file, quota_exceeded};
 
 mod forwarding;
 
@@ -330,6 +330,13 @@ where
     });
     // The last turns may fall inside the sampling interval; metrics read a fresh heap at exit.
     event_loop.isolate().sample_heap();
+    if event_loop.isolate().heap_exhausted() {
+        // Fatal from any callback, like from the entry; later errors are its effects.
+        return match result {
+            Err(RunError::QuotaExceeded { .. }) => result,
+            _ => Err(quota_exceeded("heap")),
+        };
+    }
     if !shutdown.is_cancelled() {
         return result;
     }

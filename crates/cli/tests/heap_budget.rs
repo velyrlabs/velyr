@@ -60,3 +60,41 @@ fn workers_inherit_the_budget_heap_limit() {
         .success()
         .stdout("worker failed\n");
 }
+
+/// Every run of `hog` exhausts the heap again, since `keep` survives each one.
+const HOG_FN: &str = r#"
+const keep = [];
+let runs = 0;
+const hog = () => {
+  runs += 1;
+  console.log(`run ${runs}`);
+  for (;;) keep.push(new Array(100000).fill(1));
+};
+"#;
+
+/// Before RT-18c a loop callback only logged the heap error and V8 grew the limit by 8 MiB
+/// per hit, so every later run could allocate more. Now the first exhaustion ends the run.
+/// The timers are 50 ms apart so each runs in its own tick, not in one dispatcher batch.
+fn assert_first_exhaustion_is_fatal(schedule: &str) {
+    let script = format!("{HOG_FN}\n{schedule}");
+    let dir = project(&[("velyr.json", SMALL_BUDGET), ("hog.js", &script)]);
+    let output = run(dir.path(), "hog.js").failure().get_output().clone();
+    let (stdout, stderr) = (
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert_eq!(stdout, "run 1\n", "{stderr}");
+    assert!(stderr.contains("heap quota exceeded"), "{stderr}");
+}
+
+#[test]
+fn a_timer_callback_exhausting_the_heap_ends_the_run() {
+    assert_first_exhaustion_is_fatal("for (let i = 0; i < 3; i += 1) setTimeout(hog, i * 50);");
+}
+
+#[test]
+fn a_promise_callback_exhausting_the_heap_ends_the_run() {
+    assert_first_exhaustion_is_fatal(
+        "for (let i = 0; i < 3; i += 1) setTimeout(() => Promise.resolve().then(hog), i * 50);",
+    );
+}

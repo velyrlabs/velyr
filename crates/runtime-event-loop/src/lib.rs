@@ -330,6 +330,9 @@ impl<I: Isolate> EventLoop<I> {
         loop {
             self.record_lag(due);
             self.tick();
+            if self.isolate.heap_exhausted() {
+                return self.terminate(); // fatal, whichever callback hit the limit (RT-18c)
+            }
             if self.shutdown.is_cancelled() {
                 return;
             }

@@ -316,6 +316,10 @@ fn run_error(exception: JsException, watchdog: Option<&Watchdog>) -> RunError {
         _ if shutdown::is_termination(&exception) => return RunError::Terminated,
         _ => return RunError::Uncaught(exception),
     };
+    quota_exceeded(class)
+}
+
+fn quota_exceeded(class: &'static str) -> RunError {
     tracing::warn!(target: "velyr.quota.denied", class, "velyr.quota.denied");
     RunError::QuotaExceeded { class }
 }

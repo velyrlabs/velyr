@@ -185,6 +185,10 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.heap_stats()
     }
 
+    fn heap_exhausted(&self) -> bool {
+        self.inner.heap_exhausted()
+    }
+
     fn request_gc(&mut self, reason: GcReason) {
         self.on_owner();
         self.inner.request_gc(reason);

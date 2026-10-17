@@ -499,6 +499,12 @@ pub trait Isolate {
 
     fn heap_stats(&self) -> HeapStats;
 
+    /// True once the isolate hit its heap limit. It then runs no more JS: hosts end its run
+    /// with the `heap` quota error. Engines without a hard heap limit never report it.
+    fn heap_exhausted(&self) -> bool {
+        false
+    }
+
     /// Remaps the frame positions of every error stack through `mapper`. A user-defined
     /// `Error.prepareStackTrace` still runs when present. Engines without the hook ignore it.
     fn set_prepare_stack_trace(&mut self, _mapper: crate::StackFrameMapper) {}

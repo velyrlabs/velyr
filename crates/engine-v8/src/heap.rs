@@ -10,6 +10,8 @@ const UNWIND_HEADROOM_BYTES: usize = 8 * 1024 * 1024;
 /// Passed to V8 as callback data; must outlive the isolate.
 pub(crate) struct HeapGuard {
     exhausted: Arc<AtomicBool>,
+    /// Sticky: the headroom was granted, so the isolate must stay terminated.
+    granted: AtomicBool,
     handle: v8::IsolateHandle,
 }
 
@@ -18,6 +20,7 @@ impl HeapGuard {
     pub(crate) fn install(isolate: &mut v8::Isolate, exhausted: Arc<AtomicBool>) -> Box<Self> {
         let guard = Box::new(Self {
             exhausted,
+            granted: AtomicBool::new(false),
             handle: isolate.thread_safe_handle(),
         });
         let data = std::ptr::from_ref::<Self>(&guard)
@@ -26,6 +29,11 @@ impl HeapGuard {
         isolate.add_near_heap_limit_callback(on_near_heap_limit, data);
         guard
     }
+}
+
+/// True once the limit was hit; see [`velyr_engine_api::Isolate::heap_exhausted`].
+pub(crate) fn is_exhausted(guard: Option<&HeapGuard>) -> bool {
+    guard.is_some_and(|guard| guard.granted.load(Ordering::Acquire))
 }
 
 #[allow(unsafe_code)]
@@ -39,5 +47,10 @@ unsafe extern "C" fn on_near_heap_limit(
     let guard = unsafe { &*data.cast::<HeapGuard>() };
     guard.exhausted.store(true, Ordering::Release);
     guard.handle.terminate_execution();
+    if guard.granted.swap(true, Ordering::AcqRel) {
+        // The isolate runs no JS after the first hit, so only unwinding can get here: V8's own
+        // OOM abort is the hard stop, instead of growing the limit once more per hit.
+        return current_heap_limit;
+    }
     current_heap_limit + UNWIND_HEADROOM_BYTES
 }

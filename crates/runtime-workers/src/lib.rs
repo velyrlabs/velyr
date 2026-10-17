@@ -30,6 +30,7 @@ use velyr_runtime_resources::{QuotaClass, QuotaContext};
 
 pub mod auto;
 mod channel;
+pub mod heap_pool;
 mod port;
 mod report;
 pub mod shutdown;

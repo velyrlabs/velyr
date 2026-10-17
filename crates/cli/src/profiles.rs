@@ -29,6 +29,7 @@ use velyr_runtime_errors::VelyrError;
 use velyr_runtime_ops::{BOOTSTRAP_JS, OpContext, take_leak_report};
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::{QuotaConfig, QuotaContext};
+use velyr_runtime_workers::heap_pool::HeapPool;
 use velyr_runtime_workers::{
     ParentContext, SpawnRequest, WorkerHandle, WorkerHost, WorkerOptions, WorkerScope,
     install_web_api_slots, start_web_api, worker_host_functions,
@@ -157,7 +158,11 @@ pub fn install<I: velyr_engine_api::Isolate>(
         isolate,
         timers,
         boot,
-        worker_host(permissions.clone(), heap_limit_bytes),
+        worker_host(
+            permissions.clone(),
+            heap_limit_bytes,
+            heap_limit_bytes.map(HeapPool::new),
+        ),
         None,
         permissions,
         Some(script),
@@ -371,13 +376,20 @@ pub fn module_resolver() -> Option<ModuleResolverHandle> {
 
 /// Spawner shared by the main isolate and every worker. `policy` is the deployment policy:
 /// the CLI has no separate source for one, so it is the main isolate's authority, which a
-/// worker's `parent ∩ requested ∩ policy` can never widen.
-fn worker_host(policy: Arc<CapabilitySet>, heap_limit_bytes: Option<usize>) -> WorkerHost {
+/// worker's `parent ∩ requested ∩ policy` can never widen. `pool`, sized at the main isolate's
+/// heap limit, is shared by all its workers (see `velyr_runtime_workers::heap_pool`).
+fn worker_host(
+    policy: Arc<CapabilitySet>,
+    heap_limit_bytes: Option<usize>,
+    pool: Option<Arc<HeapPool>>,
+) -> WorkerHost {
     let spawn_policy = policy.clone();
     WorkerHost {
         deployment_policy: policy,
         heap_limit_bytes,
-        spawn: Arc::new(move |parent, request| spawn_worker(parent, request, &spawn_policy)),
+        spawn: Arc::new(move |parent, request| {
+            spawn_worker(parent, request, &spawn_policy, pool.as_ref())
+        }),
     }
 }
 
@@ -385,6 +397,7 @@ fn spawn_worker(
     parent: &ParentContext,
     request: SpawnRequest,
     policy: &Arc<CapabilitySet>,
+    pool: Option<&Arc<HeapPool>>,
 ) -> Result<WorkerHandle, VelyrError> {
     let (requested, quotas) = match &request.permissions_json {
         // No `velyr.permissions`: the worker may use whatever its parent can.
@@ -400,6 +413,10 @@ fn spawn_worker(
             (built.capabilities, built.quotas)
         }
     };
+    // Held by the worker isolate (a slot) until it is dropped, then returned to the pool.
+    let grant = pool
+        .map(|pool| pool.reserve(request.heap_limit_bytes))
+        .transpose()?;
     let engine = v8_engine();
     let boot = Boot::of(&engine);
     let (host_functions, bootstrap_js) = boot.bootstrap();
@@ -407,7 +424,9 @@ fn spawn_worker(
         entry: request.entry,
         requested: requested.clone(),
         // `velyr.heapLimitMb`, capped at the parent's limit by `WorkerHandle::spawn`.
-        heap_limit_bytes: request.heap_limit_bytes,
+        heap_limit_bytes: grant
+            .as_ref()
+            .map_or(request.heap_limit_bytes, |grant| Some(grant.bytes())),
         config: RuntimeConfig {
             platform_init: Some(V8Engine::init_platform),
             quotas: Some(quotas),
@@ -421,9 +440,12 @@ fn spawn_worker(
         bootstrap_js,
     };
     // Nested workers inherit the heap limit this one runs with.
-    let host = worker_host(policy.clone(), parent.heap_limit_bytes);
+    let host = worker_host(policy.clone(), parent.heap_limit_bytes, pool.cloned());
     let (name, group) = (request.name, request.group);
     WorkerHandle::spawn(engine, parent, options, move |isolate, _sender, timers| {
+        if let Some(grant) = grant {
+            isolate.set_slot(grant);
+        }
         let scope = WorkerScope { name: &name, group };
         install_worker(isolate, timers, boot, host, scope, requested);
     })
