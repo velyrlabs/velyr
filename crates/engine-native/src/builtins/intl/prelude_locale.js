@@ -158,4 +158,8 @@
   tag(Locale.prototype, 'Intl.Locale');
   defineProperty(Locale, 'prototype', { writable: false });
   define(global.Intl, { Locale });
+  // Read by prelude_enum.js; removed by the cleanup prelude.
+  defineProperty(global, '__intl_locale_shared', {
+    value: Object.freeze({ likelyRegion, field }), configurable: true,
+  });
 })();

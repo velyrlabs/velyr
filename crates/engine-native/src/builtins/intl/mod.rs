@@ -219,6 +219,9 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
         run_prelude(vm, name, source)?;
     }
     // The extra preludes read the shared helpers; nothing may see them afterwards.
-    run_prelude(vm, "velyr:intl_cleanup", "delete globalThis.__intl_shared;")
-
+    run_prelude(
+        vm,
+        "velyr:intl_cleanup",
+        "delete globalThis.__intl_shared; delete globalThis.__intl_locale_shared;",
+    )
 }

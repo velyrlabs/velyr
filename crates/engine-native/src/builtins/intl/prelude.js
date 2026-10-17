@@ -66,8 +66,9 @@
   };
   // Values of the -u- keywords the formatters resolve (ECMA-402 relevantExtensionKeys).
   const KEYWORD_VALUES = {
-    nu: ['arab', 'arabext', 'beng', 'deva', 'fullwide', 'gujr', 'guru', 'hanidec', 'khmr', 'knda',
-      'laoo', 'latn', 'limb', 'mlym', 'mong', 'mymr', 'orya', 'tamldec', 'telu', 'thai', 'tibt'],
+    nu: ['adlm', 'arab', 'arabext', 'beng', 'cakm', 'deva', 'fullwide', 'gujr', 'guru', 'hanidec',
+      'hmnp', 'java', 'khmr', 'knda', 'laoo', 'latn', 'limb', 'mlym', 'mong', 'mtei', 'mymr',
+      'nkoo', 'olck', 'orya', 'tamldec', 'telu', 'thai', 'tibt', 'vaii'],
     ca: ['buddhist', 'chinese', 'coptic', 'dangi', 'ethioaa', 'ethiopic', 'gregory', 'hebrew', 'indian',
       'islamic-civil', 'islamic-tbla', 'islamic-umalqura', 'iso8601', 'japanese', 'persian', 'roc'],
     hc: ['h11', 'h12', 'h23', 'h24'],
@@ -312,7 +313,7 @@
   tag(Intl, 'Intl');
   defineProperty(global, '__intl_shared', {
     value: freeze({ ops, define, tag, slots, slot, boundGetter, constructor, instance,
-      resolveLocale, resolveLocaleKeys, typeOption, isAsciiAlpha, toOptions, getOption, getNumber, decodeParts,
+      resolveLocale, resolveLocaleKeys, KEYWORD_VALUES, typeOption, isAsciiAlpha, toOptions, getOption, getNumber, decodeParts,
       typeError }),
     configurable: true,
   });
