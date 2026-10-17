@@ -20,7 +20,7 @@ use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
 use velyr_tooling_tsconfig::{TsConfig, TsconfigLoader};
 
 pub use cache::platform_cache_dir;
-pub use options::{transform_options, warn_once};
+pub use options::{Lowering, lowered_options, transform_options, warn_once};
 
 /// Must match the `=x.y.z` of every `oxc_*` dependency: output can change between versions.
 const OXC_VERSION: &str = "0.154.0";
@@ -29,6 +29,7 @@ pub struct TypeScriptTransform {
     cache_dir: Option<PathBuf>,
     hits: AtomicU64,
     loader: Option<Arc<TsconfigLoader>>,
+    lowering: Lowering,
 }
 
 impl TypeScriptTransform {
@@ -38,12 +39,19 @@ impl TypeScriptTransform {
             cache_dir,
             hits: AtomicU64::new(0),
             loader: None,
+            lowering: Lowering::default(),
         }
     }
 
     /// Derives per-file transform options from the nearest `tsconfig.json`.
     pub fn with_tsconfig(mut self, loader: Arc<TsconfigLoader>) -> Self {
         self.loader = Some(loader);
+        self
+    }
+
+    /// Lowers syntax the engine lacks. Part of the cache key through the options.
+    pub fn with_lowering(mut self, lowering: Lowering) -> Self {
+        self.lowering = lowering;
         self
     }
 
@@ -92,6 +100,7 @@ fn strip(
     source: &str,
     media_type: MediaType,
     config: Option<&TsConfig>,
+    lowering: Lowering,
 ) -> Result<Transformed> {
     let allocator = Allocator::default();
     let parsed = Parser::new(&allocator, source, source_type(media_type)).parse();
@@ -112,8 +121,12 @@ fn strip(
         .with_enum_eval(true)
         .build(&program);
     let path = Path::new(specifier);
-    let transformed = Transformer::new(&allocator, path, &transform_options(media_type, config))
-        .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
+    let transformed = Transformer::new(
+        &allocator,
+        path,
+        &lowered_options(media_type, config, lowering),
+    )
+    .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
     if let Some(first) = transformed.diagnostics.first() {
         return Err(failure(
             specifier,
@@ -158,7 +171,10 @@ impl SourceTransform for TypeScriptTransform {
             .loader
             .as_ref()
             .and_then(|l| warn_once(l.for_file(Path::new(specifier)), specifier));
-        let options = format!("{:?}", transform_options(media_type, config.as_deref()));
+        let options = format!(
+            "{:?}",
+            lowered_options(media_type, config.as_deref(), self.lowering)
+        );
         let key = cache::key(&[
             env!("CARGO_PKG_NAME").as_bytes(),
             env!("CARGO_PKG_VERSION").as_bytes(),
@@ -176,7 +192,13 @@ impl SourceTransform for TypeScriptTransform {
             self.hits.fetch_add(1, Ordering::Relaxed);
             return Ok(hit);
         }
-        let done = strip(specifier, source, media_type, config.as_deref())?;
+        let done = strip(
+            specifier,
+            source,
+            media_type,
+            config.as_deref(),
+            self.lowering,
+        )?;
         if let Some(dir) = &self.cache_dir {
             cache::write(dir, &key, &done);
         }

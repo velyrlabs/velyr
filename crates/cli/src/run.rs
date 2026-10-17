@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
-use velyr_engine_api::{Engine, Isolate, Source};
+use velyr_engine_api::{Engine, EngineFeatures, Isolate, Source};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RunError, RuntimeConfig, run_file, run_module_file};
 use velyr_runtime_permissions::CapabilitySet;
@@ -144,8 +144,8 @@ pub(crate) fn run_on<E: Engine + Send + 'static>(
     worker: Worker,
 ) -> Result<(), String> {
     let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
-    let config = runtime_config(prepared, platform_init, worker.shutdown);
     let boot = profiles::Boot::of(&engine);
+    let config = runtime_config(prepared, platform_init, worker.shutdown, boot.features);
     #[cfg(feature = "web")]
     let mut inbox = worker.inbox;
     let entry = file.to_path_buf();
@@ -178,6 +178,7 @@ fn runtime_config(
     prepared: &Prepared,
     platform_init: Option<fn()>,
     shutdown: Option<CancellationToken>,
+    features: EngineFeatures,
 ) -> RuntimeConfig {
     let mut config = RuntimeConfig {
         platform_init,
@@ -188,6 +189,7 @@ fn runtime_config(
         module_resolver: watch_mode::recording(profiles::module_resolver()),
         source_transform: crate::inspect::source_transform(transforms::source_transform(
             &prepared.capabilities,
+            features,
         )),
         shutdown,
         ..RuntimeConfig::default()

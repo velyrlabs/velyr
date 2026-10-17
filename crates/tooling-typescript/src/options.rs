@@ -5,17 +5,33 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use oxc_transformer::{
-    DecoratorOptions, EnvOptions, HelperLoaderMode, HelperLoaderOptions, Module, TransformOptions,
-    TypeScriptOptions,
+    DecoratorOptions, ES2026Options, EnvOptions, HelperLoaderMode, HelperLoaderOptions, Module,
+    TransformOptions, TypeScriptOptions,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{HELPER_MODULE_NAME, MediaType};
 use velyr_tooling_tsconfig::TsConfig;
 
+/// Syntax the engine cannot run and the transform must lower.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Lowering {
+    /// `using` / `await using`, through the `usingCtx` helper.
+    pub explicit_resource_management: bool,
+}
+
 /// Types are stripped, nothing is downleveled (the engine runs modern JavaScript).
 /// `.cts` is CommonJS (`export =` becomes `module.exports`); everything else is ESM, where oxc
 /// reports `export =` and `import x = require()` as diagnostics. `config` of `None` is defaults.
 pub fn transform_options(media_type: MediaType, config: Option<&TsConfig>) -> TransformOptions {
+    lowered_options(media_type, config, Lowering::default())
+}
+
+/// [`transform_options`] plus the syntax in `lowering`.
+pub fn lowered_options(
+    media_type: MediaType,
+    config: Option<&TsConfig>,
+    lowering: Lowering,
+) -> TransformOptions {
     let module = if media_type == MediaType::Cts {
         Module::CommonJS
     } else {
@@ -24,6 +40,9 @@ pub fn transform_options(media_type: MediaType, config: Option<&TsConfig>) -> Tr
     let mut options = TransformOptions {
         env: EnvOptions {
             module,
+            es2026: ES2026Options {
+                explicit_resource_management: lowering.explicit_resource_management,
+            },
             ..EnvOptions::default()
         },
         helper_loader: HelperLoaderOptions {

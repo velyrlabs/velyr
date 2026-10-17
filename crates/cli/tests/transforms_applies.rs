@@ -9,7 +9,7 @@ use velyr_runtime_modules::{ModuleId, SourceTransform};
 
 #[test]
 fn chain_skips_plain_javascript() {
-    let chain = transforms::source_transform(&Default::default()).unwrap();
+    let chain = transforms::source_transform(&Default::default(), Default::default()).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let root = std::fs::canonicalize(dir.path()).unwrap();
     let esm = ModuleId::from_path(&root.join("a.js")).unwrap();

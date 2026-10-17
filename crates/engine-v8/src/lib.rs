@@ -112,6 +112,7 @@ impl Engine for V8Engine {
             | EngineFeatures::ARRAY_BUFFER
             | EngineFeatures::SERIALIZE
             | EngineFeatures::CONTINUATION_CONTEXT
+            | EngineFeatures::EXPLICIT_RESOURCE_MANAGEMENT
     }
 
     fn create_isolate(&self, opts: IsolateOptions) -> Result<V8Isolate, EngineError> {

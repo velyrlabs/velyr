@@ -2,15 +2,21 @@
 
 use std::sync::Arc;
 
+use velyr_engine_api::EngineFeatures;
 use velyr_runtime_modules::{MediaType, ModuleId, Result, SourceTransform, Transformed};
 use velyr_runtime_permissions::CapabilitySet;
 
 /// The module host's transform: TypeScript is stripped first, then CommonJS and JSON files get
 /// their ESM facade (node and full only). `None` in `profile-minimal`, which has neither.
-/// `permissions` gate the files the CommonJS analysis follows through `module.exports = require(..)`.
-pub fn source_transform(permissions: &Arc<CapabilitySet>) -> Option<Arc<dyn SourceTransform>> {
+/// `features` are the engine's: syntax it lacks (`using`) is lowered. `permissions` gate the files the CommonJS analysis follows through `module.exports = require(..)`.
+pub fn source_transform(
+    permissions: &Arc<CapabilitySet>,
+    features: EngineFeatures,
+) -> Option<Arc<dyn SourceTransform>> {
     #[cfg(not(feature = "node"))]
     let _ = permissions;
+    #[cfg(not(feature = "typescript"))]
+    let _ = features;
     let mut chain: Vec<Arc<dyn SourceTransform>> = Vec::new();
     // Before TypeScript: it rewrites `.tsx` (types and JSX) in one pass, the TypeScript step then
     // sees plain JavaScript.
@@ -18,7 +24,12 @@ pub fn source_transform(permissions: &Arc<CapabilitySet>) -> Option<Arc<dyn Sour
     chain.push(Arc::new(jsx_transform()));
     #[cfg(feature = "typescript")]
     chain.push(Arc::new(
-        velyr_tooling_typescript::TypeScriptTransform::with_platform_cache(),
+        velyr_tooling_typescript::TypeScriptTransform::with_platform_cache().with_lowering(
+            velyr_tooling_typescript::Lowering {
+                explicit_resource_management: !features
+                    .contains(EngineFeatures::EXPLICIT_RESOURCE_MANAGEMENT),
+            },
+        ),
     ));
     #[cfg(feature = "node")]
     chain.push(Arc::new(velyr_compat_commonjs::CommonJsTransform::new(
@@ -87,7 +98,7 @@ mod tests {
 
     #[test]
     fn strips_types_and_leaves_javascript_alone() {
-        let transform = source_transform(&Arc::default()).unwrap();
+        let transform = source_transform(&Arc::default(), EngineFeatures::empty()).unwrap();
         assert!(transform.handles(MediaType::TypeScript));
         // Plain ESM passes through unchanged (with CommonJS in the chain it is still visited).
         let js = transform

@@ -20,6 +20,9 @@ impl EngineFeatures {
     /// [`Isolate::set_continuation_context`](crate::Isolate::set_continuation_context): a value
     /// that follows promise reactions and `await` (what `AsyncLocalStorage` is built on).
     pub const CONTINUATION_CONTEXT: Self = Self(1 << 5);
+    /// `using` / `await using` declarations. Without it the TypeScript transform lowers them
+    /// through the `usingCtx` helper.
+    pub const EXPLICIT_RESOURCE_MANAGEMENT: Self = Self(1 << 6);
 
     pub const fn empty() -> Self {
         Self(0)
@@ -56,5 +59,26 @@ impl BitAnd for EngineFeatures {
 impl BitOrAssign for EngineFeatures {
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EngineFeatures as F;
+
+    #[test]
+    fn explicit_resource_management_bit_is_distinct() {
+        let others = [
+            F::MODULES,
+            F::PROMISES,
+            F::BIGINT,
+            F::SERIALIZE,
+            F::ARRAY_BUFFER,
+            F::CONTINUATION_CONTEXT,
+        ];
+        for other in others {
+            assert!(!F::EXPLICIT_RESOURCE_MANAGEMENT.contains(other));
+        }
+        assert_eq!(F::EXPLICIT_RESOURCE_MANAGEMENT.bits().count_ones(), 1);
     }
 }
