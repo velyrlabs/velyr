@@ -456,6 +456,26 @@ const PRELUDE: &str = r#"'use strict';
       }
     },
   });
+  // Explicit resource management hooks; the computed keys give the `[Symbol.*]` function names.
+  const AsyncIteratorPrototype = getPrototypeOf(getPrototypeOf(async function* () {}.prototype));
+  const getReturn = (iterator) => {
+    const method = iterator.return;
+    if (method != null && typeof method !== 'function') fail('return is not a function');
+    return method;
+  };
+  const disposers = {
+    [Symbol.dispose]() {
+      const method = getReturn(this);
+      if (method != null) apply(method, this, []);
+    },
+    async [Symbol.asyncDispose]() {
+      const method = getReturn(this);
+      if (method != null) await apply(method, this, []);
+    },
+  };
+  for (const [target, key] of [[IteratorPrototype, Symbol.dispose], [AsyncIteratorPrototype, Symbol.asyncDispose]]) {
+    defineProperty(target, key, { value: disposers[key], writable: true, configurable: true });
+  }
   defineProperty(globalThis, 'Iterator', { value: Iterator, writable: true, configurable: true });
 })();
 "#;
