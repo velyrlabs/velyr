@@ -8,6 +8,7 @@ pub mod resolver;
 
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -22,6 +23,8 @@ use config::{RawConfig, normalize, parse_raw};
 
 const CONFIG_NAME: &str = "tsconfig.json";
 const MAX_EXTENDS_DEPTH: usize = 16;
+const MAX_EXTENDS_FILES: usize = 64;
+const MAX_CONFIG_BYTES: u64 = 1024 * 1024;
 
 type Cache = HashMap<PathBuf, Option<Arc<TsConfig>>>;
 
@@ -82,44 +85,61 @@ impl TsconfigLoader {
     }
 
     fn load_top(&self, path: PathBuf) -> Result<Arc<TsConfig>, VelyrError> {
-        let mut options = self.load(&path, &mut Vec::new())?;
+        let mut options = self.load(&path, &mut LoadState::default())?;
         if let (Some(paths), Some(base_url)) = (options.paths.as_mut(), options.base_url.as_ref()) {
             paths.base = base_url.clone();
         }
         Ok(Arc::new(TsConfig { path, options }))
     }
 
-    fn load(&self, path: &Path, chain: &mut Vec<PathBuf>) -> Result<CompilerOptions, VelyrError> {
-        if chain.len() >= MAX_EXTENDS_DEPTH {
+    fn load(&self, path: &Path, state: &mut LoadState) -> Result<CompilerOptions, VelyrError> {
+        if state.chain.len() >= MAX_EXTENDS_DEPTH {
             return Err(extends_error(
                 path,
                 "extends chain is deeper than 16 levels",
             ));
         }
-        if chain.iter().any(|seen| seen == path) {
+        if state.chain.iter().any(|seen| seen == path) {
             return Err(extends_error(path, "extends cycle"));
         }
-        let text = fs::read_to_string(path)
-            .map_err(|e| VelyrError::invalid_data(format!("{}: {e}", path.display())))?;
+        if let Some(done) = state.done.get(path) {
+            return Ok(done.clone());
+        }
+        if state.done.len() >= MAX_EXTENDS_FILES {
+            return Err(extends_error(
+                path,
+                "extends pulls in more than 64 config files",
+            ));
+        }
+        let text = read_capped(path)?;
         self.reads.fetch_add(1, Ordering::Relaxed);
         let mut raw: RawConfig = parse_raw(path, &text)?;
         let dir = path.parent().unwrap_or(Path::new("."));
 
-        chain.push(path.to_path_buf());
+        state.chain.push(path.to_path_buf());
         let mut inherited = CompilerOptions::default();
         for spec in raw.extends.take().map(|e| e.into_vec()).unwrap_or_default() {
             let parent = self.resolve_extends(dir, &spec, path)?;
-            inherited = self.load(&parent, chain)?.over(inherited);
+            inherited = self.load(&parent, state)?.over(inherited);
         }
-        chain.pop();
-        Ok(raw.options(dir).over(inherited))
+        state.chain.pop();
+        let options = raw.options(dir).over(inherited);
+        state.done.insert(path.to_path_buf(), options.clone());
+        Ok(options)
     }
 
+    /// The canonical path of the config `spec` names. Authorization and the later read use that
+    /// same path, so a symlink followed by `..` cannot reach a file the grant does not cover.
     fn resolve_extends(&self, dir: &Path, spec: &str, from: &Path) -> Result<PathBuf, VelyrError> {
         let is_path =
             spec.starts_with("./") || spec.starts_with("../") || Path::new(spec).is_absolute();
         let roots: Vec<PathBuf> = if is_path {
             vec![normalize(&dir.join(spec))]
+        } else if Path::new(spec)
+            .components()
+            .any(|c| c == Component::ParentDir)
+        {
+            Vec::new()
         } else {
             dir.ancestors()
                 .map(|a| a.join("node_modules").join(spec))
@@ -128,9 +148,30 @@ impl TsconfigLoader {
         roots
             .iter()
             .flat_map(|root| extends_candidates(root))
+            .filter_map(|c| fs::canonicalize(c).ok())
             .find(|c| authorize_path(c, &self.permissions).is_ok() && c.is_file())
             .ok_or_else(|| extends_error(from, &format!("cannot resolve extends `{spec}`")))
     }
+}
+
+#[derive(Default)]
+struct LoadState {
+    chain: Vec<PathBuf>,
+    done: HashMap<PathBuf, CompilerOptions>,
+}
+
+fn read_capped(path: &Path) -> Result<String, VelyrError> {
+    let io_error = |e: std::io::Error| VelyrError::invalid_data(format!("{}: {e}", path.display()));
+    let mut text = String::new();
+    fs::File::open(path)
+        .map_err(io_error)?
+        .take(MAX_CONFIG_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(io_error)?;
+    if text.len() as u64 > MAX_CONFIG_BYTES {
+        return Err(extends_error(path, "config file is larger than 1 MiB"));
+    }
+    Ok(text)
 }
 
 fn extends_candidates(root: &Path) -> Vec<PathBuf> {
