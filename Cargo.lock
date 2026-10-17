@@ -4762,6 +4762,7 @@ dependencies = [
  "velyr-runtime-workers",
  "velyr-tooling-jsx",
  "velyr-tooling-test",
+ "velyr-tooling-tsconfig",
  "velyr-tooling-typescript",
  "velyr-web-core",
  "velyr-web-crypto",

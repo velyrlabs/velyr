@@ -106,12 +106,14 @@ impl std::str::FromStr for Workers {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[cfg_attr(not(any(feature = "typescript", feature = "jsx")), allow(dead_code))]
+#[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CompilerOptions {
     pub jsx: Option<String>,
     pub jsx_import_source: Option<String>,
+    pub jsx_factory: Option<String>,
+    pub jsx_fragment_factory: Option<String>,
 }
 
 /// A parsed config plus the directory it was found in (the project root).
@@ -153,6 +155,16 @@ mod tests {
     fn comments_and_trailing_commas_are_accepted() {
         let config = parse("{ // c\n \"quotas\": { \"timers\": 3, }, /* b */ }").unwrap();
         assert_eq!(config.quotas.unwrap().resources.timers, Some(3));
+    }
+
+    #[test]
+    fn jsx_factory_options_are_accepted() {
+        let config =
+            parse("{\"compilerOptions\": {\"jsxFactory\": \"h\", \"jsxFragmentFactory\": \"F\"}}")
+                .unwrap();
+        let options = config.compiler_options.unwrap();
+        assert_eq!(options.jsx_factory.as_deref(), Some("h"));
+        assert_eq!(options.jsx_fragment_factory.as_deref(), Some("F"));
     }
 
     #[test]

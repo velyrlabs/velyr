@@ -7,7 +7,8 @@ use std::sync::{Arc, LazyLock};
 
 use regex::Regex;
 use velyr_runtime_core::ModuleResolverHandle;
-use velyr_runtime_modules::{FsResolver, ModuleId, ResolveContext};
+use velyr_runtime_modules::{FsResolver, ModuleId, ResolveContext, is_embedded};
+use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 use velyr_runtime_vfs::edge_key;
 
 /// Directory the entry's folder becomes inside the executable.
@@ -53,7 +54,14 @@ pub(super) struct Graph {
 
 impl Graph {
     pub fn new(root: PathBuf) -> Self {
-        let resolver = crate::profiles::module_resolver().unwrap_or_else(|| Arc::new(FsResolver));
+        // The build reads every file it embeds, so the project wrapper may read any of them.
+        let fs_root = root.ancestors().last().unwrap_or(&root).to_string_lossy();
+        let permissions = CapabilitySet::builder()
+            .allow(Capability::ImportLocal(PathPattern::new(fs_root)))
+            .build();
+        let resolver =
+            crate::transforms::project_resolver(crate::profiles::module_resolver(), &permissions)
+                .unwrap_or_else(|| Arc::new(FsResolver));
         Self {
             root,
             resolver,
@@ -129,7 +137,8 @@ impl Graph {
             .resolver
             .resolve(specifier, referrer, &ResolveContext::default())
             .map_err(|e| e.to_string())?;
-        if is_generated(&found.path) {
+        // Embedded helpers are not files; the VFS fallback hands them to the wrapped resolver.
+        if is_generated(&found.path) || is_embedded(&found.path) {
             return Ok(None);
         }
         let target = self.virtual_path(&found.path);

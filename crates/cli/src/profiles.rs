@@ -357,7 +357,7 @@ fn spawn_worker(
             quotas: Some(quotas),
             leak_check: std::env::var_os("VELYR_LEAK_CHECK").is_some_and(|value| value == "1"),
             leak_collector: Some(take_leak_report),
-            module_resolver: module_resolver(),
+            module_resolver: crate::transforms::project_resolver(module_resolver(), &requested),
             source_transform: crate::transforms::source_transform(&requested, boot.features),
             ..RuntimeConfig::default()
         },

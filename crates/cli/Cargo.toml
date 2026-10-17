@@ -23,9 +23,9 @@ npm = ["dep:velyr-compat-npm"]
 # `velyr-compat-napi` is a direct dependency so `build.rs` exports its `napi_*` from `velyr`.
 node = ["npm", "typescript", "dep:velyr-compat-commonjs", "dep:velyr-compat-napi", "dep:velyr-compat-node"]
 # TypeScript stripping in the module host.
-typescript = ["dep:velyr-tooling-typescript"]
+typescript = ["dep:velyr-tooling-typescript", "dep:velyr-tooling-tsconfig"]
 # JSX transform (.jsx and .tsx) in the module host.
-jsx = ["dep:velyr-tooling-jsx"]
+jsx = ["dep:velyr-tooling-jsx", "dep:velyr-tooling-tsconfig"]
 # OTLP/HTTP trace export, enabled at run time by OTEL_EXPORTER_OTLP_ENDPOINT or `telemetry` in velyr.json.
 telemetry = ["dep:velyr-runtime-telemetry", "velyr-web-fetch?/telemetry"]
 # Chrome DevTools Protocol server for `velyr run --inspect*` (V8 only).
@@ -50,6 +50,7 @@ velyr-compat-node = { path = "../compat-node", optional = true }
 velyr-io-tls = { path = "../io-tls", optional = true }
 velyr-tooling-typescript = { path = "../tooling-typescript", optional = true }
 velyr-tooling-jsx = { path = "../tooling-jsx", optional = true }
+velyr-tooling-tsconfig = { path = "../tooling-tsconfig", optional = true }
 velyr-tooling-test = { path = "../tooling-test" }
 velyr-runtime-core = { path = "../runtime-core" }
 velyr-runtime-event-loop = { path = "../runtime-event-loop" }

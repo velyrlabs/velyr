@@ -186,7 +186,10 @@ fn runtime_config(
         quotas: Some(prepared.quotas.clone()),
         leak_check: std::env::var_os("VELYR_LEAK_CHECK").is_some_and(|value| value == "1"),
         leak_collector: Some(velyr_runtime_ops::take_leak_report),
-        module_resolver: watch_mode::recording(profiles::module_resolver()),
+        module_resolver: watch_mode::recording(transforms::project_resolver(
+            profiles::module_resolver(),
+            &prepared.capabilities,
+        )),
         source_transform: crate::inspect::source_transform(transforms::source_transform(
             &prepared.capabilities,
             features,
