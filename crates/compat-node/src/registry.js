@@ -71,7 +71,13 @@
   // `require('node:x')`: compat-commonjs strips the prefix and looks the name up here.
   const commonjs = global[Symbol.for("velyr.commonjs")];
   if (commonjs) {
-    for (const name of publicNames) commonjs.builtins.set(name, load(name));
+    // Entries only mark membership for `has`; `get` evaluates a builtin on its first require.
+    const { builtins } = commonjs;
+    const mapGet = Map.prototype.get;
+    for (const name of publicNames) builtins.set(name, undefined);
+    builtins.get = function (name) {
+      return publicNames.has(name) ? load(name) : Reflect.apply(mapGet, this, [name]);
+    };
     // Same rule as the ESM resolver (`builtin_name`): a bare `test` is an npm package.
     commonjs.prefixOnly.add("test");
   }

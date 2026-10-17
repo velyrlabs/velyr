@@ -24,6 +24,8 @@ static SERIAL: Mutex<()> = Mutex::new(());
 enum Mode {
     Eager,
     Lazy,
+    /// Evaluates the bootstrap at once with an eval counter planted in two builtin bodies.
+    Probed,
 }
 
 fn op_report(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
@@ -78,7 +80,16 @@ fn run(mode: Mode, fake_commonjs: bool, emit: bool, body: &str) -> (String, Stri
                 };
                 isolate.eval_script(&hook).expect("hook");
             }
+            if mode == Mode::Probed {
+                let source = Source {
+                    name: "probed-bootstrap".into(),
+                    text: PROBED_BOOTSTRAP.into(),
+                };
+                isolate.eval_script(&source).expect("probed bootstrap");
+                return;
+            }
             let drain = match mode {
+                Mode::Probed => unreachable!(),
                 Mode::Eager => {
                     install_compat_node(isolate).expect("compat node");
                     velyr_compat_node::install_buffer_global(isolate).expect("buffer");
@@ -102,6 +113,17 @@ fn run(mode: Mode, fake_commonjs: bool, emit: bool, body: &str) -> (String, Stri
     };
     (outcome, REPORT.lock().unwrap().clone())
 }
+
+/// Script that evals the real bootstrap with `__builtinEvalCount` bumped by the bodies of `os` and `querystring`.
+const PROBED_BOOTSTRAP: &str = r#"
+    let text = op_node_bootstrap_source();
+    for (const name of ['os', 'querystring']) {
+      const head = JSON.stringify(name) + ': function (module, exports, require) {\n';
+      if (!text.includes(head)) throw new Error('factory header for ' + name);
+      text = text.replace(head, head + 'globalThis.__builtinEvalCount = (globalThis.__builtinEvalCount | 0) + 1;\n');
+    }
+    (0, eval)(text);
+"#;
 
 const NODE_SYMBOL: &str = r#"Symbol.for("velyr.node")"#;
 
@@ -179,5 +201,21 @@ fn a_global_assigned_before_the_boot_keeps_the_scripts_value() {
         if (!globalThis.process.fake) throw new Error('process was overwritten');
     "#;
     let (outcome, _) = run(Mode::Lazy, false, false, body);
+    assert_eq!(outcome, "ok");
+}
+
+#[test]
+fn builtins_are_not_evaluated_until_required() {
+    let body = r#"
+        const hook = globalThis[Symbol.for('velyr.commonjs')];
+        const count = () => globalThis.__builtinEvalCount | 0;
+        if (hook.builtins.has('os') !== true) throw new Error('os is not registered');
+        if (count() !== 0) throw new Error('evaluated at boot: ' + count());
+        const first = hook.builtins.get('os');
+        if (count() !== 1) throw new Error('after first require: ' + count());
+        if (hook.builtins.get('os') !== first) throw new Error('not memoized');
+        if (count() !== 1) throw new Error('after second require: ' + count());
+    "#;
+    let (outcome, _) = run(Mode::Probed, true, false, body);
     assert_eq!(outcome, "ok");
 }
