@@ -4,6 +4,7 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, ThreadId};
+use std::time::{Duration, Instant};
 
 use velyr_engine_api::{
     CodeCacheStats, Engine, EngineError, GcReason, Handle, HeapStats, HostFunctionDef, Isolate,
@@ -28,7 +29,13 @@ pub struct LoopIsolate<I> {
     /// Shared with the compat layer through an isolate slot; once armed by JS, the hook is
     /// entered only while a tick is queued.
     tick_flags: TickFlags,
+    /// When the heap gauge was last fed; `None` until the first sample.
+    last_heap_sample: Option<Instant>,
+    heap_samples: u64,
 }
+
+/// Minimum time between heap samples taken at the end of a turn.
+const HEAP_SAMPLE_INTERVAL: Duration = Duration::from_millis(250);
 
 impl<I: Isolate> LoopIsolate<I> {
     fn new(mut inner: I) -> Self {
@@ -40,7 +47,27 @@ impl<I: Isolate> LoopIsolate<I> {
             depth: 0,
             tick_hook: None,
             tick_flags,
+            last_heap_sample: None,
+            heap_samples: 0,
         }
+    }
+
+    /// Feeds the heap gauge now and restarts the sampling interval.
+    pub fn sample_heap(&mut self) {
+        self.on_owner();
+        crate::metrics::global().record_heap(self.inner.heap_stats());
+        self.last_heap_sample = Some(Instant::now());
+        self.heap_samples += 1;
+    }
+
+    fn heap_sample_due(&self) -> bool {
+        self.last_heap_sample
+            .is_none_or(|last| last.elapsed() >= HEAP_SAMPLE_INTERVAL)
+    }
+
+    /// How many times the heap gauge was fed from this isolate.
+    pub fn heap_samples(&self) -> u64 {
+        self.heap_samples
     }
 
     /// Sets a JS function called before every microtask checkpoint; it returns `true` when it
@@ -71,7 +98,9 @@ impl<I> LoopIsolate<I> {
         self.depth -= 1;
         if self.depth == 0 {
             metrics.turn_end();
-            metrics.record_heap(self.inner.heap_stats());
+            if self.heap_sample_due() {
+                self.sample_heap();
+            }
         }
         result
     }
@@ -465,6 +494,8 @@ where
         // not after every tick; upgrade by letting `EventLoop::run` call a per-tick hook.
         check_rejections(event_loop.isolate())
     });
+    // The last turns may fall inside the sampling interval; metrics read a fresh heap at exit.
+    event_loop.isolate().sample_heap();
     if !shutdown.is_cancelled() {
         return result;
     }
