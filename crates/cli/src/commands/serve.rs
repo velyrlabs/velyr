@@ -65,6 +65,18 @@ fn start_script(file: &Path, listen: &Listen<'_>, deadline: Duration) -> String 
     )
 }
 
+/// With `SO_REUSEPORT` nothing accepts on the address until a worker binds it, so announcing
+/// earlier would invite refused connections. Returns early if the supervisor gives up.
+fn wait_until_every_worker_listens(listening: &std::sync::mpsc::Receiver<usize>, count: usize) {
+    let mut ready = std::collections::BTreeSet::new();
+    while ready.len() < count {
+        match listening.recv() {
+            Ok(id) => ready.insert(id),
+            Err(_) => return,
+        };
+    }
+}
+
 /// What the signal thread drives: the supervisor of a multicore server, or nothing (one isolate).
 enum Target {
     Single,
@@ -224,6 +236,7 @@ fn serve_multicore(
     let options = SupervisorOptions::new(count, SocketAddr::new(ip, port));
     let reuse_port = options.distribution == Distribution::ReusePort;
     let file = file.to_path_buf();
+    let (listening_tx, listening) = std::sync::mpsc::channel();
     let supervisor = Supervisor::start(options, move |ctx: WorkerContext| {
         velyr_runtime_core::metrics::global().register_worker(ctx.id);
         let script = start_script(
@@ -234,10 +247,15 @@ fn serve_multicore(
             },
             deadline,
         );
+        let listening_tx = listening_tx.clone();
+        let id = ctx.id;
         let inbox = ServeInbox {
             addr: ctx.addr,
             streams: ctx.streams,
             reuse_port,
+            on_listen: Some(Box::new(move || {
+                let _ = listening_tx.send(id);
+            })),
         };
         let worker = Worker {
             inbox: Some(inbox),
@@ -254,6 +272,7 @@ fn serve_multicore(
         }
     })
     .map_err(|err| err.to_string())?;
+    wait_until_every_worker_listens(&listening, count);
     eprintln!("Listening on http://{}/", supervisor.addr());
     let drain = Drain::default();
     stop_on_signals(

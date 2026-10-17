@@ -181,6 +181,8 @@ pub struct ServeInbox {
     pub streams: Option<mpsc::Receiver<std::net::TcpStream>>,
     /// Without `streams`: bind `addr` with `SO_REUSEPORT` and let the kernel spread connections.
     pub reuse_port: bool,
+    /// Called once this isolate serves: with `reuse_port`, its listener is bound and listening.
+    pub on_listen: Option<Box<dyn FnOnce() + Send>>,
 }
 
 /// The IP a `hostname` listens on: an address as is, a name through the system resolver (IPv4
@@ -293,7 +295,7 @@ fn op_serve_listen(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
                 "options without inherit (no connections are handed over here)",
             )
         })?;
-        match inbox.streams.take() {
+        let served = match inbox.streams.take() {
             Some(streams) => (Source::Streams(streams), inbox.addr),
             None if inbox.reuse_port => {
                 let listener = bind(inbox.addr.ip(), inbox.addr.port(), true)?;
@@ -304,7 +306,11 @@ fn op_serve_listen(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
                     VelyrError::internal("the handed-over connections are already served").into(),
                 );
             }
+        };
+        if let Some(on_listen) = inbox.on_listen.take() {
+            on_listen();
         }
+        served
     } else {
         let ip = listen_ip.expect("resolved above unless inheriting");
         let listener = bind(ip, port, false)?;
