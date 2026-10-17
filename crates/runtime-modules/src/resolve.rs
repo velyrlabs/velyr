@@ -5,7 +5,7 @@ use url::{ParseError, Url};
 use velyr_runtime_errors::VelyrError;
 
 use crate::strategy::BareSpecifierResolver;
-use crate::{ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result};
+use crate::{MediaType, ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct FsResolver;
@@ -28,7 +28,13 @@ pub(crate) fn resolve_with(
     ctx: &ResolveContext,
 ) -> Result<ResolvedModule> {
     let mapped = apply_import_map(specifier, ctx);
-    let path = locate(&mapped, referrer, bare)?;
+    let (path, kind) = locate(&mapped, referrer, bare)?;
+    let path = match referrer.to_path() {
+        Some(importer) if kind == Kind::Path && MediaType::from_path(&importer).is_typescript() => {
+            probe(&path).unwrap_or(path)
+        }
+        _ => path,
+    };
     let path = fs::canonicalize(&path)
         .map_err(|_| VelyrError::not_found(format!("module not found: {specifier}")))?;
     let id = ModuleId::from_path(&path)
@@ -58,15 +64,62 @@ fn apply_import_map(specifier: &str, ctx: &ResolveContext) -> String {
     }
 }
 
+/// How `locate` classified a specifier; only `Path` results are probed for extensions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Path,
+    Url,
+    Bare,
+}
+
+const JS_EXTENSIONS: [(&str, &str); 4] =
+    [("js", "ts"), ("mjs", "mts"), ("cjs", "cts"), ("jsx", "tsx")];
+const PROBE_EXTENSIONS: [&str; 7] = ["ts", "tsx", "mts", "cts", "js", "mjs", "cjs"];
+
+/// TypeScript-importer resolution: exact file, `.js` to `.ts` swap, appended extension, then
+/// `index.*`. A file beats a directory. Returns `None` when nothing matches.
+fn probe(path: &Path) -> Option<PathBuf> {
+    if path.is_file() {
+        return Some(path.to_path_buf());
+    }
+    let ext = path.extension().and_then(|e| e.to_str());
+    if let Some((_, ts)) = JS_EXTENSIONS.iter().find(|(js, _)| Some(*js) == ext) {
+        let swapped = path.with_extension(ts);
+        if swapped.is_file() {
+            return Some(swapped);
+        }
+    }
+    let with_suffix = |suffix: &str| {
+        let mut name = path.as_os_str().to_owned();
+        name.push(".");
+        name.push(suffix);
+        PathBuf::from(name)
+    };
+    if let Some(found) = PROBE_EXTENSIONS
+        .iter()
+        .map(|e| with_suffix(e))
+        .find(|p| p.is_file())
+    {
+        return Some(found);
+    }
+    if !path.is_dir() {
+        return None;
+    }
+    PROBE_EXTENSIONS
+        .iter()
+        .map(|e| path.join(format!("index.{e}")))
+        .find(|p| p.is_file())
+}
+
 /// Classifies the specifier and returns the (not yet canonical) filesystem path.
 fn locate(
     specifier: &str,
     referrer: &ModuleId,
     bare: Option<&dyn BareSpecifierResolver>,
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, Kind)> {
     match Url::parse(specifier) {
         // One-letter schemes are Windows drive letters.
-        Ok(url) if url.scheme().len() > 1 => from_url(&url, specifier),
+        Ok(url) if url.scheme().len() > 1 => Ok((from_url(&url, specifier)?, Kind::Url)),
         Ok(_) | Err(ParseError::RelativeUrlWithoutBase) => {
             from_path_like(specifier, referrer, bare)
         }
@@ -94,22 +147,22 @@ fn from_path_like(
     specifier: &str,
     referrer: &ModuleId,
     bare: Option<&dyn BareSpecifierResolver>,
-) -> Result<PathBuf> {
+) -> Result<(PathBuf, Kind)> {
     if Path::new(specifier).is_absolute() {
-        return Ok(PathBuf::from(specifier));
+        return Ok((PathBuf::from(specifier), Kind::Path));
     }
     if specifier.starts_with("./") || specifier.starts_with("../") {
         let dir = referrer
             .to_path()
             .and_then(|p| p.parent().map(Path::to_path_buf))
             .ok_or_else(|| VelyrError::invalid_data("referrer is not a file module"))?;
-        return Ok(dir.join(specifier));
+        return Ok((dir.join(specifier), Kind::Path));
     }
     if let Some(bare) = bare {
         let referrer = referrer
             .to_path()
             .ok_or_else(|| VelyrError::invalid_data("referrer is not a file module"))?;
-        return bare.resolve_bare(specifier, &referrer);
+        return Ok((bare.resolve_bare(specifier, &referrer)?, Kind::Bare));
     }
     Err(VelyrError::not_found(format!(
         "cannot resolve bare specifier '{specifier}': npm packages are not supported yet; \
