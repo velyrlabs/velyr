@@ -3,8 +3,9 @@
 //! `{ "type", "ttl", ...fields }`, one entry per answer record of the asked type.
 //!
 //! `servers` is empty (use the system configuration: `/etc/resolv.conf`) or one `ip port` pair per
-//! line (`Resolver#setServers`). The system servers need no permission, like `dns.lookup`; a custom
-//! server is a network destination, so each one needs `net-connect` for its address and port.
+//! line (`Resolver#setServers`). A custom server is a network destination, so each one needs
+//! `net-connect` for its address and port. The system servers need `net-connect` for the queried
+//! name on port 53 (see `authorize_system_query`); only `dns.lookup` stays permission-free.
 //! Failures read `CODE|detail` with a Node code (`ENOTFOUND`, `ENODATA`, `ETIMEOUT`, `ESERVFAIL`).
 //! A resolver is built per call, so nothing is cached between queries.
 
@@ -21,6 +22,8 @@ use velyr_runtime_errors::{ErrorCode, VelyrError};
 use velyr_runtime_event_loop::CompletionValue;
 use velyr_runtime_ops::{authorize, op_async};
 use velyr_runtime_permissions::Request;
+
+const SYSTEM_DNS_PORT: u16 = 53;
 
 pub(crate) fn dns_query_host_functions() -> Vec<HostFunctionDef> {
     vec![HostFunctionDef {
@@ -75,6 +78,18 @@ fn parse_servers(ctx: &mut dyn CallContext, text: &str) -> Result<Vec<(IpAddr, u
         servers.push((ip, port));
     }
     Ok(servers)
+}
+
+/// Queries to the system resolver reach whoever serves the queried name's zone, so they are a
+/// DNS tunnel channel and need `net-connect`. The scope is the queried host on port 53 rather
+/// than `*:53`: the system server address is not known to the script, and `--allow-net=host`
+/// then lets a script resolve names under hosts the user already trusts, but nothing else.
+fn authorize_system_query(ctx: &mut dyn CallContext, name: &str) -> Result<(), HostError> {
+    authorize(
+        ctx,
+        "op_node_dns_query",
+        Request::NetConnect(name.trim_end_matches('.'), SYSTEM_DNS_PORT),
+    )
 }
 
 fn fail(code: &str, detail: impl std::fmt::Display) -> VelyrError {
@@ -210,6 +225,9 @@ fn op_dns_query(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
     let asked = record_type(&rrtype)
         .ok_or_else(|| HostError::TypeError(format!("unsupported DNS record type {rrtype}")))?;
     let servers = parse_servers(ctx, &string_arg(args, 2)?)?;
+    if servers.is_empty() {
+        authorize_system_query(ctx, &name)?;
+    }
     op_async(ctx, |token| async move {
         tokio::select! {
             () = token.cancelled() => Err(VelyrError::cancelled()),

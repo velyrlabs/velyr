@@ -5,10 +5,12 @@
 use std::io::IsTerminal;
 
 use sysinfo::{
-    CpuRefreshKind, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessesToUpdate, RefreshKind,
-    System, Users,
+    CpuRefreshKind, MemoryRefreshKind, Networks, Pid, ProcessRefreshKind, ProcessesToUpdate,
+    RefreshKind, System, Users,
 };
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
+use velyr_runtime_ops::authorize;
+use velyr_runtime_permissions::Request;
 
 pub(crate) fn os_host_functions() -> Vec<HostFunctionDef> {
     vec![HostFunctionDef {
@@ -123,11 +125,43 @@ fn user() -> String {
     }
 }
 
-fn op_os(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+/// `name\tmac\taddress\tprefix` per address; the netmask and the rest are derived in `os.js`.
+fn network_interfaces() -> String {
+    let networks = Networks::new_with_refreshed_list();
+    let mut lines = Vec::new();
+    for (name, data) in &networks {
+        for ip in data.ip_networks() {
+            lines.push(format!(
+                "{name}\t{}\t{}\t{}",
+                data.mac_address(),
+                ip.addr,
+                ip.prefix
+            ));
+        }
+    }
+    lines.join("\n")
+}
+
+/// The `SysInfo` name guarding an os query, `None` for the queries that stay free.
+fn sys_info_name(query: &str) -> Option<&'static str> {
+    match query {
+        "netifs" => Some("networkInterfaces"),
+        "user" => Some("userInfo"),
+        "loadavg" => Some("loadavg"),
+        _ => None,
+    }
+}
+
+fn op_os(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let Some(Value::String(name)) = args.first() else {
         return Err(HostError::TypeError("op_node_os expects (name)".into()));
     };
-    Ok(match name.to_string_lossy().as_str() {
+    let name = name.to_string_lossy();
+    if let Some(api) = sys_info_name(&name) {
+        authorize(ctx, "op_node_os", Request::SysInfo(api))?;
+    }
+    Ok(match name.as_str() {
+        "netifs" => text(network_interfaces()),
         "hostname" => text(System::host_name().unwrap_or_default()),
         "totalmem" => Value::Number(memory().total_memory() as f64),
         "freemem" => {

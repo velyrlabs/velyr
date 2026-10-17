@@ -61,12 +61,9 @@ fn os_answers_from_the_host_without_env_permission() {
         if (os.availableParallelism() < 1) throw new Error('parallelism');
         const total = os.totalmem(), free = os.freemem();
         if (!(total > free && free > 0)) throw new Error(`memory ${total} ${free}`);
-        eq(os.loadavg().length, 3); if (!(os.uptime() > 0)) throw new Error('uptime');
+        if (!(os.uptime() > 0)) throw new Error('uptime');
         if (os.tmpdir().length === 0 || os.homedir().length === 0) throw new Error('dirs');
         eq(typeof os.release(), 'string'); eq(typeof os.version(), 'string'); eq(typeof os.machine(), 'string');
-        const info = os.userInfo();
-        if (info.username.length === 0 || info.shell !== null) throw new Error('userInfo ' + JSON.stringify(info));
-        same(Object.keys(os.networkInterfaces()), []);
         eq(os.constants.signals.SIGINT, 2); eq(os.constants.signals.SIGKILL, 9); eq(os.constants.errno.ENOENT, 2);
         eq(Object.isFrozen(os.constants), true);"#,
     ));

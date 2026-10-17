@@ -114,6 +114,10 @@ fn fake_dns() -> u16 {
 }
 
 fn run(allow_loopback: bool, body: &str) -> String {
+    run_granting(if allow_loopback { &["127.0.0.1"] } else { &[] }, body)
+}
+
+fn run_granting(hosts: &[&str], body: &str) -> String {
     let dir = tempfile::tempdir().unwrap();
     let path: PathBuf = dir.path().join("main.js");
     let script = format!(
@@ -121,12 +125,12 @@ fn run(allow_loopback: bool, body: &str) -> String {
     );
     std::fs::write(&path, script).unwrap();
     let mut builder = CapabilitySet::builder();
-    if allow_loopback {
-        let all = PortRange {
-            start: 0,
-            end: 65535,
-        };
-        builder = builder.allow(Capability::NetConnect(HostPattern::new("127.0.0.1"), all));
+    let all = PortRange {
+        start: 0,
+        end: 65535,
+    };
+    for host in hosts {
+        builder = builder.allow(Capability::NetConnect(HostPattern::new(*host), all));
     }
     let permissions = builder.build();
     let mut functions = timer_host_functions();
@@ -216,5 +220,46 @@ fn a_custom_server_needs_net_connect_permission() {
         "#
     );
     let result = run(false, &body);
+    assert_eq!(result, "ok", "{result}");
+}
+
+#[test]
+fn system_resolver_queries_need_net_connect_but_lookup_does_not() {
+    let body = r#"
+        const dns = req('dns');
+        const p = dns.promises;
+        eq((await settle(p.resolveTxt('x.example'))).code, 'ERR_ACCESS_DENIED');
+        eq((await settle(p.resolve4('x.example'))).code, 'ERR_ACCESS_DENIED');
+        eq((await settle(p.reverse('10.1.2.3'))).code, 'ERR_ACCESS_DENIED');
+        const viaCallback = await new Promise((resolve) => dns.resolveTxt('x.example', (e) => resolve(e)));
+        eq(viaCallback.code, 'ERR_ACCESS_DENIED');
+        const found = await p.lookup('localhost');
+        eq(typeof found.address, 'string');
+        "#;
+    let result = run_granting(&[], body);
+    assert_eq!(result, "ok", "{result}");
+}
+
+#[test]
+fn system_resolver_queries_are_scoped_to_the_queried_host() {
+    let body = r#"
+        const p = req('dns').promises;
+        eq((await settle(p.resolveTxt('x.example'))).code, 'ERR_ACCESS_DENIED');
+        "#;
+    let result = run_granting(&["other.example"], body);
+    assert_eq!(result, "ok", "{result}");
+}
+
+#[test]
+fn system_resolver_queries_pass_authorization_with_net_connect() {
+    // The network may be absent, so only the authorization is asserted: any failure but a denial.
+    let body = r#"
+        const p = req('dns').promises;
+        const error = await settle(p.resolveTxt('x.example'));
+        if (error && error.code === 'ERR_ACCESS_DENIED') throw new Error('denied: ' + error.message);
+        const reversed = await settle(p.reverse('10.1.2.3'));
+        if (reversed && reversed.code === 'ERR_ACCESS_DENIED') throw new Error('denied: ' + reversed.message);
+        "#;
+    let result = run_granting(&["x.example", "3.2.1.10.in-addr.arpa"], body);
     assert_eq!(result, "ok", "{result}");
 }

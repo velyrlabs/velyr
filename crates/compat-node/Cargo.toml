@@ -12,6 +12,7 @@ velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-vfs = { path = "../runtime-vfs" }
 velyr-io-fs = { path = "../io-fs" }
 velyr-io-net = { path = "../io-net" }
 velyr-io-http = { path = "../io-http" }
@@ -26,7 +27,7 @@ brotli = { version = "7", default-features = false, features = ["std"] }
 crc32fast = "1"
 # Pure Rust zstd decoder (MIT): only decompression is offered; `hash` verifies frame checksums.
 ruzstd = { version = "0.9", default-features = false, features = ["std", "hash"] }
-sysinfo = { version = "0.37", default-features = false, features = ["system", "user"] }
+sysinfo = { version = "0.37", default-features = false, features = ["system", "user", "network"] }
 tokio.workspace = true
 serde_json.workspace = true
 hickory-resolver = { version = "=0.26.3", default-features = false, features = ["system-config", "tokio"] }

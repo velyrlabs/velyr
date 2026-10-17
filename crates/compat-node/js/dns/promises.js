@@ -4,8 +4,9 @@
 // lookup() asks the resolver io-net installed (getaddrinfo on the blocking pool by default), so it
 // follows /etc/hosts and the system resolver and needs no permission; it grants none either:
 // connecting to the answer is still authorized by net-connect. resolve*() and reverse() send real
-// DNS queries through hickory-resolver (src/dns_query.rs): to the system servers with no
-// permission, or to the servers given to setServers(), which need net-connect for each of them.
+// DNS queries through hickory-resolver (src/dns_query.rs): to the system servers, which need
+// net-connect for the queried name on port 53, or to the servers given to setServers(), which need
+// net-connect for each of them.
 //
 // Known limits: getServers() lists only what setServers() set (the system servers are not
 // exposed); `hints` is ignored (getaddrinfo uses the system configuration); `lookup()` reports

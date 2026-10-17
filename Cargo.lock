@@ -4713,6 +4713,7 @@ dependencies = [
  "bytes",
  "clap",
  "flate2",
+ "glob",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -4723,6 +4724,7 @@ dependencies = [
  "oxc_parser",
  "oxc_span",
  "rcgen",
+ "regex",
  "rustls",
  "serde",
  "serde_json",
@@ -4736,6 +4738,7 @@ dependencies = [
  "tracing-subscriber",
  "tungstenite",
  "velyr-compat-commonjs",
+ "velyr-compat-napi",
  "velyr-compat-node",
  "velyr-compat-npm",
  "velyr-engine-api",
@@ -4755,6 +4758,7 @@ dependencies = [
  "velyr-runtime-permissions",
  "velyr-runtime-resources",
  "velyr-runtime-telemetry",
+ "velyr-runtime-vfs",
  "velyr-runtime-workers",
  "velyr-tooling-jsx",
  "velyr-tooling-test",
@@ -4777,6 +4781,7 @@ dependencies = [
  "oxc_span",
  "serde_json",
  "tempfile",
+ "velyr-compat-napi",
  "velyr-compat-npm",
  "velyr-engine-api",
  "velyr-engine-v8",
@@ -4785,6 +4790,7 @@ dependencies = [
  "velyr-runtime-modules",
  "velyr-runtime-ops",
  "velyr-runtime-permissions",
+ "velyr-runtime-vfs",
 ]
 
 [[package]]
@@ -4795,6 +4801,7 @@ dependencies = [
  "libloading",
  "tracing",
  "v8",
+ "velyr-engine-api",
  "velyr-runtime-errors",
  "velyr-runtime-permissions",
 ]
@@ -4833,6 +4840,7 @@ dependencies = [
  "velyr-runtime-ops",
  "velyr-runtime-permissions",
  "velyr-runtime-resources",
+ "velyr-runtime-vfs",
  "velyr-runtime-workers",
  "velyr-web-core",
  "velyr-web-crypto",
@@ -4953,6 +4961,7 @@ dependencies = [
  "velyr-runtime-ops",
  "velyr-runtime-permissions",
  "velyr-runtime-resources",
+ "velyr-runtime-vfs",
  "velyr-web-core",
 ]
 
@@ -5007,6 +5016,7 @@ dependencies = [
 name = "velyr-io-process"
 version = "0.1.0"
 dependencies = [
+ "nix",
  "serde_json",
  "tempfile",
  "tokio",
@@ -5108,6 +5118,7 @@ dependencies = [
  "velyr-runtime-modules",
  "velyr-runtime-permissions",
  "velyr-runtime-resources",
+ "velyr-runtime-vfs",
 ]
 
 [[package]]

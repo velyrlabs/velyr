@@ -3,9 +3,9 @@
 // one host op (sysinfo and std), never from process.env, so no env permission is involved.
 //
 // Known limits: cpus().times are exact on Linux (/proc/stat) and zero elsewhere (reading them
-// needs unsafe code, and sampling would block); networkInterfaces() is always empty (no interface enumeration
-// without unsafe code or an extra sysinfo feature, and no net capability to gate it on);
-// userInfo().shell is null; homedir/tmpdir follow std (HOME/TMPDIR, then the
+// needs unsafe code, and sampling would block); networkInterfaces(), userInfo() and loadavg()
+// need the SysInfo capability (--allow-sys) and throw VELYR_PERMISSION_DENIED without it;
+// networkInterfaces() entries have scopeid 0; userInfo().shell is null; homedir/tmpdir follow std (HOME/TMPDIR, then the
 // passwd entry); getPriority/setPriority are not implemented; the errno table is a subset.
 const errors = require('internal/errors');
 const ops = require('internal/ops');
@@ -47,7 +47,34 @@ function loadavg() {
   return query('loadavg').split('\t').map(Number);
 }
 
-const networkInterfaces = () => ({ __proto__: null });
+// Mask groups of `size` bits from a prefix length.
+const maskGroups = (prefix, size, count) =>
+  Array.from({ length: count }, (_, g) => {
+    const ones = Math.min(size, Math.max(0, prefix - g * size));
+    return ((2 ** ones - 1) * 2 ** (size - ones));
+  });
+
+function netmask(family, prefix) {
+  if (family === 'IPv4') return maskGroups(prefix, 8, 4).join('.');
+  const groups = maskGroups(prefix, 16, 8).map((g) => g.toString(16));
+  const zeros = groups.join(',').match(/(?:^|,)(0(?:,0)*)$/); // masks only have a trailing run of zeros
+  if (!zeros) return groups.join(':');
+  const kept = groups.length - zeros[1].split(',').length;
+  return `${groups.slice(0, kept).join(':')}::`;
+}
+
+function networkInterfaces() {
+  const result = { __proto__: null };
+  for (const line of lines(query('netifs'))) {
+    const [name, mac, address, prefix] = line.split('\t');
+    const family = address.includes(':') ? 'IPv6' : 'IPv4';
+    const internal = family === 'IPv4' ? address.startsWith('127.') : address === '::1';
+    const entry = { address, netmask: netmask(family, Number(prefix)), family, mac, internal, cidr: `${address}/${prefix}` };
+    if (family === 'IPv6') entry.scopeid = 0;
+    (result[name] ||= []).push(entry);
+  }
+  return result;
+}
 
 function userInfo(options) {
   if (options !== undefined && options !== null) errors.validateObject(options, 'options');
