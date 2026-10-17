@@ -28,8 +28,10 @@ pub(crate) mod regexp;
 mod set;
 pub(crate) mod slots;
 mod string;
+pub(crate) mod suppressed_error;
 pub(crate) mod symbol;
 pub(crate) mod typed_arrays;
+mod uri;
 mod weak;
 pub(crate) mod weak_ref;
 
@@ -70,6 +72,8 @@ pub(crate) enum Intrinsic {
     PromisePrototype,
     PromiseConstructor,
     AggregateErrorPrototype,
+    #[expect(dead_code, reason = "constructed by N30")]
+    SuppressedErrorPrototype,
     RegExpPrototype,
     RegExpConstructor,
     RegExpStringIteratorPrototype,
@@ -270,12 +274,14 @@ pub(crate) fn install_all(vm: &mut Interpreter) -> JsResult<()> {
     string::install(vm)?;
     regexp::install(vm)?;
     number::install(vm)?;
+    uri::install(vm)?;
     bigint::install(vm)?;
     boolean::install(vm)?;
     date::install(vm)?;
     math::install(vm)?;
     error::install(vm)?;
     aggregate_error::install(vm)?;
+    suppressed_error::install(vm)?;
     json::install(vm)?;
     reflect::install(vm)?;
     map::install(vm)?;
