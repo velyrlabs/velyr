@@ -1,6 +1,6 @@
 //! The `Atomics` namespace (ECMA-262 §25.4). On a SharedArrayBuffer every operation runs
 //! under the buffer's mutex, so a read-modify-write is atomic across threads; `wait`
-//! blocks only where the embedder allowed it (never on the main thread).
+//! blocks only where the embedder allowed it (the native engine allows it everywhere).
 
 use std::rc::Rc;
 use std::time::Duration;
@@ -15,7 +15,7 @@ use crate::Value;
 
 const NATIVE_LITTLE_ENDIAN: bool = cfg!(target_endian = "little");
 
-const FUNCTIONS: [(&str, u32, Builtin); 12] = [
+const FUNCTIONS: [(&str, u32, Builtin); 13] = [
     ("add", 3, add),
     ("and", 3, and),
     ("compareExchange", 4, compare_exchange),
@@ -24,6 +24,7 @@ const FUNCTIONS: [(&str, u32, Builtin); 12] = [
     ("load", 2, load),
     ("notify", 3, notify),
     ("or", 3, or),
+    ("pause", 0, pause),
     ("store", 3, store),
     ("sub", 3, sub),
     ("wait", 4, wait),
@@ -178,6 +179,20 @@ fn notify(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {
         Store::Local(_) => 0,
     };
     Ok(Value::Number(woken as f64))
+}
+
+/// `Atomics.pause([N])`: a spin-loop hint, so N only bounds the iterations (at most 1000).
+fn pause(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {
+    match arg(args, 0) {
+        Value::Undefined => {}
+        Value::Number(n) if n.is_finite() && n.fract() == 0.0 => {
+            (0..n.clamp(0.0, 1000.0) as u32).for_each(|_| std::hint::spin_loop());
+        }
+        _ => {
+            return vm.throw_type("Atomics.pause argument must be undefined or an integral Number");
+        }
+    }
+    Ok(Value::Undefined)
 }
 
 fn wait(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {

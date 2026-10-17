@@ -44,6 +44,8 @@ impl Engine for NativeEngine {
             isolate.vm.limit_bigints_to_heap_budget(bytes);
             isolate.vm.limit_buffers_to_heap_budget(bytes);
         }
+        // Node/V8 allow Atomics.wait on the main thread; so do test262 CanBlockIsTrue hosts.
+        isolate.vm.allow_atomics_wait(true);
         Ok(isolate)
     }
 }
