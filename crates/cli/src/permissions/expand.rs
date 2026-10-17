@@ -14,6 +14,8 @@ const ALL_PORTS: PortRange = PortRange {
     end: u16::MAX,
 };
 const ANY_ADDRS: [&str; 2] = ["0.0.0.0/0", "::/0"];
+/// API names that `--allow-sys` / `--deny-sys` can scope.
+const SYS_NAMES: [&str; 3] = ["networkInterfaces", "userInfo", "loadavg"];
 const DEFAULT_INSPECT_ADDR: &str = "127.0.0.1";
 
 #[derive(Debug, Clone, Copy)]
@@ -23,6 +25,7 @@ pub enum Kind {
     Net,
     Listen,
     Env,
+    Sys,
     Run,
     Native,
     Import,
@@ -31,12 +34,13 @@ pub enum Kind {
 
 impl Kind {
     /// Kinds granted by `--allow-all`.
-    pub const ALLOW_ALL: [Kind; 7] = [
+    pub const ALLOW_ALL: [Kind; 8] = [
         Kind::Read,
         Kind::Write,
         Kind::Net,
         Kind::Listen,
         Kind::Env,
+        Kind::Sys,
         Kind::Run,
         Kind::Import,
     ];
@@ -48,6 +52,7 @@ impl Kind {
             Kind::Net => "net",
             Kind::Listen => "listen",
             Kind::Env => "env",
+            Kind::Sys => "sys",
             Kind::Run => "run",
             Kind::Native => "native",
             Kind::Import => "import",
@@ -99,6 +104,7 @@ impl Kind {
                 .map(|a| Capability::NetListen(a, ALL_PORTS))
                 .to_vec(),
             Kind::Env => env_capabilities("*"),
+            Kind::Sys => vec![Capability::SysInfo(NamePattern::new("*"))],
             Kind::Run => vec![Capability::ProcessSpawn(ProgramPattern::new("*"))],
             Kind::Import => vec![Capability::ImportRemote(HostPattern::new("*"))],
             Kind::Inspect if deny => addrs().map(Capability::InspectorBind).to_vec(),
@@ -117,6 +123,10 @@ impl Kind {
             Kind::Write => vec![Capability::FsWrite(path_pattern(cwd, value))],
             Kind::Native => vec![Capability::NativeLoad(path_pattern(cwd, value))],
             Kind::Env => env_capabilities(value),
+            Kind::Sys if SYS_NAMES.contains(&value) => {
+                vec![Capability::SysInfo(NamePattern::new(value))]
+            }
+            Kind::Sys => return Err("unknown system information name"),
             Kind::Run => vec![Capability::ProcessSpawn(ProgramPattern::new(value))],
             Kind::Import => vec![Capability::ImportRemote(HostPattern::new(value))],
             Kind::Net => {

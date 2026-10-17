@@ -277,6 +277,32 @@ pub fn authorize_path(
     }
 }
 
+/// For tree operations (`cp -r`, directory `rename`, `rm -r`), which authorize only their root:
+/// refuses when a deny for `access` sits below `root`, since the walk would read, move or remove
+/// it. A symlink root is not a tree here (the operation acts on the link itself), so it passes.
+pub fn deny_nested_in_tree(
+    ctx: &mut dyn CallContext,
+    syscall: &str,
+    raw: &str,
+    root: &Path,
+    access: Access,
+) -> Result<(), FsError> {
+    if !root.symlink_metadata().is_ok_and(|meta| meta.is_dir()) {
+        return Ok(());
+    }
+    let op_ctx = op_context(ctx, syscall)?;
+    let target = root.to_str().unwrap_or_default();
+    let request = match access {
+        Access::Read => Request::FsRead(target),
+        Access::Write => Request::FsWrite(target),
+    };
+    if !op_ctx.permissions.has_deny_beneath(&request) {
+        return Ok(());
+    }
+    let denied = VelyrError::permission_denied("fs", "<redacted>");
+    Err(FsError::from_velyr(&denied, syscall, Some(raw)))
+}
+
 /// Re-resolves a path [`authorize_path`] returned, right before the I/O on it. A job that runs
 /// after the JS turn that authorized it (async ops) would otherwise follow a parent directory or
 /// a final name swapped for a link in between. The path must still resolve to itself.

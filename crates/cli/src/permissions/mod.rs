@@ -72,21 +72,22 @@ macro_rules! permissions {
 
 permissions! {
     allow_read: "PATHS", allow_write: "PATHS", allow_net: "HOST[:PORT]",
-    allow_listen: "ADDR[:PORT]", allow_env: "NAMES", allow_run: "PROGRAMS",
+    allow_listen: "ADDR[:PORT]", allow_env: "NAMES", allow_sys: "NAMES", allow_run: "PROGRAMS",
     allow_native: "PATHS", allow_import: "HOSTS", inspect: "ADDR",
     deny_read: "PATHS", deny_write: "PATHS", deny_net: "HOST[:PORT]",
-    deny_listen: "ADDR[:PORT]", deny_env: "NAMES", deny_run: "PROGRAMS",
+    deny_listen: "ADDR[:PORT]", deny_env: "NAMES", deny_sys: "NAMES", deny_run: "PROGRAMS",
     deny_native: "PATHS", deny_import: "HOSTS", deny_inspect: "ADDR",
 }
 
 impl Permissions {
-    fn allow_scopes(&self) -> [(Kind, &Scope); 9] {
+    fn allow_scopes(&self) -> [(Kind, &Scope); 10] {
         [
             (Kind::Read, &self.allow_read),
             (Kind::Write, &self.allow_write),
             (Kind::Net, &self.allow_net),
             (Kind::Listen, &self.allow_listen),
             (Kind::Env, &self.allow_env),
+            (Kind::Sys, &self.allow_sys),
             (Kind::Run, &self.allow_run),
             (Kind::Native, &self.allow_native),
             (Kind::Import, &self.allow_import),
@@ -94,13 +95,14 @@ impl Permissions {
         ]
     }
 
-    fn deny_scopes(&self) -> [(Kind, &Scope); 9] {
+    fn deny_scopes(&self) -> [(Kind, &Scope); 10] {
         [
             (Kind::Read, &self.deny_read),
             (Kind::Write, &self.deny_write),
             (Kind::Net, &self.deny_net),
             (Kind::Listen, &self.deny_listen),
             (Kind::Env, &self.deny_env),
+            (Kind::Sys, &self.deny_sys),
             (Kind::Run, &self.deny_run),
             (Kind::Native, &self.deny_native),
             (Kind::Import, &self.deny_import),
@@ -152,6 +154,7 @@ pub fn build(
     if !effective.allow_all {
         // `--allow-all` already warns about everything it grants.
         warnings.extend(run_warning::warning(&effective.allow_run));
+        warnings.extend(run_warning::deny_warning(&effective.allow_run, &effective.deny_run));
     }
     if effective.allow_all {
         warnings.push(ALLOW_ALL_WARNING.to_owned());
@@ -177,7 +180,7 @@ pub fn build(
 }
 
 fn collect(
-    scopes: [(Kind, &Scope); 9],
+    scopes: [(Kind, &Scope); 10],
     cwd: &Path,
     deny: bool,
 ) -> Result<Vec<Capability>, ConfigError> {
@@ -386,6 +389,37 @@ mod tests {
             &b,
             Request::NativeLoad(&path(dir.path(), "other/a.so"))
         ));
+    }
+
+    #[test]
+    fn sys_is_scoped_by_name_and_granted_by_allow_all() {
+        let dir = cwd();
+        let scoped = built(
+            flags(|p| p.allow_sys = list(&["networkInterfaces"])),
+            None,
+            dir.path(),
+        );
+        assert!(allowed(&scoped, Request::SysInfo("networkInterfaces")));
+        assert!(!allowed(&scoped, Request::SysInfo("userInfo")));
+        let all = built(
+            flags(|p| {
+                p.allow_all = true;
+                p.deny_sys = list(&["userInfo"]);
+            }),
+            None,
+            dir.path(),
+        );
+        assert!(allowed(&all, Request::SysInfo("loadavg")));
+        assert!(!allowed(&all, Request::SysInfo("userInfo")));
+        let bare = built(flags(|p| p.allow_sys = Some(vec![])), None, dir.path());
+        assert!(allowed(&bare, Request::SysInfo("userInfo")));
+        let bad = build(
+            flags(|p| p.allow_sys = list(&["bogus"])),
+            None,
+            dir.path(),
+            Path::new("main.js"),
+        );
+        assert!(bad.unwrap_err().to_string().contains("--allow-sys"));
     }
 
     #[test]

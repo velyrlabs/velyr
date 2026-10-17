@@ -180,6 +180,7 @@ mod tests {
             name().prop_map(|n| Capability::EnvRead(NamePattern::new(n))),
             name().prop_map(|n| Capability::EnvWrite(NamePattern::new(n))),
             name().prop_map(|n| Capability::ProcessSpawn(ProgramPattern::new(n))),
+            name().prop_map(|n| Capability::SysInfo(NamePattern::new(n))),
         ]
     }
 
@@ -198,7 +199,7 @@ mod tests {
             host().prop_map(str::to_owned),
             name().prop_map(str::to_owned)
         ];
-        (0u8..11, text, 0u16..5)
+        (0u8..12, text, 0u16..5)
     }
 
     fn build_request(kind: u8, text: &str, port: u16) -> Request<'_> {
@@ -213,6 +214,7 @@ mod tests {
             7 => Request::InspectorBind(text),
             8 => Request::EnvRead(text),
             9 => Request::EnvWrite(text),
+            10 => Request::SysInfo(text),
             _ => Request::ProcessSpawn(text),
         }
     }

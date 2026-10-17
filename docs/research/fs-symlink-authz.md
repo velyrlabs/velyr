@@ -13,7 +13,7 @@ related: [VELYR-77]
 - O fallback do VELYR-77 (entrada `Entry` que é symlink autorizada pelo diretório pai) não abre furo: toda operação `Entry` (lstat, readlink, unlink, rmdir, rename, rm, symlink, origem do cp) age sobre a própria entrada e nunca segue o componente final. Trocar o link por arquivo, diretório ou outro link entre a checagem e o job não leva a operação para fora do diretório pai autorizado.
 - Achado crítico, corrigido: as ops assíncronas eram autorizadas quando a chamada era feita, mas o job só roda depois do turno de JS atual (o `tokio::spawn` vai para o runtime `current_thread` da isolate). Nesse intervalo, o próprio script podia trocar um diretório pai, ou plantar um link no nome final, e o job seguia o link. Isso dava escrita, leitura, remoção, `mkdir`, `mkdtemp`, `chmod`, `copyFile` e `utimes` fora do grant, de forma **determinística** (sem corrida). Era um escape de sandbox reproduzível em uma linha.
 - Correção (mitigação): todo job assíncrono re-resolve, logo antes do I/O, cada caminho que o `prepare` autorizou (`verify_unchanged`). O caminho precisa continuar resolvendo para ele mesmo. O ataque determinístico morreu. Sobra uma janela de microssegundos entre a re-checagem e a syscall. Fechar essa janela exige resolução relativa a fd, o que é decisão humana (seção 5).
-- Achado aberto, fora do escopo de symlink: operações de árvore autorizam só a raiz. Um `deny` aninhado dentro do grant é lido por `cp -r`, movido por `rename` e apagado por `rm -r`. Há um teste `#[ignore]` que reproduz o caso.
+- Achado fora do escopo de symlink, corrigido no VELYR-181: operações de árvore autorizavam só a raiz, então um `deny` aninhado dentro do grant era lido por `cp -r`, movido por `rename` e apagado por `rm -r`. Agora elas consultam `CapabilitySet::has_deny_beneath` (seção 5).
 
 ## 2. Modelo de ameaça
 
@@ -34,7 +34,7 @@ related: [VELYR-77]
 | 6 | cp e rm recursivo em árvore com links para fora: cp copia o link como link; destino com link para diretório não é mesclado (EEXIST); `force` substitui o link e não escreve no alvo; rm remove o link e não o alvo | `cp_and_recursive_rm_never_follow_links_in_a_tree` | bloqueado (regressão) |
 | 7 | mkdtemp com prefixo que sobe (`..`), que passa por link, que termina em `/` dentro de link, ou cujo `<prefix>XXXXXX` já existe como link para fora | `mkdtemp_prefix_cannot_leave_the_grant` | bloqueado (regressão) |
 | 8 | `deny` dentro do grant: link para o caminho negado não é seguido; o fallback só age sobre o link | `links_into_a_denied_subtree_cannot_be_followed` | bloqueado (regressão) |
-| 9 | `deny` aninhado sob a raiz de uma op de árvore (cp -r, rename, rm -r) | `tree_operations_respect_a_nested_deny` (`#[ignore]`) | **aberto** (cp confirmado por teste; rename e rm pela leitura do código, já que autorizam só a raiz) |
+| 9 | `deny` aninhado sob a raiz de uma op de árvore (cp -r, rename, rm -r) | `tree_operations_respect_a_nested_deny` | **corrigido no VELYR-181** (RED antes: cp passou; rename e rm autorizavam só a raiz). Contraprova: `tree_operations_work_without_a_nested_deny` |
 
 Notas por API:
 
@@ -47,11 +47,13 @@ Notas por API:
 - `crates/io-fs/src/sync_ops.rs`: `verify_unchanged(path, mode, syscall, raw)` roda `resolve(path, mode)` de novo e exige o mesmo caminho. Se o resultado divergir (link no meio, link plantado no nome final, link pendente), devolve `ERR_ACCESS_DENIED` com cause `VELYR_PERMISSION_DENIED`. `NotFound` passa direto e a própria op reporta `ENOENT`, para não mudar o código de erro de corridas benignas (ex.: `rm({ force: true })` em algo apagado no meio). Criar através de um pai pendente falha no kernel: `mkdir`/`open(O_CREAT)` não criam o pai, e `create_dir_all` recusa um link pendente no lugar de um diretório (coberto pelo teste 5).
 - `crates/compat-node/src/fs_ops.rs`: `prepare` registra cada caminho autorizado (`authorize` → `Guard`). `op_async_call` embrulha o job em `guarded`, que chama `verify_unchanged` em todas as guardas antes do trabalho. `op_sync` não re-checa, porque entre a checagem e o I/O não roda JS.
 
-## 5. Risco residual e decisão humana
+## 5. Risco residual e decisões (VELYR-181)
 
-1. **Janela residual do TOCTOU (alto, exige corrida):** entre `verify_unchanged` e a syscall ainda existe uma janela curta. Um script que dispara muitas ops assíncronas de `rename`/`symlink` no blocking pool, em paralelo com o alvo, pode ganhar a corrida de vez em quando. O mesmo vale para o walk recursivo de `cp`/`rm`, que resolve cada filho por caminho. Fechar de verdade exige resolução relativa a fd: `openat` componente a componente com `O_NOFOLLOW`, `openat2(RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS)` no Linux, `O_NOFOLLOW_ANY` no macOS, ou o crate `cap-std`. Todos pedem dependência nova ou `unsafe` (o compat-node proíbe `unsafe`, e o `Cargo.toml` não estava no escopo deste ticket). Decisão: adotar `cap-std` (ou equivalente) no io-fs e passar a fazer os jobs sobre dirfd.
-2. **Deny aninhado em op de árvore (médio/alto quando há `deny`):** ataque 9. As opções são: (a) no `prepare`, percorrer a árvore e autorizar cada entrada (custo O(árvore) no thread da isolate); (b) pedir ao crate de permissões uma API "existe deny abaixo de X?" e negar a op de árvore nesse caso (mexe no crate de permissões, decisão humana); (c) documentar como limitação, como o Deno faz.
-3. **Deny sobre um symlink (baixo):** o crate de permissões resolve o padrão ao construir o set, então `deny` em `DIR/link` vira deny no alvo do link. Unlink/rename do próprio link caem no fallback pelo pai e são permitidos. Se a intenção for proteger a entrada link, a semântica precisa mudar no crate de permissões.
+Decisões do Lucas no VELYR-181: (1) TOCTOU residual aceito como limitação conhecida, sem cap-std nem openat2; (2) deny aninhado resolvido pela opção (b); (3) deny sobre symlink mantém a semântica atual. Detalhes abaixo.
+
+1. **Janela residual do TOCTOU (alto, exige corrida) — ACEITO como limitação conhecida, registrado em `docs/SECURITY.md`:** entre `verify_unchanged` e a syscall ainda existe uma janela curta. Um script que dispara muitas ops assíncronas de `rename`/`symlink` no blocking pool, em paralelo com o alvo, pode ganhar a corrida de vez em quando. O mesmo vale para o walk recursivo de `cp`/`rm`, que resolve cada filho por caminho. Fechar de verdade exige resolução relativa a fd: `openat` componente a componente com `O_NOFOLLOW`, `openat2(RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS)` no Linux, `O_NOFOLLOW_ANY` no macOS, ou o crate `cap-std`. Todos pedem dependência nova ou `unsafe` (o compat-node proíbe `unsafe`, e o `Cargo.toml` não estava no escopo deste ticket). Decisão: não adotar `cap-std` nem `openat2`; o risco fica documentado e, para fronteira rígida, o caminho é isolamento no nível do SO (container, usuário separado).
+2. **Deny aninhado em op de árvore — RESOLVIDO (opção b):** ataque 9. `CapabilitySet::has_deny_beneath(&Request)` (crate `runtime-permissions`) diz se existe um deny do mesmo tipo (`FsRead`/`FsWrite`) estritamente abaixo do caminho. Custo: uma passada pela lista de denies (padrões já canonicalizados no `build()`), nunca um walk da árvore; em sets derivados, vale se algum bound tiver o deny; caminho não resolvível devolve `true`. `io-fs` expõe `deny_nested_in_tree`, e `fs_ops::prepare` a chama em `rm` recursivo, `rename` e `cp` recursivo (este checa deny de leitura e de escrita, porque a cópia duplica o conteúdo). A raiz só conta se for diretório de verdade: link na raiz é tratado como o próprio link. Limite: entradas criadas dentro da árvore depois da checagem caem na janela do item 1.
+3. **Deny sobre um symlink (baixo) — mantido como está:** o crate de permissões resolve o padrão ao construir o set, então `deny` em `DIR/link` vira deny no alvo do link, como no Deno. Unlink/rename do próprio link caem no fallback pelo pai e são permitidos. Registrado em `docs/SECURITY.md`.
 4. **Funcional, não segurança:** `mkdtemp` com prefixo que já termina em `XXXXXX` (`trim_end_matches` corta todas as repetições) cria um diretório com nome diferente do que é devolvido. Fora do escopo.
 
 ## 6. Como reproduzir
@@ -59,6 +61,5 @@ Notas por API:
 ```
 source ~/.cargo/env && cd /Users/lucasbrito/dev/wdt/velyr-core
 cargo test -p velyr-compat-node --test fs_security
-cargo test -p velyr-compat-node --test fs_security tree_operations -- --ignored   # achado aberto
 cargo test -p velyr-compat-node --test fs
 ```

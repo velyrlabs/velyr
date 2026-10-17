@@ -61,6 +61,20 @@ pub fn warning(scope: &Scope) -> Option<String> {
     })
 }
 
+/// `allow-run=*` (or a bare `--allow-run`) with any `deny-run`: the deny is best-effort, since
+/// a copy of a denied binary under another name and path still runs.
+pub fn deny_warning(allow: &Scope, deny: &Scope) -> Option<String> {
+    let allows_any = allow
+        .as_ref()
+        .is_some_and(|l| l.is_empty() || l.iter().any(|p| p == "*"));
+    let has_deny = deny.as_ref().is_some_and(|l| !l.is_empty());
+    (allows_any && has_deny).then(|| {
+        "warning: --deny-run with --allow-run=* is best-effort: a copy of a denied program under \
+         another name still runs; prefer an explicit --allow-run list"
+            .to_owned()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,5 +114,14 @@ mod tests {
     fn only_the_risky_entries_are_named() {
         let text = warning(&scope(&["echo", "ssh"])).unwrap_or_default();
         assert!(text.contains("--allow-run=ssh "), "{text}");
+    }
+
+    #[test]
+    fn deny_with_allow_all_is_best_effort() {
+        assert!(deny_warning(&scope(&["*"]), &scope(&["sudo"])).is_some());
+        assert!(deny_warning(&scope(&[]), &scope(&["sudo"])).is_some());
+        assert!(deny_warning(&scope(&["*"]), &None).is_none());
+        assert!(deny_warning(&scope(&["*"]), &scope(&[])).is_none());
+        assert!(deny_warning(&scope(&["git"]), &scope(&["sudo"])).is_none());
     }
 }

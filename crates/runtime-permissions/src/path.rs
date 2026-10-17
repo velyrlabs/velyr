@@ -37,6 +37,11 @@ impl NormalizedPath {
         Self(Vec::new())
     }
 
+    /// Last component (folded); `None` for a bare root.
+    pub(crate) fn file_name(&self) -> Option<&str> {
+        self.0.get(1..)?.last().map(String::as_str)
+    }
+
     pub(crate) fn covers(&self, other: &Self) -> bool {
         other.0.starts_with(&self.0)
     }
@@ -62,7 +67,7 @@ impl NormalizedPath {
     }
 }
 
-fn fold(text: &str) -> String {
+pub(crate) fn fold(text: &str) -> String {
     if FOLD_CASE {
         text.to_lowercase()
     } else {

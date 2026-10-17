@@ -349,10 +349,9 @@ fn links_into_a_denied_subtree_cannot_be_followed() {
     sandbox.assert_out_untouched();
 }
 
-/// Open finding (no symlink involved): tree operations authorize only their root, so a deny
-/// nested under the grant is read by `cp`, moved by `rename` and deleted by recursive `rm`.
+/// Tree operations authorize only their root, so they ask the permission set whether a deny
+/// sits below it (VELYR-181): `cp -r`, `rename` of a directory and recursive `rm` must refuse.
 #[test]
-#[ignore = "VELYR-179 open finding: deny below a tree root, needs a human decision"]
 fn tree_operations_respect_a_nested_deny() {
     let sandbox = Sandbox::new();
     let protected = sandbox.dir_path().join("parent/protected");
@@ -366,4 +365,23 @@ fn tree_operations_respect_a_nested_deny() {
         &["parent/protected"],
     ));
     assert_eq!(read(&protected.join("secret")), "inner");
+}
+
+/// Without a deny below the root the same tree operations work, and a deny elsewhere in the
+/// grant does not get in the way.
+#[test]
+fn tree_operations_work_without_a_nested_deny() {
+    let sandbox = Sandbox::new();
+    let dir = sandbox.dir_path();
+    std::fs::create_dir_all(dir.join("parent/inner")).unwrap();
+    std::fs::write(dir.join("parent/inner/file"), "data").unwrap();
+    std::fs::create_dir(dir.join("other")).unwrap();
+    assert_ok(sandbox.run(
+        r#"fs.cpSync(j('parent'), j('copy'), { recursive: true });
+        fs.renameSync(j('copy'), j('moved'));
+        fs.rmSync(j('moved'), { recursive: true });
+        eq(fs.existsSync(j('moved')), false, 'removed');
+        eq(fs.readFileSync(j('parent/inner/file'), 'utf8'), 'data', 'source intact');"#,
+        &["other"],
+    ));
 }

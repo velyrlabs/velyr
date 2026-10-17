@@ -35,7 +35,78 @@ macro_rules! patterns {
     )+};
 }
 
-patterns!(NamePattern, ProgramPattern);
+patterns!(NamePattern);
+
+/// Program name or path. As a deny rule it is matched by identity (see
+/// [`CapabilitySet::check_spawn`]); a pattern with a `/` is canonicalized when the set is built.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramPattern {
+    raw: String,
+    resolved: Option<NormalizedPath>,
+}
+
+impl ProgramPattern {
+    pub fn new(pattern: impl Into<String>) -> Self {
+        Self {
+            raw: pattern.into(),
+            resolved: None,
+        }
+    }
+
+    fn resolve(self, base: Option<&Path>, fallback: Option<NormalizedPath>) -> Self {
+        if !self.raw.contains('/') {
+            return self;
+        }
+        let resolved = NormalizedPath::resolve(&self.raw, base).or(fallback);
+        Self { resolved, ..self }
+    }
+
+    /// Deny semantics: legacy text match on the raw identities, plus the resolved path for
+    /// path patterns, plus case-folded name match against every basename for name patterns.
+    fn denies(&self, spawn: &SpawnIdentity<'_>) -> bool {
+        if spawn.raw.iter().any(|id| matches_text(&self.raw, id)) {
+            return true;
+        }
+        match &self.resolved {
+            Some(pattern) => spawn.canonical.iter().any(|p| pattern.covers(p)),
+            None => {
+                let pattern = path::fold(&self.raw);
+                spawn.names.iter().any(|n| matches_text(&pattern, n))
+            }
+        }
+    }
+}
+
+/// Every form a spawn request can be recognized by.
+struct SpawnIdentity<'a> {
+    /// Bare requested name and resolved paths, as given.
+    raw: Vec<&'a str>,
+    /// Resolved paths with symlinks followed.
+    canonical: Vec<NormalizedPath>,
+    /// Case-folded bare name and basenames of the given and canonical paths.
+    names: Vec<String>,
+}
+
+impl<'a> SpawnIdentity<'a> {
+    fn new(name: &'a str, paths: &[&'a str], base: Option<&Path>) -> Self {
+        let bare = (!name.contains('/')).then_some(name);
+        let canonical: Vec<NormalizedPath> = paths
+            .iter()
+            .filter_map(|p| NormalizedPath::resolve(p, base))
+            .collect();
+        let names = bare
+            .into_iter()
+            .chain(paths.iter().filter_map(|p| Path::new(p).file_name()?.to_str()))
+            .map(path::fold)
+            .chain(canonical.iter().filter_map(|p| p.file_name().map(str::to_owned)))
+            .collect();
+        Self {
+            raw: bare.into_iter().chain(paths.iter().copied()).collect(),
+            canonical,
+            names,
+        }
+    }
+}
 
 /// Directory (or file) grant; a directory covers its whole subtree, never a string prefix.
 /// Normalized and canonicalized when the set is built (see the `path` module).
@@ -62,6 +133,13 @@ impl PathPattern {
     fn covers(&self, request: &NormalizedPath) -> bool {
         self.resolved.as_ref().is_some_and(|p| p.covers(request))
     }
+
+    /// True when the pattern lies strictly below `root`.
+    fn is_beneath(&self, root: &NormalizedPath) -> bool {
+        self.resolved
+            .as_ref()
+            .is_some_and(|p| p != root && root.covers(p))
+    }
 }
 
 /// Inclusive port range.
@@ -84,6 +162,8 @@ pub enum Capability {
     ImportRemote(HostPattern),
     NativeLoad(PathPattern),
     InspectorBind(AddrPattern),
+    /// System information by API name (`networkInterfaces`, `userInfo`, `loadavg`).
+    SysInfo(NamePattern),
 }
 
 /// A concrete operation to be checked against a [`CapabilitySet`].
@@ -100,6 +180,7 @@ pub enum Request<'a> {
     ImportRemote(&'a str),
     NativeLoad(&'a str),
     InspectorBind(&'a str),
+    SysInfo(&'a str),
 }
 
 impl Request<'_> {
@@ -117,6 +198,7 @@ impl Request<'_> {
             Request::ImportRemote(_) => "import-remote",
             Request::NativeLoad(_) => "native-load",
             Request::InspectorBind(_) => "inspector-bind",
+            Request::SysInfo(_) => "sys-info",
         }
     }
 }
@@ -128,6 +210,7 @@ impl Capability {
             Capability::FsWrite(p) => Capability::FsWrite(p.resolve(base, fallback)),
             Capability::ImportLocal(p) => Capability::ImportLocal(p.resolve(base, fallback)),
             Capability::NativeLoad(p) => Capability::NativeLoad(p.resolve(base, fallback)),
+            Capability::ProcessSpawn(p) => Capability::ProcessSpawn(p.resolve(base, fallback)),
             other => other,
         }
     }
@@ -137,12 +220,24 @@ impl Capability {
         match (self, request, path) {
             (Capability::EnvRead(p), Request::EnvRead(v), _) => matches_text(&p.0, v),
             (Capability::EnvWrite(p), Request::EnvWrite(v), _) => matches_text(&p.0, v),
-            (Capability::ProcessSpawn(p), Request::ProcessSpawn(v), _) => matches_text(&p.0, v),
+            (Capability::SysInfo(p), Request::SysInfo(v), _) => matches_text(&p.0, v),
+            (Capability::ProcessSpawn(p), Request::ProcessSpawn(v), _) => matches_text(&p.raw, v),
             (Capability::FsRead(p), Request::FsRead(_), Some(q))
             | (Capability::FsWrite(p), Request::FsWrite(_), Some(q))
             | (Capability::ImportLocal(p), Request::ImportLocal(_), Some(q))
             | (Capability::NativeLoad(p), Request::NativeLoad(_), Some(q)) => p.covers(q),
             // Network kinds are decided in `net` before this point.
+            _ => false,
+        }
+    }
+}
+
+impl Capability {
+    /// A deny of the request's own kind that sits strictly below the request path.
+    fn denies_beneath(&self, request: &Request<'_>, root: &NormalizedPath) -> bool {
+        match (self, request) {
+            (Capability::FsRead(p), Request::FsRead(_))
+            | (Capability::FsWrite(p), Request::FsWrite(_)) => p.is_beneath(root),
             _ => false,
         }
     }
@@ -221,9 +316,29 @@ impl CapabilitySet {
         denied
     }
 
+    /// Whether a deny of the same kind lies strictly below the request path (`FsRead` and
+    /// `FsWrite` only). Tree operations (`cp -r`, directory `rename`, `rm -r`) authorize only
+    /// their root, so they use this to refuse when a nested deny would be read, moved or removed.
+    /// Costs one pass over the deny list, never a walk of the tree. A path that cannot be
+    /// resolved reports `true` (fail closed).
+    pub fn has_deny_beneath(&self, request: &Request<'_>) -> bool {
+        if !self.bounds.is_empty() {
+            return self.bounds.iter().any(|b| b.has_deny_beneath(request));
+        }
+        let (Request::FsRead(raw) | Request::FsWrite(raw)) = request else {
+            return false;
+        };
+        let Some(root) = NormalizedPath::resolve(raw, self.base.as_deref()) else {
+            return true;
+        };
+        self.deny.iter().any(|c| c.denies_beneath(request, &root))
+    }
+
     /// Process spawn by identity: `name` is the program as requested (only a bare name, one
     /// without `/`, counts as an identity) and `paths` are the absolute resolved paths of the
-    /// executable. Any identity matching a deny rule denies; otherwise any identity matching an
+    /// executable. Any identity matching a deny rule denies (a deny also matches the basename of each
+    /// path, case-insensitively on macOS, and compares canonicalized paths, so `deny sudo` covers
+    /// `/usr/bin/sudo`, `SUDO` and a symlink to it); otherwise any identity matching an
     /// allow rule allows. So `allow-run=echo` lets `echo` run wherever it resolves, while
     /// `allow-run=/bin/echo` also covers it by path, and a deny on either form wins.
     pub fn check_spawn(&self, name: &str, paths: &[&str]) -> Decision {
@@ -232,14 +347,15 @@ impl CapabilitySet {
             let allowed = self.bounds.iter().all(|b| b.check_spawn(name, paths).is_allow());
             return if allowed { Decision::Allow } else { denied };
         }
-        let bare = (!name.contains('/')).then_some(name);
-        let identities: Vec<&str> = bare.into_iter().chain(paths.iter().copied()).collect();
-        let covers = |c: &Capability| {
-            identities
+        let spawn = SpawnIdentity::new(name, paths, self.base.as_deref());
+        let denies = |c: &Capability| matches!(c, Capability::ProcessSpawn(p) if p.denies(&spawn));
+        let allows = |c: &Capability| {
+            spawn
+                .raw
                 .iter()
                 .any(|id| c.covers(&Request::ProcessSpawn(id), None))
         };
-        if !self.deny.iter().any(covers) && self.allow.iter().any(covers) {
+        if !self.deny.iter().any(denies) && self.allow.iter().any(allows) {
             return Decision::Allow;
         }
         denied
@@ -288,6 +404,23 @@ mod tests {
 
     fn env(p: &str) -> NamePattern {
         NamePattern::new(p)
+    }
+
+    #[test]
+    fn sys_info_is_scoped_by_name_and_separate_from_env() {
+        let set = CapabilitySet::builder()
+            .allow(Capability::SysInfo(env("loadavg")))
+            .build();
+        assert!(set.check(&Request::SysInfo("loadavg")).is_allow());
+        assert!(!set.check(&Request::SysInfo("userInfo")).is_allow());
+        assert!(!set.check(&Request::EnvRead("loadavg")).is_allow());
+        let all = CapabilitySet::builder()
+            .allow(Capability::SysInfo(env("*")))
+            .deny(Capability::SysInfo(env("userInfo")))
+            .build();
+        assert!(all.check(&Request::SysInfo("networkInterfaces")).is_allow());
+        assert!(!all.check(&Request::SysInfo("userInfo")).is_allow());
+        assert_eq!(Request::SysInfo("x").kind(), "sys-info");
     }
 
     #[test]
@@ -375,6 +508,66 @@ mod tests {
         assert!(!set.check_spawn("/usr/bin/sudo", &["/bin/rm"]).is_allow());
     }
 
+    fn deny_spawn(allow: &str, deny: &str) -> Arc<CapabilitySet> {
+        CapabilitySet::builder()
+            .allow(Capability::ProcessSpawn(ProgramPattern::new(allow)))
+            .deny(Capability::ProcessSpawn(ProgramPattern::new(deny)))
+            .build()
+    }
+
+    #[test]
+    fn deny_by_name_also_matches_basename_of_any_path_identity() {
+        let set = deny_spawn("*", "sudo");
+        assert!(!set.check_spawn("/usr/bin/sudo", &["/usr/bin/sudo"]).is_allow());
+        assert!(!set.check_spawn("./sudo", &["/tmp/nowhere/sudo"]).is_allow());
+        assert!(set.check_spawn("sudoku", &["/usr/bin/sudoku"]).is_allow());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn deny_by_name_ignores_case_on_macos() {
+        let set = deny_spawn("*", "sudo");
+        assert!(!set.check_spawn("SUDO", &["/usr/bin/SUDO"]).is_allow());
+        assert!(!set.check_spawn("SuDo", &[]).is_allow());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn deny_by_name_follows_symlink_to_denied_program() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("sudo");
+        let link = dir.path().join("innocent");
+        std::fs::write(&real, "x").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let set = deny_spawn("*", "sudo");
+        let link = link.to_str().unwrap();
+        assert!(!set.check_spawn("innocent", &[link]).is_allow());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn deny_by_path_resolves_pattern_and_matches_through_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let usr = dir.path().join("usr/bin");
+        std::fs::create_dir_all(&usr).unwrap();
+        std::fs::write(usr.join("rm"), "x").unwrap();
+        std::os::unix::fs::symlink(dir.path().join("usr/bin"), dir.path().join("bin")).unwrap();
+        let denied = dir.path().join("bin/rm");
+        let set = deny_spawn("*", denied.to_str().unwrap());
+        // Same file reached by the real path (usrmerge): the name resolves to it.
+        let real = usr.join("rm");
+        assert!(!set.check_spawn("rm", &[real.to_str().unwrap()]).is_allow());
+        assert!(set.check_spawn("ls", &["/bin/ls"]).is_allow());
+    }
+
+    #[test]
+    fn explicit_allowlist_is_unchanged() {
+        let set = run("git");
+        assert!(set.check_spawn("git", &["/usr/bin/git"]).is_allow());
+        assert!(!set.check_spawn("/tmp/git", &["/tmp/git"]).is_allow());
+        assert!(!set.check_spawn("sudo", &["/usr/bin/sudo"]).is_allow());
+    }
+
     fn fs_read_set(pattern: &str) -> Arc<CapabilitySet> {
         CapabilitySet::builder()
             .allow(Capability::FsRead(PathPattern::new(pattern)))
@@ -423,6 +616,38 @@ mod tests {
             .build();
         assert!(set.check(&Request::FsRead("/tmp/ok")).is_allow());
         assert!(!set.check(&Request::FsRead("/tmp/s2/k")).is_allow());
+    }
+
+    #[test]
+    fn deny_beneath_finds_nested_denies_of_the_same_kind_only() {
+        let set = CapabilitySet::builder()
+            .allow(Capability::FsWrite(PathPattern::new("/tmp/a")))
+            .deny(Capability::FsWrite(PathPattern::new("/tmp/a/b/secret")))
+            .build();
+        let beneath = |request: Request<'_>| set.has_deny_beneath(&request);
+        assert!(beneath(Request::FsWrite("/tmp/a")));
+        assert!(beneath(Request::FsWrite("/tmp/a/b")));
+        assert!(beneath(Request::FsWrite("/tmp/A/../a")));
+        assert!(!beneath(Request::FsWrite("/tmp/a/b/secret/x")));
+        assert!(!beneath(Request::FsWrite("/tmp/a/c")));
+        assert!(!beneath(Request::FsWrite("/tmp/a2")));
+        assert!(!beneath(Request::FsRead("/tmp/a")));
+        assert!(!beneath(Request::EnvRead("HOME")));
+    }
+
+    #[test]
+    fn deny_beneath_fails_closed_and_follows_bounds() {
+        let denying = CapabilitySet::builder()
+            .allow(Capability::FsRead(PathPattern::new("/tmp")))
+            .deny(Capability::FsRead(PathPattern::new("/tmp/s")))
+            .build();
+        assert!(denying.has_deny_beneath(&Request::FsRead("")));
+        let plain = CapabilitySet::builder()
+            .allow(Capability::FsRead(PathPattern::new("/tmp")))
+            .build();
+        assert!(!plain.has_deny_beneath(&Request::FsRead("/tmp")));
+        let child = plain.derive_child(&plain, &denying);
+        assert!(child.has_deny_beneath(&Request::FsRead("/tmp")));
     }
 
     #[test]
