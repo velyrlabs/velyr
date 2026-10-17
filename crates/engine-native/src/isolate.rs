@@ -40,7 +40,7 @@ impl NativeIsolate {
         crate::array_from_async::install(&mut vm).expect("the Array.fromAsync prelude runs");
         crate::disposable::install(&mut vm).expect("the disposable prelude runs");
         crate::async_disposable::install(&mut vm).expect("the async disposable prelude runs");
-        crate::date::install(&mut vm);
+        crate::date::install(&mut vm).expect("the Date prelude runs");
         crate::intl::install(&mut vm).expect("the Intl prelude runs");
         crate::temporal::install(&mut vm).expect("the Temporal prelude runs");
         let terminated = vm.termination_flag();

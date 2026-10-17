@@ -7,6 +7,8 @@ use std::rc::Rc;
 use temporal_rs::{TimeZone, ZonedDateTime};
 use velyr_engine_vm::interpreter::{Interpreter, LocalTimeZone};
 
+use crate::prelude::run_prelude_with_force;
+
 const MS_PER_DAY: f64 = 86_400_000.0;
 const MAX_TIME: f64 = 8.64e15;
 
@@ -78,8 +80,28 @@ impl LocalTimeZone for HostZone {
     }
 }
 
-pub(crate) fn install(vm: &mut Interpreter) {
+// shortcut: `Temporal` is read from the global at call time (the spec uses the intrinsic);
+// upgrade if user code replacing `globalThis.Temporal` must not affect this method.
+const TO_TEMPORAL_INSTANT: &str = r#"'use strict';
+(() => {
+  const force = globalThis.__lazy_force;
+  delete globalThis.__lazy_force;
+  const apply = Reflect.apply;
+  const getTime = Date.prototype.getTime;
+  const method = { toTemporalInstant() {
+    const t = apply(getTime, this, []);
+    if (t !== t) throw new RangeError('Invalid time value');
+    force('Temporal');
+    return globalThis.Temporal.Instant.fromEpochMilliseconds(t);
+  } }.toTemporalInstant;
+  Object.defineProperty(Date.prototype, 'toTemporalInstant',
+    { value: method, writable: true, configurable: true });
+})();
+"#;
+
+pub(crate) fn install(vm: &mut Interpreter) -> Result<(), String> {
     vm.set_local_time_zone(Rc::new(HostZone(host_zone())));
+    run_prelude_with_force(vm, "velyr:date_temporal", TO_TEMPORAL_INSTANT)
 }
 
 #[cfg(test)]
