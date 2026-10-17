@@ -122,7 +122,9 @@ fn source_type(specifier: &str, media_type: MediaType) -> Option<SourceType> {
         MediaType::JavaScript if specifier.ends_with(".jsx") => "module.jsx",
         _ => return None,
     };
-    SourceType::from_path(file).ok()
+    SourceType::from_path(file)
+        .ok()
+        .map(|t| t.with_module(true))
 }
 
 /// 1-based line and column (in characters) of a byte offset.
@@ -169,7 +171,7 @@ impl SourceTransform for JsxTransform {
             ));
         }
         let mut program = parsed.program;
-        let semantic = SemanticBuilder::new().build(&program);
+        let semantic = SemanticBuilder::new().with_enum_eval(true).build(&program);
         let path = Path::new(specifier);
         let transformed = Transformer::new(&allocator, path, &self.config.options())
             .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
