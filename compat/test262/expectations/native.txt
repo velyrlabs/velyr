@@ -2,55 +2,13 @@ test/annexB/built-ins/Array/from/iterator-method-emulates-undefined.js # skip: $
 test/annexB/built-ins/Object/is/emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/RegExp/RegExp-leading-escape-BMP.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
 test/annexB/built-ins/RegExp/RegExp-trailing-escape-BMP.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/annexB/built-ins/RegExp/legacy-accessors/index/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'set')
 test/annexB/built-ins/RegExp/legacy-accessors/index/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/index/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/index/this-subclass-constructor.js # Test262Error: RegExp.$1 getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/legacy-accessors/input/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'get')
 test/annexB/built-ins/RegExp/legacy-accessors/input/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/input/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/input/this-subclass-constructor.js # Test262Error: RegExp.input getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/legacy-accessors/lastMatch/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'set')
 test/annexB/built-ins/RegExp/legacy-accessors/lastMatch/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/lastMatch/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/lastMatch/this-subclass-constructor.js # Test262Error: RegExp.lastMatch getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/legacy-accessors/lastParen/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'set')
 test/annexB/built-ins/RegExp/legacy-accessors/lastParen/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/lastParen/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/lastParen/this-subclass-constructor.js # Test262Error: RegExp.lastParen getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/legacy-accessors/leftContext/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'set')
 test/annexB/built-ins/RegExp/legacy-accessors/leftContext/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/leftContext/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/leftContext/this-subclass-constructor.js # Test262Error: RegExp.leftContext getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/legacy-accessors/rightContext/prop-desc.js # TypeError: Cannot read properties of undefined (reading 'set')
 test/annexB/built-ins/RegExp/legacy-accessors/rightContext/this-cross-realm-constructor.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/legacy-accessors/rightContext/this-not-regexp-constructor.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/annexB/built-ins/RegExp/legacy-accessors/rightContext/this-subclass-constructor.js # Test262Error: RegExp.rightContext getter throws for subclass receiver Expected a TypeError to be thrown but no exception was thrown at all
-test/annexB/built-ins/RegExp/prototype/Symbol.split/Symbol.match-getter-recompiles-source.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/Symbol.split/toint32-limit-recompiles-source.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/B.RegExp.prototype.compile.js # Test262Error: compile should be an own property
-test/annexB/built-ins/RegExp/prototype/compile/duplicate-named-capturing-groups-syntax.js # Test262Error: Duplicate named capturing groups in the same alternative do not parse Expected a SyntaxError but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/flags-string-invalid.js # Test262Error: invalid flags: igi Expected a SyntaxError but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/flags-to-string-err.js # Test262Error: Expected a Test262Error but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/flags-to-string.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/flags-undefined.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/length.js # TypeError: Cannot convert undefined or null to object
-test/annexB/built-ins/RegExp/prototype/compile/name.js # TypeError: Cannot convert undefined or null to object
-test/annexB/built-ins/RegExp/prototype/compile/pattern-regexp-distinct.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/pattern-regexp-flags-defined.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/built-ins/RegExp/prototype/compile/pattern-regexp-immutable-lastindex.js # Test262Error: [[OriginalSource]] internal slot Expected SameValue(«"/initial/"», «"/updated/gi"») to be true
-test/annexB/built-ins/RegExp/prototype/compile/pattern-regexp-props.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/pattern-regexp-same.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/pattern-string-invalid-u.js # Test262Error: invalid pattern: { Expected a SyntaxError but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/pattern-string-invalid.js # Test262Error: invalid pattern: ? Expected a SyntaxError but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/pattern-string-u.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/pattern-string.js # TypeError: undefined is not a function
-test/annexB/built-ins/RegExp/prototype/compile/pattern-to-string-err.js # Test262Error: Expected a Test262Error but got a TypeError
-test/annexB/built-ins/RegExp/prototype/compile/pattern-undefined.js # TypeError: undefined is not a function
 test/annexB/built-ins/RegExp/prototype/compile/this-cross-realm-instance.js # skip: $262.createRealm is not available through engine-api
-test/annexB/built-ins/RegExp/prototype/compile/this-not-object.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/built-ins/RegExp/prototype/compile/this-obj-not-regexp.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/built-ins/RegExp/prototype/flags/order-after-compile.js # TypeError: undefined is not a function
 test/annexB/built-ins/String/prototype/match/custom-matcher-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/String/prototype/matchAll/custom-matcher-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/String/prototype/replace/custom-replacer-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
@@ -58,41 +16,6 @@ test/annexB/built-ins/String/prototype/replaceAll/custom-replacer-emulates-undef
 test/annexB/built-ins/String/prototype/search/custom-searcher-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/String/prototype/split/custom-splitter-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/TypedArrayConstructors/from/iterator-method-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
-test/annexB/built-ins/escape/argument_bigint.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/argument_types.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/empty-string.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/escape-above-astral.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/escape-above.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/escape-below.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/length.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/name.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/not-a-constructor.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/prop-desc.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/built-ins/escape/to-primitive-err.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/annexB/built-ins/escape/to-primitive-observe.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/to-string-err-symbol.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/annexB/built-ins/escape/to-string-err.js # Test262Error: Expected a Test262Error but got a ReferenceError
-test/annexB/built-ins/escape/to-string-observe.js # ReferenceError: escape is not defined
-test/annexB/built-ins/escape/unmodified.js # ReferenceError: escape is not defined
-test/annexB/built-ins/unescape/argument_bigint.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/argument_types.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/empty-string.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/four-ignore-bad-u.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/four-ignore-end-str.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/four-ignore-non-hex.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/four.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/length.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/name.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/not-a-constructor.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/prop-desc.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/built-ins/unescape/to-primitive-err.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/annexB/built-ins/unescape/to-primitive-observe.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/to-string-err-symbol.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/annexB/built-ins/unescape/to-string-err.js # Test262Error: Expected a Test262Error but got a ReferenceError
-test/annexB/built-ins/unescape/to-string-observe.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/two-ignore-end-str.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/two-ignore-non-hex.js # ReferenceError: unescape is not defined
-test/annexB/built-ins/unescape/two.js # ReferenceError: unescape is not defined
 test/annexB/language/eval-code/direct/block-decl-nostrict.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-block-scoping.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-existing-block-fn-no-init.js # SyntaxError: unsupported: direct eval
@@ -764,7 +687,6 @@ test/built-ins/Array/prototype/splice/create-proto-from-ctor-realm-non-array.js 
 test/built-ins/Array/prototype/toLocaleString/resizable-buffer.js # bytecode compiler unsupported: block-level function in sloppy mode (bootstrap fallback rejects it)
 test/built-ins/Array/prototype/values/resizable-buffer-shrink-mid-iteration.js # Uint8Array built-in out of VELYR-107 scope, not implemented
 test/built-ins/Array/prototype/values/resizable-buffer.js # Uint8Array built-in out of VELYR-107 scope, not implemented
-test/built-ins/ArrayBuffer/options-maxbytelength-allocation-limit.js # Test262Error: `maxByteLength` option is 7 PiB Expected a RangeError to be thrown but no exception was thrown at all
 test/built-ins/ArrayBuffer/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/ArrayBuffer/prototype/immutable/prop-desc.js # Test262Error: ArrayBuffer.prototype.immutable getter should be a function Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/immutable/return-immutable.js # Test262Error: Expected SameValue(«undefined», «false») to be true
@@ -1145,19 +1067,9 @@ test/built-ins/DataView/prototype/setUint8/immutable-buffer.js # TypeError: unde
 test/built-ins/Date/proto-from-ctor-realm-one.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Date/proto-from-ctor-realm-two.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Date/proto-from-ctor-realm-zero.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/Date/prototype/toISOString/15.9.5.43-0-10.js # RangeError: Invalid time value
-test/built-ins/Date/prototype/toISOString/15.9.5.43-0-9.js # RangeError: Invalid time value
 test/built-ins/Date/prototype/toLocaleDateString/not-a-constructor.js # Test262Error: isConstructor(Date.prototype.toLocaleDateString) must return false Expected SameValue(«true», «false») to be true
 test/built-ins/Date/prototype/toLocaleString/not-a-constructor.js # Test262Error: isConstructor(Date.prototype.toLocaleString) must return false Expected SameValue(«true», «false») to be true
 test/built-ins/Date/prototype/toLocaleTimeString/not-a-constructor.js # Test262Error: isConstructor(Date.prototype.toLocaleTimeString) must return false Expected SameValue(«true», «false») to be true
-test/built-ins/Date/prototype/toTemporalInstant/length.js # TypeError: Cannot convert undefined or null to object
-test/built-ins/Date/prototype/toTemporalInstant/name.js # TypeError: Cannot convert undefined or null to object
-test/built-ins/Date/prototype/toTemporalInstant/not-a-constructor.js # Test262Error: isConstructor invoked with a non-function value
-test/built-ins/Date/prototype/toTemporalInstant/prop-desc.js # Test262Error: toTemporalInstant should be an own property
-test/built-ins/Date/prototype/toTemporalInstant/this-value-invalid-date.js # Test262Error: Expected a RangeError but got a TypeError
-test/built-ins/Date/prototype/toTemporalInstant/this-value-non-date.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/Date/prototype/toTemporalInstant/this-value-non-object.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/Date/prototype/toTemporalInstant/this-value-valid-date.js # TypeError: undefined is not a function
 test/built-ins/DisposableStack/constructor.js # Test262Error: typeof DisposableStack is function Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/DisposableStack/instance-extensible.js # ReferenceError: DisposableStack is not defined
 test/built-ins/DisposableStack/is-a-constructor.js # ReferenceError: DisposableStack is not defined
@@ -1575,56 +1487,9 @@ test/built-ins/Iterator/zipKeyed/suspended-start-iterator-close-calls-next.js # 
 test/built-ins/Iterator/zipKeyed/suspended-start-iterator-close-calls-return.js # TypeError: undefined is not a function
 test/built-ins/Iterator/zipKeyed/suspended-yield-iterator-close-calls-next.js # TypeError: undefined is not a function
 test/built-ins/Iterator/zipKeyed/suspended-yield-iterator-close-calls-return.js # TypeError: undefined is not a function
-test/built-ins/JSON/isRawJSON/basic.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/isRawJSON/builtin.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/isRawJSON/length.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/isRawJSON/name.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/isRawJSON/not-a-constructor.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/isRawJSON/prop-desc.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/parse/reviver-call-args-after-forward-modification.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/parse/reviver-context-source-array-literal.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/parse/reviver-context-source-object-literal.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/parse/reviver-context-source-primitive-literal.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/parse/reviver-forward-modifies-object.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/basic.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/bigint-raw-json-can-be-stringified.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/builtin.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/illegal-empty-and-start-end-chars.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/invalid-JSON-text.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/length.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/name.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/not-a-constructor.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/prop-desc.js # proposal JSON.parse source text access is stage 3, not ES2025
-test/built-ins/JSON/rawJSON/returns-expected-object.js # proposal JSON.parse source text access is stage 3, not ES2025
 test/built-ins/JSON/stringify/replacer-array-proxy-revoked-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/JSON/stringify/value-bigint-cross-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Map/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/Map/prototype/getOrInsert/append-new-values-normalizes-zero-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/append-new-values.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/append-value-if-key-is-not-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/getOrInsert.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/length.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/name.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/not-a-constructor.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/returns-value-if-key-is-not-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/returns-value-if-key-is-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsert/returns-value-normalized-zero-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/append-new-values-normalizes-zero-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/append-new-values.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/append-value-if-key-is-not-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/callbackfn-throws.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/canonical-key-passed-to-callback.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/check-callback-fn-args.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/check-state-after-callback-fn-throws.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/different-types-function-callbackfn-does-not-throw.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/does-not-evaluate-callbackfn-if-key-present.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/getOrInsertComputed.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/not-a-constructor.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/overwrites-mutation-from-callbackfn.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/returns-value-if-key-is-not-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/returns-value-if-key-is-present-different-key-types.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/prototype/getOrInsertComputed/returns-value-normalized-zero-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/Map/valid-keys.js # BigInt built-in out of VELYR-107 scope, not implemented
 test/built-ins/NativeErrors/EvalError/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/NativeErrors/RangeError/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/NativeErrors/ReferenceError/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
@@ -1882,7 +1747,6 @@ test/built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-syntax-
 test/built-ins/ShadowRealm/prototype/importValue/throws-typeerror-import-throws.js # ReferenceError: ShadowRealm is not defined
 test/built-ins/ShadowRealm/prototype/importValue/validates-realm-object.js # ReferenceError: ShadowRealm is not defined
 test/built-ins/ShadowRealm/prototype/proto.js # ReferenceError: ShadowRealm is not defined
-test/built-ins/SharedArrayBuffer/options-maxbytelength-allocation-limit.js # Test262Error: `maxByteLength` option is 7 PiB Expected a RangeError but got a ReferenceError
 test/built-ins/SharedArrayBuffer/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/String/S15.5.1.1_A1_T6.js # bytecode compiler unsupported: direct eval (bootstrap fallback rejects it)
 test/built-ins/String/S15.5.5.1_A4_T1.js # bytecode compiler unsupported: with statement (bootstrap fallback rejects it)
@@ -6617,275 +6481,14 @@ test/built-ins/TypedArrayConstructors/internals/HasProperty/infinity-with-detach
 test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/of/custom-ctor-returns-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/Uint8Array/fromBase64/alphabet.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/ignores-receiver.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/illegal-characters.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/fromBase64/last-chunk-handling.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/last-chunk-invalid.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/fromBase64/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/option-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/fromBase64/results.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromBase64/string-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/fromBase64/whitespace.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/ignores-receiver.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/illegal-characters.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/fromHex/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/odd-length-input.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/fromHex/results.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/fromHex/string-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromBase64/alphabet.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/Uint8Array/prototype/setFromBase64/illegal-characters.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromBase64/last-chunk-handling.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/option-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromBase64/results.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/string-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromBase64/subarray.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/target-size.js # ReferenceError: Uint8Array is not defined
 test/built-ins/Uint8Array/prototype/setFromBase64/throws-when-target-is-backed-by-immutable-arraybuffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage-empty.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/trailing-garbage.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/whitespace.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromBase64/writes-up-to-error.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/Uint8Array/prototype/setFromHex/illegal-characters.js # Test262Error: Expected a SyntaxError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromHex/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/results.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/string-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/setFromHex/subarray.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/target-size.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/throws-when-string-length-is-odd.js # ReferenceError: Uint8Array is not defined
 test/built-ins/Uint8Array/prototype/setFromHex/throws-when-target-is-backed-by-immutable-arraybuffer.js # ReferenceError: Float64Array is not defined
-test/built-ins/Uint8Array/prototype/setFromHex/writes-up-to-error.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/alphabet.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/Uint8Array/prototype/toBase64/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/omit-padding.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/option-coercion.js # Test262Error: Expected a TypeError but got a ReferenceError
-test/built-ins/Uint8Array/prototype/toBase64/receiver-not-uint8array.js # ReferenceError: Float64Array is not defined
-test/built-ins/Uint8Array/prototype/toBase64/results.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/descriptor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/Uint8Array/prototype/toHex/length.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/name.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/nonconstructor.js # ReferenceError: Uint8Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/receiver-not-uint8array.js # ReferenceError: Float64Array is not defined
-test/built-ins/Uint8Array/prototype/toHex/results.js # ReferenceError: Uint8Array is not defined
 test/built-ins/WeakMap/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/WeakMap/prototype/getOrInsert/adds-object-element.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/adds-symbol-element.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/getOrInsert.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/length.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/name.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/not-a-constructor.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-not-present-object-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-not-present-symbol-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-present-object-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsert/returns-value-if-key-is-present-symbol-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/adds-object-element.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/adds-symbol-element.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/adds-value-different-callbackfn.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/callbackfn-throws.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/check-callback-fn-args.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/check-state-after-callback-fn-throws.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/does-not-evaluate-callbackfn-if-key-present.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/getOrInsertComputed.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/not-a-constructor.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/overwrites-mutation-from-callbackfn.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/returns-value-if-key-is-not-present-object-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/returns-value-if-key-is-not-present-symbol-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/returns-value-if-key-is-present-object-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
-test/built-ins/WeakMap/prototype/getOrInsertComputed/returns-value-if-key-is-present-symbol-key.js # proposal upsert (Map/WeakMap getOrInsert*) is stage 3, not ES2025
 test/built-ins/WeakRef/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/WeakSet/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/decodeURI/S15.1.3.1_A1.10_T1.js # Test262Error: #1: If B = 110xxxxx (n = 2) and (string.charAt(k + 4) and  string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.11_T1.js # Test262Error: #1: If B = 1110xxxx (n = 3) and (string.charAt(k + 4) and  string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.11_T2.js # Test262Error: #1: If B = 1110xxxx (n = 3) and (string.charAt(k + 7) and  string.charAt(k + 8)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.12_T1.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 4) and string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.12_T2.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 7) and string.charAt(k + 8)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.12_T3.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 10) and string.charAt(k + 11)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.13_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURI/S15.1.3.1_A1.13_T2.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURI/S15.1.3.1_A1.14_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.14_T2.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.14_T3.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.14_T4.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T2.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T3.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T4.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T5.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.15_T6.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.1_T1.js # Test262Error: #1: If string.charAt(k) equal "%" and k + 2 >= string.length, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.2_T1.js # Test262Error: #1: If string.charAt(k+1) does not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.2_T2.js # Test262Error: #1: If string.charAt(k+2) does not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURI/S15.1.3.1_A1.3_T1.js # Test262Error: #0080-00BF
-test/built-ins/decodeURI/S15.1.3.1_A1.3_T2.js # Test262Error: #00F8-00FF
-test/built-ins/decodeURI/S15.1.3.1_A1.4_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURI/S15.1.3.1_A1.5_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.6_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.7_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURI/S15.1.3.1_A1.8_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.8_T2.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURI/S15.1.3.1_A1.9_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.9_T2.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A1.9_T3.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURI/S15.1.3.1_A2.1_T1.js # Test262Error: #0000 throws
-test/built-ins/decodeURI/S15.1.3.1_A2.2_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A2.3_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A2.4_T1.js # ReferenceError: decodeURI is not defined
 test/built-ins/decodeURI/S15.1.3.1_A2.5_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A3_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A3_T2.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A3_T3.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A4_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A4_T2.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A4_T3.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A4_T4.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.2.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.3.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.4.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.6.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A5.7.js # Test262Error: #1.2: new decodeURI() throw TypeError. Actual: ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/S15.1.3.1_A6_T1.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/name.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/not-a-constructor.js # ReferenceError: decodeURI is not defined
-test/built-ins/decodeURI/prop-desc.js # Test262Error: decodeURI should be an own property
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.10_T1.js # Test262Error: #1: If B = 110xxxxx (n = 2) and (string.charAt(k + 4) and  string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.11_T1.js # Test262Error: #1: If B = 1110xxxx (n = 3) and (string.charAt(k + 4) and  string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.11_T2.js # Test262Error: #1: If B = 1110xxxx (n = 3) and (string.charAt(k + 7) and  string.charAt(k + 8)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.12_T1.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 4) and string.charAt(k + 5)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.12_T2.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 7) and string.charAt(k + 8)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.12_T3.js # Test262Error: #1: If B = 11110xxx (n = 4) and (string.charAt(k + 10) and string.charAt(k + 11)) do not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.13_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.13_T2.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.14_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.14_T2.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.14_T3.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.14_T4.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T2.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T3.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T4.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T5.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.15_T6.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.1_T1.js # Test262Error: #1: If string.charAt(k) equal "%" and k + 2 >= string.length, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.2_T1.js # Test262Error: #1: If string.charAt(k+1) does not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.2_T2.js # Test262Error: #1: If string.charAt(k+2) does not represent hexadecimal digits, throw URIError
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.3_T1.js # Test262Error: #0080-00BF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.3_T2.js # Test262Error: #00F8-00FF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.4_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.5_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.6_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.7_T1.js # Test262Error: #00C0-00DF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.8_T1.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.8_T2.js # Test262Error: #00E0-00EF
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.9_T1.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.9_T2.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A1.9_T3.js # Test262Error: #00F0-00F7
-test/built-ins/decodeURIComponent/S15.1.3.2_A2.1_T1.js # Test262Error: #0000 throws
-test/built-ins/decodeURIComponent/S15.1.3.2_A2.2_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A2.3_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A2.4_T1.js # ReferenceError: decodeURIComponent is not defined
 test/built-ins/decodeURIComponent/S15.1.3.2_A2.5_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A3_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A3_T2.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A3_T3.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A4_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A4_T2.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A4_T3.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A4_T4.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.2.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.3.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.4.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.6.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A5.7.js # Test262Error: #1.2: new decodeURIComponent() throw TypeError. Actual: ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/S15.1.3.2_A6_T1.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/name.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/not-a-constructor.js # ReferenceError: decodeURIComponent is not defined
-test/built-ins/decodeURIComponent/prop-desc.js # Test262Error: decodeURIComponent should be an own property
-test/built-ins/decodeURIComponent/throw-URIError.js # Test262Error: #1: %ED%BF%BF (surrogate pair) should throw URIError Expected a URIError but got a ReferenceError
-test/built-ins/encodeURI/S15.1.3.3_A1.1_T1.js # Test262Error: #DC00-DFFF
-test/built-ins/encodeURI/S15.1.3.3_A1.1_T2.js # Test262Error: #DC00-DFFF
-test/built-ins/encodeURI/S15.1.3.3_A1.2_T1.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURI/S15.1.3.3_A1.2_T2.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURI/S15.1.3.3_A1.3_T1.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURI/S15.1.3.3_A2.1_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A2.2_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A2.3_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A2.4_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A2.4_T2.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A2.5_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A3.1_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A3.2_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A3.2_T2.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A3.2_T3.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A3.3_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A4_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A4_T2.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A4_T3.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A4_T4.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.2.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.3.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.4.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.6.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A5.7.js # Test262Error: #1.2: new encodeURI() throw TypeError. Actual: ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/S15.1.3.3_A6_T1.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/name.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/not-a-constructor.js # ReferenceError: encodeURI is not defined
-test/built-ins/encodeURI/prop-desc.js # Test262Error: encodeURI should be an own property
-test/built-ins/encodeURIComponent/S15.1.3.4_A1.1_T1.js # Test262Error: #DC00-DFFF
-test/built-ins/encodeURIComponent/S15.1.3.4_A1.1_T2.js # Test262Error: #DC00-DFFF
-test/built-ins/encodeURIComponent/S15.1.3.4_A1.2_T1.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURIComponent/S15.1.3.4_A1.2_T2.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURIComponent/S15.1.3.4_A1.3_T1.js # Test262Error: #D800-DBFF
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.1_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.2_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.3_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.4_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.4_T2.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A2.5_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A3.1_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A3.2_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A3.2_T2.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A3.2_T3.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A3.3_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A4_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A4_T2.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A4_T3.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A4_T4.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.2.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.3.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.4.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.6.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A5.7.js # Test262Error: #1.2: new encodeURIComponent() throw TypeError. Actual: ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/S15.1.3.4_A6_T1.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/name.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/not-a-constructor.js # ReferenceError: encodeURIComponent is not defined
-test/built-ins/encodeURIComponent/prop-desc.js # Test262Error: encodeURIComponent should be an own property
 test/built-ins/eval/private-identifiers-not-empty.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
-test/built-ins/global/S10.2.3_A1.1_T2.js # ReferenceError: decodeURI is not defined
-test/built-ins/global/S10.2.3_A1.2_T2.js # ReferenceError: decodeURI is not defined
 test/built-ins/global/S10.2.3_A1.3_T1.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
 test/built-ins/global/S10.2.3_A1.3_T2.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
 test/built-ins/global/S10.2.3_A1.3_T3.js # SyntaxError: unsupported in engine-native bootstrap: FunctionDeclaration
