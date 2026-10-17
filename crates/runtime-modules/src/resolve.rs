@@ -27,6 +27,13 @@ pub(crate) fn resolve_with(
     referrer: &ModuleId,
     ctx: &ResolveContext,
 ) -> Result<ResolvedModule> {
+    // Before the import map, so nothing can shadow the embedded helpers.
+    if let Some(path) = crate::embedded::resolve(specifier)? {
+        let id = ModuleId::from_path(&path).ok_or_else(|| {
+            VelyrError::invalid_data("embedded path is not representable as a URL")
+        })?;
+        return Ok(ResolvedModule { id, path });
+    }
     let mapped = apply_import_map(specifier, ctx);
     let (path, kind) = locate(&mapped, referrer, bare)?;
     let path = match referrer.to_path() {

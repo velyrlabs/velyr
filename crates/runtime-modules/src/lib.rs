@@ -6,6 +6,7 @@
 //! checks that the target exists before permissions are consulted, so existence of files
 //! outside the grant is observable through `NotFound` vs `PermissionDenied`.
 
+mod embedded;
 mod host;
 mod resolve;
 mod shared_cache;
@@ -24,6 +25,7 @@ use url::Url;
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_permissions::CapabilitySet;
 
+pub use embedded::{HELPER_MODULE_NAME, OXC_HELPERS_VERSION, is_embedded};
 pub use host::{FsLoader, ModuleHost, VirtualLoader, authorize_path};
 pub use resolve::FsResolver;
 pub use shared_cache::SharedCache;

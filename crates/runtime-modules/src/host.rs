@@ -118,6 +118,9 @@ impl ModuleHost {
         module: &ResolvedModule,
         ctx: &LoadContext,
     ) -> Result<Arc<ModuleSource>> {
+        if let Some(text) = crate::embedded::source(&module.path) {
+            return Ok(Arc::new(ModuleSource::new(text.into())));
+        }
         authorize(module, ctx)?;
         if let Some(hit) = self.cache.lock().unwrap().get(&module.id) {
             return Ok(hit.clone());
