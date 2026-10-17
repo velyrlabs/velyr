@@ -9,8 +9,7 @@ use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 
 use super::control::{Breakable, BreakableKind, Control};
 use super::emitter::Label;
-use super::function::FunctionCompiler;
-use super::unsupported;
+use super::function::{FunctionCompiler, binding_name};
 use crate::compiler::JsResult;
 
 impl FunctionCompiler<'_> {
@@ -126,9 +125,12 @@ impl FunctionCompiler<'_> {
 
     pub fn for_in(&mut self, statement: &ForInStatement, labels: Vec<String>) -> JsResult<()> {
         if let ForStatementLeft::VariableDeclaration(declaration) = &statement.left
-            && declaration.declarations.iter().any(|d| d.init.is_some())
+            && let Some(declarator) = declaration.declarations.first()
+            && let Some(init) = &declarator.init
         {
-            return Err(unsupported("for-in var initializer"));
+            // Annex B.3.5: `for (var x = init in obj)` assigns before the head is evaluated.
+            self.expression_named(init, binding_name(&declarator.id))?;
+            self.bind_pattern(&declarator.id)?;
         }
         self.reset_completion();
         self.iteration_subject(statement.scope_id(), &statement.right)?;

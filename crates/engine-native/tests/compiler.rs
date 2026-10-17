@@ -191,7 +191,6 @@ fn unsupported_constructs_are_explicit_syntax_errors() {
         ("function f() { eval('1'); }", "direct eval"),
         ("{ function f() {} }", "block-level function in sloppy mode"),
         ("let o = {}; delete o?.a;", "delete of optional chain"),
-        ("for (var i = 0 in {}) {}", "for-in var initializer"),
     ] {
         let message = compile_error(source);
         assert_eq!(

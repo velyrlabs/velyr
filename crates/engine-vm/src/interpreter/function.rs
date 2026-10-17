@@ -177,7 +177,7 @@ impl Interpreter {
             // they do not reach the throwing accessors of `Function.prototype`.
             for key in ["caller", "arguments"] {
                 let key = self.realm.key_str(key);
-                let desc = PropertyDescriptor::data(Value::Null, false, false, false);
+                let desc = PropertyDescriptor::data(Value::Undefined, false, false, false);
                 let result = self.realm.define_own_property(function, key, &desc);
                 result.map_err(|e| self.object_error(e))?;
             }

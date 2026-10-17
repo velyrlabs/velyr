@@ -336,3 +336,14 @@ fn deep_recursion_through_call_does_not_nest_the_rust_stack() {
         down(500);";
     assert_eq!(run(source), "done");
 }
+
+#[test]
+fn sloppy_function_caller_is_undefined() {
+    assert_eq!(run("function f() {} f.caller === undefined"), "true");
+}
+
+#[test]
+fn for_in_var_initializer_runs_before_head() {
+    let source = "var log = ''; for (var x = (log += 'i', 1) in (log += 'o', {})) {} log + x";
+    assert_eq!(run(source), "io1");
+}
