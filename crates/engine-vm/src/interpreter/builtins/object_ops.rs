@@ -144,6 +144,7 @@ impl Interpreter {
         o: ObjectRef,
         key: ObjectKey,
     ) -> JsResult<Option<Property>> {
+        self.touch(o)?;
         match self.exotic(o, key) {
             Exotic::Proxy => return self.proxy_get_own_property(o, key),
             Exotic::Element(array, index) => return Ok(Self::typed_own_property(&array, index)),
@@ -160,6 +161,7 @@ impl Interpreter {
         key: ObjectKey,
         desc: &PropertyDescriptor,
     ) -> JsResult<bool> {
+        self.touch(o)?;
         match self.exotic(o, key) {
             Exotic::Proxy => self.proxy_define_own_property(o, key, desc),
             Exotic::Element(array, index) => self.typed_define(&array, index, desc),
@@ -171,6 +173,7 @@ impl Interpreter {
     pub(crate) fn has_property(&mut self, o: ObjectRef, key: ObjectKey) -> JsResult<bool> {
         let mut current = o;
         loop {
+            self.touch(current)?;
             match self.exotic(current, key) {
                 Exotic::Proxy => return self.proxy_has(current, key),
                 Exotic::Element(array, index) => return Ok(array.valid(index).is_some()),
@@ -189,6 +192,7 @@ impl Interpreter {
 
     /// [[Delete]].
     pub(crate) fn delete_key(&mut self, o: ObjectRef, key: ObjectKey) -> JsResult<bool> {
+        self.touch(o)?;
         match self.exotic(o, key) {
             Exotic::Proxy => return self.proxy_delete(o, key),
             Exotic::Element(array, index) => return Ok(array.valid(index).is_none()),
@@ -200,6 +204,7 @@ impl Interpreter {
 
     /// [[OwnPropertyKeys]], without private names.
     pub(crate) fn own_keys(&mut self, o: ObjectRef) -> JsResult<Vec<ObjectKey>> {
+        self.touch(o)?;
         let mut elements = match self.slot(o) {
             Some(Slot::Proxy(_)) => return self.proxy_own_keys(o),
             Some(Slot::TypedArray(array)) => self.typed_keys(&array),

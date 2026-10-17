@@ -63,8 +63,15 @@ pub(crate) struct WeakTable {
     pub symbols: Vec<(SymbolId, Value)>,
 }
 
+/// Initializer of a lazy namespace shell, taken out on the first touch.
+pub(crate) struct LazyInit {
+    pub(crate) init: RefCell<Option<crate::interpreter::LazyInstall>>,
+}
+
 #[derive(Clone)]
 pub(crate) enum Slot {
+    /// Shell of a lazy namespace (see `Interpreter::define_lazy_namespace`).
+    Lazy(Rc<LazyInit>),
     Boolean(bool),
     Number(f64),
     /// `[[DateValue]]`.

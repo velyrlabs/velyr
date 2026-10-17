@@ -187,6 +187,9 @@ pub(crate) struct State {
     pub modules: Vec<super::module::ModuleRecord>,
     /// `[[KeptAlive]]`: WeakRef targets held until the running job ends (AddToKeptObjects).
     pub kept: HashSet<GcRef>,
+    /// Lazy namespace shells not yet materialized; 0 keeps `touch` a single compare.
+    /// Never decremented for a shell that was deleted or replaced before it was touched.
+    pub lazy_pending: usize,
 }
 
 impl Trace for State {

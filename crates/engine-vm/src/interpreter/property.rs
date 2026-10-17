@@ -154,6 +154,7 @@ impl Interpreter {
             Value::Symbol(_) => self.intrinsic(Intrinsic::SymbolPrototype),
             Value::BigInt(_) => self.intrinsic(Intrinsic::BigIntPrototype),
         };
+        self.touch(object)?;
         match site {
             Some((info, cache)) if matches!(base, Value::Object(_)) && !self.is_proxy(object) => {
                 self.get_cached(info, cache as usize, object, key)
@@ -203,6 +204,7 @@ impl Interpreter {
     ) -> JsResult<Value> {
         let mut current = o;
         loop {
+            self.touch(current)?;
             match self.exotic(current, key) {
                 Exotic::Proxy => return self.proxy_get(current, key, receiver),
                 Exotic::Element(array, index) => return Ok(array.read(index)),
@@ -272,6 +274,7 @@ impl Interpreter {
             }
             return Ok(());
         };
+        self.touch(o)?;
         let result = value.clone();
         let done = match site {
             Some((info, cache)) if !self.is_proxy(o) => {
@@ -324,6 +327,7 @@ impl Interpreter {
     ) -> JsResult<bool> {
         let mut current = o;
         loop {
+            self.touch(current)?;
             match self.exotic(current, key) {
                 Exotic::Proxy => return self.proxy_set(current, key, value, receiver),
                 Exotic::Element(array, index) => {

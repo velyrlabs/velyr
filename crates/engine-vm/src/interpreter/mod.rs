@@ -35,13 +35,17 @@ use velyr_engine_gc::{GcRef, GcStats, Heap};
 use velyr_runtime_errors::VelyrError;
 
 use crate::bytecode::FunctionCode;
-use crate::{JsStr, ObjectRef, Realm, Value};
+use crate::{InternalMethods, JsStr, ObjectRef, Property, PropertyValue, Realm, Value};
 pub use builtins::date::LocalTimeZone;
 pub use builtins::regexp::validate as validate_regexp;
+use builtins::slots::Slot;
 pub use function::NativeFn;
 pub use jobs::PromiseStatus;
 pub use module::{ExportTarget, ImportName, ModuleCode, ModuleId, ModuleImport};
 use state::{CodeInfo, State};
+
+/// Fills a lazy namespace shell the first time something touches it.
+pub type LazyInstall = Rc<dyn Fn(&mut Interpreter) -> Result<(), Abrupt>>;
 
 /// JS frames before a call throws `RangeError`.
 const MAX_FRAMES: usize = 10_000;
@@ -222,6 +226,80 @@ impl Interpreter {
     /// Lets `Atomics.wait` block; for worker threads only, never the main thread.
     pub fn allow_atomics_wait(&mut self, allowed: bool) {
         self.atomics_wait_allowed = allowed;
+    }
+
+    /// Defines the global `name` as a shell object (writable, non-enumerable, configurable)
+    /// that runs `init` on the first operation on it; `typeof`, `in`, `delete` and
+    /// descriptor reads of the global itself never run it.
+    pub fn define_lazy_namespace(&mut self, name: &str, init: LazyInstall) -> Result<(), Abrupt> {
+        let shell = self.new_object()?;
+        let lazy = builtins::slots::LazyInit {
+            init: std::cell::RefCell::new(Some(init)),
+        };
+        self.set_slot(shell, builtins::slots::Slot::Lazy(Rc::new(lazy)));
+        let global = self.state.intrinsics.global;
+        self.define_method(global, name, object_value(shell))?;
+        self.state.lazy_pending += 1;
+        Ok(())
+    }
+
+    /// Materializes the lazy namespace global `name`; a no-op when absent or already done.
+    pub fn force_lazy(&mut self, name: &str) -> Result<(), Abrupt> {
+        let global = self.state.intrinsics.global;
+        let key = self.realm.key_str(name);
+        let value = match self.realm.get_own_property(global, key) {
+            Ok(Some(Property {
+                value: PropertyValue::Data { value, .. },
+                ..
+            })) => value,
+            _ => return Ok(()),
+        };
+        match self.as_object(&value) {
+            Some(shell) => self.touch(shell),
+            None => Ok(()),
+        }
+    }
+
+    /// Names of the globals still holding an unmaterialized shell, in definition order.
+    pub fn pending_lazy(&mut self) -> Vec<String> {
+        let global = self.state.intrinsics.global;
+        let Ok(keys) = self.realm.own_property_keys(global) else {
+            return Vec::new();
+        };
+        let mut names = Vec::new();
+        for key in keys {
+            let Ok(Some(Property {
+                value: PropertyValue::Data { value, .. },
+                ..
+            })) = self.realm.get_own_property(global, key)
+            else {
+                continue;
+            };
+            let pending = match self.value_slot(&value) {
+                Some(Slot::Lazy(lazy)) => lazy.init.borrow().is_some(),
+                _ => false,
+            };
+            if pending {
+                names.push(self.key_text(key));
+            }
+        }
+        names
+    }
+
+    /// Runs the initializer of `o` if it is a pending lazy shell. The closure leaves the
+    /// slot first, so reads made by the initializer itself do not recurse.
+    pub(crate) fn touch(&mut self, o: ObjectRef) -> JsResult<()> {
+        if self.state.lazy_pending == 0 {
+            return Ok(());
+        }
+        let Some(Slot::Lazy(lazy)) = self.slot(o) else {
+            return Ok(());
+        };
+        let Some(init) = lazy.init.borrow_mut().take() else {
+            return Ok(());
+        };
+        self.state.lazy_pending -= 1;
+        init(self)
     }
 
     /// Runs a script's top-level code and returns its completion value.
