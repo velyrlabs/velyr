@@ -66,6 +66,26 @@ fn call_returns_the_value_of_an_exported_function() {
 }
 
 #[test]
+fn call_result_cannot_be_forged_by_the_module() {
+    let dir = tempfile::tempdir().unwrap();
+    // The module grabs the private op at top level and forges a result after the wrapper's own
+    // report, from a microtask, so the forged value would win if the op trusted any caller.
+    let module = write(
+        dir.path(),
+        "forger.mjs",
+        "const ret = globalThis.op_embed_return;\n\
+         const forge = () => { for (const args of [['\"forged\"'], ['\"forged\"', '\"forged\"']]) { try { ret(...args); } catch (e) { if (!(e instanceof TypeError)) throw e; } } };\n\
+         export function real() { return { toJSON() { queueMicrotask(forge); return 'real'; } }; }",
+    );
+    let mut runtime = Runtime::builder()
+        .permissions(allow_dir(dir.path()))
+        .build()
+        .unwrap();
+    runtime.run_module(&module).unwrap();
+    assert_eq!(runtime.call("real", &[]).unwrap(), json!("real"));
+}
+
+#[test]
 fn call_fails_for_a_missing_export_or_a_missing_module() {
     let dir = tempfile::tempdir().unwrap();
     let module = write(dir.path(), "m.mjs", "export const answer = 42;");

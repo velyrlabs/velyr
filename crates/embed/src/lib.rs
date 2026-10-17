@@ -21,12 +21,19 @@
 //!   thread. State does not survive between calls and the module's top level runs again for each
 //!   call. A persistent isolate needs a session API in `velyr-runtime-core`.
 //!
-//! # Stability
+//! # Limits (0.x)
 //!
-//! This crate follows semver. Everything exported here is the stable surface; enums and option
-//! structs are `#[non_exhaustive]` so variants and fields can be added in a minor release. The
-//! re-exported engine and permission types come from `0.x` workspace crates and track their
-//! changes until those reach 1.0.
+//! * Each `call` starts a new isolate and re-runs the module's top level; there is no state
+//!   between calls.
+//! * `cpu_budget` covers only the synchronous stretch of execution, not time spent awaiting
+//!   timers or host ops.
+//! * Only the [`Profile::Core`] and [`Profile::Minimal`] profiles exist.
+//! * Only the V8 engine is supported.
+//! * Host op authorization is manual: the callback must call [`authorize`] itself.
+//! * The version is 0.x: no semver guarantee, any release may break the API.
+//!
+//! The re-exported engine and permission types come from `0.x` workspace crates and track their
+//! changes. Enums and option structs are `#[non_exhaustive]`.
 
 mod call;
 mod error;
@@ -245,12 +252,19 @@ impl Runtime {
         let module = self.module.as_ref().ok_or(Error::NoModule)?;
         let n = self.calls.fetch_add(1, Ordering::Relaxed);
         let entry = self.scratch.join(format!("call-{n}.mjs"));
-        std::fs::write(&entry, wrapper_source(module.as_str(), export, args))?;
-        let slot = ReturnSlot::default();
+        let slot = ReturnSlot::new();
+        std::fs::write(
+            &entry,
+            wrapper_source(module.as_str(), export, args, slot.token()),
+        )?;
         let outcome = self.execute(entry.clone(), Some(slot.clone()));
         std::fs::remove_file(&entry).ok();
         outcome?;
-        let text = slot.0.lock().expect("return slot is never poisoned").take();
+        let text = slot
+            .result
+            .lock()
+            .expect("return slot is never poisoned")
+            .take();
         let text = text.ok_or(Error::NoResult)?;
         serde_json::from_str(&text).map_err(|_| Error::NoResult)
     }
