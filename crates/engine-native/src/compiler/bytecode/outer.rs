@@ -90,8 +90,19 @@ impl ScopeAnalysis<'_> {
                     class_name: true,
                 },
             });
+        let annex_b = self
+            .annex_b_context_bindings(scope)
+            .map(|(symbol, slot)| OuterBinding {
+                name: self.name(symbol).into(),
+                found: OuterBindingSlot {
+                    slot,
+                    flags: SymbolFlags::Function,
+                    import: false,
+                    class_name: false,
+                },
+            });
         let info = Rc::new(OuterScope {
-            bindings: bindings.chain(inner).collect(),
+            bindings: bindings.chain(inner).chain(annex_b).collect(),
             privates: self.private_entries(scope).into(),
             arguments: self.arguments_slot(scope),
             module: self.module && scope == self.scoping.root_scope_id(),

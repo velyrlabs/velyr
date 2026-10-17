@@ -10,9 +10,15 @@ use oxc_semantic::{AstNodes, ReferenceId, ScopeFlags, ScopeId, Scoping, SymbolFl
 use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::GlobalDeclarations;
 
+mod annex_b;
+#[cfg(test)]
+mod tests;
+
 use super::outer::OuterScope;
 use super::unsupported;
 use crate::compiler::JsResult;
+#[allow(unused_imports)] // consumed by the Annex B emitter (L14)
+pub use annex_b::{AnnexBFunction, BlockBinding, VarTarget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Location {
@@ -62,6 +68,7 @@ pub struct ScopeAnalysis<'s> {
     /// Sloppy functions with simple parameters that read `arguments`: its indices alias
     /// the parameters, which therefore live in context slots.
     mapped_arguments: HashSet<ScopeId>,
+    annex_b: annex_b::AnnexB,
     /// Outer chain entries handed to lazy stubs, one per context scope.
     pub(super) outer_cache: RefCell<HashMap<ScopeId, Rc<OuterScope>>>,
 }
@@ -131,6 +138,7 @@ pub fn bound_identifiers<'p, 'a>(
 impl<'s> ScopeAnalysis<'s> {
     pub fn new(
         scoping: &'s Scoping,
+        nodes: &AstNodes,
         classes: Vec<ClassInfo>,
         simple_parameters: &HashMap<ScopeId, Vec<SymbolId>>,
         tdz_parameters: HashSet<SymbolId>,
@@ -158,6 +166,7 @@ impl<'s> ScopeAnalysis<'s> {
             arguments_users: HashSet::new(),
             arguments_slots: HashMap::new(),
             mapped_arguments: HashSet::new(),
+            annex_b: annex_b::AnnexB::empty(),
             outer_cache: RefCell::default(),
         };
         analysis.collect_arguments_users();
@@ -205,6 +214,7 @@ impl<'s> ScopeAnalysis<'s> {
             }
         }
         analysis.allocate_arguments_slots();
+        analysis.collect_annex_b(nodes);
         Ok(analysis)
     }
 

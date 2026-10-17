@@ -94,7 +94,7 @@ fn analyze<R>(
     let tdz_parameters = scope::tdz_parameters(semantic.semantic.nodes());
     let (scoping, nodes) = semantic.semantic.into_scoping_and_nodes();
     let analysis =
-        scope::ScopeAnalysis::new(&scoping, classes, &parameters, tdz_parameters, module)?;
+        scope::ScopeAnalysis::new(&scoping, &nodes, classes, &parameters, tdz_parameters, module)?;
     run(&parsed.program, &nodes, &analysis)
 }
 

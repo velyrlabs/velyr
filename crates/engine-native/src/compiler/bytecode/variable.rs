@@ -10,7 +10,7 @@ use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 
 use super::function::FunctionCompiler;
 use super::outer::{OuterBindingSlot, OuterRef};
-use super::scope::{Location, is_lexical};
+use super::scope::{BlockBinding, Location, is_lexical};
 use crate::compiler::{JsResult, throw};
 
 #[derive(Debug, Clone, Copy)]
@@ -22,10 +22,15 @@ enum Slot {
 }
 
 impl FunctionCompiler<'_> {
-    fn slot_of(&self, symbol: Option<SymbolId>) -> JsResult<Slot> {
+    fn slot_of(&self, symbol: Option<SymbolId>, reference: Option<ReferenceId>) -> JsResult<Slot> {
         let Some(symbol) = symbol else {
             return Ok(Slot::Global);
         };
+        if let Some(reference) = reference
+            && let Some(slot) = self.annex_b_slot(symbol, reference)?
+        {
+            return Ok(slot);
+        }
         match self.analysis.location(symbol) {
             Location::Global => Ok(Slot::Global),
             Location::Local => self
@@ -60,6 +65,28 @@ impl FunctionCompiler<'_> {
         }
         let depth = self.context_depth(class)?;
         Ok(Some(Slot::Context { depth, slot }))
+    }
+
+    /// The block binding of an Annex B.3.2 function, for a reference made inside its block;
+    /// outside it the symbol's own location (the var binding) applies.
+    fn annex_b_slot(&self, symbol: SymbolId, reference: ReferenceId) -> JsResult<Option<Slot>> {
+        let Some(info) = self.analysis.annex_b_function(symbol) else {
+            return Ok(None);
+        };
+        let scope = self.analysis.scoping.get_reference(reference).scope_id();
+        let mut ancestors = self.analysis.scoping.scope_ancestors(scope);
+        if !ancestors.any(|ancestor| ancestor == info.block_scope) {
+            return Ok(None);
+        }
+        match info.block {
+            BlockBinding::Symbol(_) => Ok(None),
+            BlockBinding::Synthetic(Location::Context { scope, slot }) => {
+                let depth = self.context_depth(scope)?;
+                Ok(Some(Slot::Context { depth, slot }))
+            }
+            // Emission (the register holding the block binding) belongs to the function compiler.
+            BlockBinding::Synthetic(_) => Err(internal("annex B block register")),
+        }
     }
 
     /// Hops from the current context to `scope`'s.
@@ -147,7 +174,7 @@ impl FunctionCompiler<'_> {
             self.emit_tdz_check(name);
             return Ok(());
         }
-        let slot = self.slot_of(symbol)?;
+        let slot = self.slot_of(symbol, Some(id.reference_id()))?;
         self.load_slot(slot, name);
         if let Some(symbol) = symbol
             && self.needs_tdz_check(symbol)
@@ -250,7 +277,7 @@ impl FunctionCompiler<'_> {
             self.e.emit(I::ThrowConstAssignment(index));
             return Ok(());
         }
-        let slot = self.slot_of(symbol)?;
+        let slot = self.slot_of(symbol, Some(id.reference_id()))?;
         if let Some(symbol) = symbol
             && self.analysis.location(symbol) != Location::Global
         {
@@ -290,7 +317,7 @@ impl FunctionCompiler<'_> {
 
     /// Puts a binding in the TDZ.
     pub fn put_in_tdz(&mut self, symbol: SymbolId) -> JsResult<()> {
-        let slot = self.slot_of(Some(symbol))?;
+        let slot = self.slot_of(Some(symbol), None)?;
         self.e.emit(I::LdaTheHole);
         self.store_slot(slot, self.analysis.name(symbol));
         Ok(())
@@ -299,7 +326,7 @@ impl FunctionCompiler<'_> {
     /// InitializeBinding (or PutValue for `var`) of `acc` on a declared binding.
     pub fn initialize_binding(&mut self, symbol: SymbolId) -> JsResult<()> {
         let name = self.analysis.name(symbol);
-        let slot = self.slot_of(Some(symbol))?;
+        let slot = self.slot_of(Some(symbol), None)?;
         let flags = self.analysis.flags(symbol);
         if matches!(slot, Slot::Global) && is_lexical(flags) {
             let index = self.e.string(name);
