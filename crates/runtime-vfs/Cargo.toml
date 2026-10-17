@@ -1,0 +1,18 @@
+[package]
+name = "velyr-runtime-vfs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+sha2 = "0.10"
+
+[dev-dependencies]
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+tempfile = "3"
+tokio.workspace = true
+
+[lints]
+workspace = true
