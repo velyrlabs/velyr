@@ -353,7 +353,7 @@ impl Interpreter {
         for field in fields {
             let value = match field.value {
                 Value::Undefined => Value::Undefined,
-                initializer => self.call_value(&initializer, object, &[field.key.clone()])?,
+                initializer => self.call_value(&initializer, object, std::slice::from_ref(&field.key))?,
             };
             self.define_element(object, &field.key, FunctionKind::ClassField, value)?;
         }

@@ -148,7 +148,7 @@ fn map_get_or_insert_computed(
     if let Some(existing) = table.borrow().get(&key) {
         return Ok(existing.clone());
     }
-    let value = vm.call_value(&callback, &Value::Undefined, &[key.clone()])?;
+    let value = vm.call_value(&callback, &Value::Undefined, std::slice::from_ref(&key))?;
     table.borrow_mut().set(key, value.clone());
     Ok(value)
 }
