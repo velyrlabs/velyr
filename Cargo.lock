@@ -5247,6 +5247,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "velyr-tooling-decorators"
+version = "0.1.0"
+dependencies = [
+ "oxc_allocator",
+ "oxc_ast",
+ "oxc_ast_visit",
+ "oxc_codegen",
+ "oxc_parser",
+ "oxc_semantic",
+ "oxc_span",
+ "oxc_traverse",
+]
+
+[[package]]
 name = "velyr-tooling-jsx"
 version = "0.1.0"
 dependencies = [

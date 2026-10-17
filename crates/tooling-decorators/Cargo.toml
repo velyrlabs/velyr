@@ -1,0 +1,21 @@
+[package]
+name = "velyr-tooling-decorators"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Every oxc_* crate must share this exact version (ADR-012).
+oxc_allocator = "=0.154.0"
+oxc_ast = "=0.154.0"
+oxc_ast_visit = "=0.154.0"
+oxc_parser = "=0.154.0"
+oxc_semantic = "=0.154.0"
+oxc_span = "=0.154.0"
+oxc_traverse = "=0.154.0"
+
+[dev-dependencies]
+oxc_codegen = "=0.154.0"
+
+[lints]
+workspace = true
