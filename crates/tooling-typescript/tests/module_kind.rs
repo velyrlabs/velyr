@@ -33,3 +33,17 @@ fn cts_keeps_export_equals() {
     assert!(code.contains("module.exports = a"), "{code}");
     assert!(code.contains("\"use strict\""), "{code}");
 }
+
+#[test]
+fn cts_erased_type_import_leaves_no_empty_export() {
+    let source = "import type { X } from './x';\nconst v: number = 1;\nexport = { v };\n// export {};\n";
+    let code = transform(source, MediaType::Cts).unwrap();
+    assert!(!code.lines().any(|line| line.trim() == "export {};"), "{code}");
+    assert!(code.contains("// export {};"), "{code}");
+}
+
+#[test]
+fn cts_keeps_an_empty_export_the_author_wrote() {
+    let code = transform("const v: number = 1;\nexport {};\n", MediaType::Cts).unwrap();
+    assert!(code.contains("export {};"), "{code}");
+}

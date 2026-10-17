@@ -142,16 +142,6 @@ fn op_cjs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostE
     Ok(text(&rewrite_dynamic_imports(&source, &offsets)))
 }
 
-/// oxc keeps a trailing `export {};` where an `import type` was erased; in a `.cts` it would
-/// make the CommonJS body a syntax error and read as ESM. shortcut: only the trailing statement,
-/// oxc emits it nowhere else.
-pub(crate) fn drop_empty_export(code: &str, media_type: MediaType) -> Cow<'_, str> {
-    match code.strip_suffix("export {};\n") {
-        Some(rest) if media_type == MediaType::Cts => Cow::Borrowed(rest),
-        _ => Cow::Borrowed(code),
-    }
-}
-
 /// `.jsx` shares `MediaType::JavaScript` with plain `.js`, so the extension tells it apart.
 fn needs_strip(path: &Path, media_type: MediaType) -> bool {
     media_type != MediaType::JavaScript || path.extension().is_some_and(|ext| ext == "jsx")
@@ -169,9 +159,7 @@ fn strip_types<'a>(
             let code = strip
                 .transform(&path.to_string_lossy(), raw, media_type)?
                 .code;
-            Ok(Cow::Owned(
-                drop_empty_export(&code, media_type).into_owned(),
-            ))
+            Ok(Cow::Owned(code))
         }
         _ => Ok(Cow::Borrowed(raw)),
     }

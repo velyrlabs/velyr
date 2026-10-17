@@ -78,8 +78,8 @@ fn cts_entry_is_a_facade_unless_it_has_real_esm_syntax() {
             .unwrap()
             .code
     };
-    // Stripped `.cts` output, including the `export {};` oxc leaves for an erased `import type`.
-    let cjs = "\"use strict\";\nconst v = 1;\nmodule.exports = { v };\nexport {};\n";
+    // Stripped `.cts` output.
+    let cjs = "\"use strict\";\nconst v = 1;\nmodule.exports = { v };\n";
     assert!(facade(cjs).contains("importCjs("));
     let esm = "import { add } from \"./m.mjs\";\nexport const x = add(1);\n";
     assert_eq!(facade(esm), esm, "D5: a .cts with ESM syntax loads as ESM");
@@ -92,6 +92,19 @@ fn import_type_alone_does_not_make_a_ts_file_esm() {
         (
             "t.cts",
             "import type { X } from './x';\nconst v: number = 1;\nexport = { v };\n",
+        ),
+        ("main.mjs", &main),
+    ])
+    .unwrap();
+}
+
+#[test]
+fn erased_type_import_before_an_export_comment_still_loads_as_commonjs() {
+    let main = format!("{MAIN}if (require('./t.cts').v !== 1) throw new Error('wrong');");
+    run(&[
+        (
+            "t.cts",
+            "import type { X } from './x';\nconst v: number = 1;\nexport = { v };\n// export {};\n",
         ),
         ("main.mjs", &main),
     ])

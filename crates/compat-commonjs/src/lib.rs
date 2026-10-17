@@ -210,7 +210,6 @@ impl SourceTransform for CommonJsTransform {
         media_type: MediaType,
     ) -> Result<Transformed> {
         let path = Path::new(specifier);
-        let source = &*ops::drop_empty_export(source, media_type);
         let format = match media_type {
             MediaType::JavaScript => {
                 detect(path, &|p| self.authorize(p), || Some(source.to_owned()))

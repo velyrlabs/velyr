@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oxc_allocator::Allocator;
-use oxc_ast::ast::Program;
+use oxc_ast::ast::{Program, Statement};
 use oxc_codegen::{Codegen, CodegenOptions};
 use oxc_parser::Parser;
 use oxc_semantic::{Scoping, SemanticBuilder};
@@ -25,6 +25,10 @@ pub use options::{Lowering, lowered_options, transform_options, warn_once};
 
 /// Must match the `=x.y.z` of every `oxc_*` dependency: output can change between versions.
 const OXC_VERSION: &str = "0.154.0";
+
+/// Bump when the printed output changes without an oxc or crate version change; it keys the disk
+/// cache. 2: a `.cts` no longer keeps the `export {};` left by an erased `import type`.
+const OUTPUT_REVISION: &str = "2";
 
 pub struct TypeScriptTransform {
     cache_dir: Option<PathBuf>,
@@ -96,6 +100,13 @@ fn failure(specifier: &str, source: &str, message: &str, offset: Option<usize>) 
     VelyrError::invalid_data(format!("{specifier}:{line}:{column}: {message}"))
 }
 
+fn ends_with_empty_export(program: &Program<'_>) -> bool {
+    matches!(
+        program.body.last(),
+        Some(Statement::ExportNamedDeclaration(export)) if export.specifiers.is_empty()
+    )
+}
+
 fn build_scoping(program: &Program<'_>) -> Scoping {
     SemanticBuilder::new()
         .with_excess_capacity(2.0)
@@ -157,6 +168,7 @@ fn strip(
     }
     let mut program = parsed.program;
     let options = lowered_options(media_type, config, lowering);
+    let wrote_empty_export = ends_with_empty_export(&program);
     let mut scoping = build_scoping(&program);
     if velyr_tooling_decorators::needs_pass(&program) {
         lower_decorators(&allocator, &mut program, scoping, options.decorator.legacy);
@@ -175,6 +187,11 @@ fn strip(
                 .first()
                 .and_then(|label| usize::try_from(label.offset()).ok()),
         ));
+    }
+    // oxc leaves an `export {};` where an `import type` was erased; in a `.cts` it would turn the
+    // CommonJS body into a syntax error. One the author wrote stays: it makes the file ESM.
+    if media_type == MediaType::Cts && !wrote_empty_export && ends_with_empty_export(&program) {
+        program.body.pop();
     }
     let printed = Codegen::new()
         .with_options(CodegenOptions {
@@ -217,6 +234,7 @@ impl SourceTransform for TypeScriptTransform {
             env!("CARGO_PKG_NAME").as_bytes(),
             env!("CARGO_PKG_VERSION").as_bytes(),
             OXC_VERSION.as_bytes(),
+            OUTPUT_REVISION.as_bytes(),
             options.as_bytes(),
             format!("{media_type:?}").as_bytes(),
             specifier.as_bytes(),
