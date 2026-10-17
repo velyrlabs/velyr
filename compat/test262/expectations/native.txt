@@ -16,22 +16,13 @@ test/annexB/built-ins/String/prototype/replaceAll/custom-replacer-emulates-undef
 test/annexB/built-ins/String/prototype/search/custom-searcher-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/String/prototype/split/custom-splitter-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/TypedArrayConstructors/from/iterator-method-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-block-scoping.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-existing-fn-no-init.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-existing-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-init.js # Test262Error: global binding is not created Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-for-of.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-switch.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-block-decl-eval-func-skip-early-err-try.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-block-decl-eval-func-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-early-err-block.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -39,8 +30,6 @@ test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-ea
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-early-err-switch.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-a-eval-func-skip-early-err-try.js # ReferenceError: f is not initialized
-test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-early-err-block.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -48,8 +37,6 @@ test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-ea
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-early-err-switch.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-decl-b-eval-func-skip-early-err-try.js # ReferenceError: f is not initialized
-test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-early-err-block.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -57,8 +44,6 @@ test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-earl
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-early-err-switch.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-else-stmt-eval-func-skip-early-err-try.js # ReferenceError: f is not initialized
-test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-err-block.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -66,8 +51,6 @@ test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-err-switch.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-decl-no-else-eval-func-skip-early-err-try.js # ReferenceError: f is not initialized
-test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-early-err-block.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -75,34 +58,20 @@ test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-earl
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-early-err-switch.js # ReferenceError: f is not initialized
 test/annexB/language/eval-code/direct/func-if-stmt-else-decl-eval-func-skip-early-err-try.js # ReferenceError: f is not initialized
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-block-scoping.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-existing-fn-no-init.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-existing-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-init.js # Test262Error: global binding is not created Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-for-of.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-switch.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-case-eval-func-skip-early-err-try.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-switch-case-eval-func-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-block-scoping.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-existing-block-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-existing-fn-no-init.js # TypeError: undefined is not a function
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-existing-fn-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-init.js # Test262Error: global binding is not created Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-no-skip-param.js # Test262Error: binding is not initialized to `undefined` Expected SameValue(«undefined», «123») to be true
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-for-in.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-for-of.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-for.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-switch.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-skip-early-err-try.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
-test/annexB/language/eval-code/direct/func-switch-dflt-eval-func-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/eval-code/direct/global-block-decl-eval-global-existing-fn-no-init.js # TypeError: undefined is not a function
 test/annexB/language/eval-code/direct/global-block-decl-eval-global-skip-early-err-block.js # Test262Error: An initialized binding is not created following evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/eval-code/direct/global-block-decl-eval-global-skip-early-err-for-in.js # Test262Error: An initialized binding is not created following evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -9293,209 +9262,30 @@ test/intl402/supportedLocalesOf-taint-Array-2.js # Test262Error: Client code can
 test/intl402/supportedLocalesOf-taint-Array.js # Test262Error: Client code can adversely affect behavior: method push. (Testing with Collator.)
 test/language/comments/hashbang/eval.js # SyntaxError: Invalid Character `!`
 test/language/comments/hashbang/no-line-separator.js # SyntaxError: Invalid Character `!`
-test/language/comments/hashbang/use-strict.js # SyntaxError: unsupported: with statement
-test/language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js # SyntaxError: unsupported: with statement
-test/language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/arrow-fn-a-following-parameter-is-named-arguments-arrow-func-declare-arguments-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/arrow-fn-a-preceding-parameter-is-named-arguments-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/arrow-fn-a-preceding-parameter-is-named-arguments-arrow-func-declare-arguments-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-lex-bind-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-lex-bind-arrow-func-declare-arguments-assign.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-var-bind-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-body-cntns-arguments-var-bind-arrow-func-declare-arguments-assign.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-no-pre-existing-arguments-bindings-are-present-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/arrow-fn-no-pre-existing-arguments-bindings-are-present-arrow-func-declare-arguments-assign.js # Test262Error: globalThis.arguments unchanged Expected SameValue(«"param"», «undefined») to be true
-test/language/eval-code/direct/async-gen-func-decl-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-meth-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/async-gen-named-func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
+test/language/destructuring/binding/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js # Test262Error: Actual [binding::source, binding::sourceKey, sourceKey, get source, binding::defaultValue, binding::varTarget] and expected [binding::source, binding::sourceKey, sourceKey, binding::varT
+test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # ReferenceError: arguments is not initialized
+test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign.js # ReferenceError: arguments is not initialized
+test/language/eval-code/direct/arrow-fn-body-cntns-arguments-lex-bind-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # SyntaxError: Identifier 'arguments' has already been declared
+test/language/eval-code/direct/arrow-fn-body-cntns-arguments-lex-bind-arrow-func-declare-arguments-assign.js # SyntaxError: Identifier 'arguments' has already been declared
+test/language/eval-code/direct/arrow-fn-body-cntns-arguments-var-bind-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js # Test262Error: Expected SameValue(«"local"», «"param"») to be true
 test/language/eval-code/direct/cptn-nrml-expr-prim.js # Test262Error: #3: eval("'1'") === '1'. Actual: undefined
-test/language/eval-code/direct/func-decl-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/func-expr-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-decl-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-named-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-func-expr-nameless-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/gen-meth-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/global-env-rec-with.js # SyntaxError: unsupported: with statement
-test/language/eval-code/direct/meth-a-following-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-a-following-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-a-preceding-parameter-is-named-arguments-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-a-preceding-parameter-is-named-arguments-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-func-decl-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-func-decl-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-lex-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-lex-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-var-bind-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-fn-body-cntns-arguments-var-bind-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-no-pre-existing-arguments-bindings-are-present-declare-arguments-and-assign.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/meth-no-pre-existing-arguments-bindings-are-present-declare-arguments.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
 test/language/eval-code/direct/var-env-func-init-global-update-configurable.js # Test262Error: f descriptor should be enumerable; f descriptor should be writable
-test/language/eval-code/direct/var-env-func-init-local-new-delete.js # Test262Error: binding may be deleted Expected a ReferenceError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/var-env-func-non-strict.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/language/eval-code/direct/var-env-lower-lex-non-strict.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/var-env-var-init-local-exstng.js # Test262Error: Expected SameValue(«undefined», «44443») to be true
-test/language/eval-code/direct/var-env-var-init-local-new-delete.js # Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all
-test/language/eval-code/direct/var-env-var-non-strict.js # Test262Error: x Expected SameValue(«0», «1») to be true
-test/language/eval-code/indirect/always-non-strict.js # SyntaxError: unsupported: with statement
 test/language/eval-code/indirect/cptn-nrml-expr-prim.js # Test262Error: StringLiteral Expected SameValue(«undefined», «"1"») to be true
-test/language/eval-code/indirect/global-env-rec-with.js # SyntaxError: unsupported: with statement
 test/language/eval-code/indirect/realm.js # skip: $262.createRealm is not available through engine-api
 test/language/eval-code/indirect/var-env-func-init-global-update-configurable.js # Test262Error: f descriptor should be enumerable; f descriptor should be writable
-test/language/expressions/arrow-function/arrow/capturing-closure-variables-2.js # SyntaxError: unsupported: with statement
-test/language/expressions/arrow-function/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/arrow-function/scope-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/arrow-function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/arrow-function/unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/S11.13.1_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/S11.13.1_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/S11.13.1_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/S11.13.1_A6_T1.js # Test262Error: #1: innerX === undefined. Actual: 1
-test/language/expressions/assignment/S11.13.1_A6_T2.js # Test262Error: #1: innerX === 2. Actual: 1
-test/language/expressions/assignment/S11.13.1_A6_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/assignment-operator-calls-putvalue-lref--rval-.js # SyntaxError: unsupported: with statement
-test/language/expressions/assignment/destructuring/keyed-destructuring-property-reference-target-evaluation-order-with-bindings.js # SyntaxError: unsupported: with statement
 test/language/expressions/assignment/fn-name-lhs-cover.js # Test262Error: name descriptor value should be ; name value should be 
-test/language/expressions/async-arrow-function/eval-var-scope-syntax-err.js # Test262Error: Test262Error: function should not be resolved
-test/language/expressions/async-arrow-function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-arrow-function/unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-function/named-eval-var-scope-syntax-err.js # Test262Error: Test262Error: function should not be resolved
-test/language/expressions/async-function/named-unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-function/named-unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-function/nameless-eval-var-scope-syntax-err.js # Test262Error: Test262Error: function should not be resolved
-test/language/expressions/async-function/nameless-unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-function/nameless-unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/expressions/async-generator/eval-body-proto-realm.js # skip: $262.createRealm is not available through engine-api
-test/language/expressions/async-generator/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/async-generator/named-eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/async-generator/named-unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-generator/named-unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-generator/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/async-generator/unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/expressions/async-generator/yield-star-getiter-async-return-method-is-null.js # Test262Error: Test262Error: Expected SameValue(«undefined», «2») to be true
 test/language/expressions/call/eval-realm-indirect.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/call/eval-spread-empty-leading.js # Test262Error: Expected SameValue(«"local"», «0») to be true
 test/language/expressions/call/eval-spread-empty-trailing.js # Test262Error: Expected SameValue(«"local"», «0») to be true
 test/language/expressions/call/eval-spread.js # Test262Error: Expected SameValue(«"local"», «1») to be true
-test/language/expressions/call/eval-strictness-inherit-non-strict.js # SyntaxError: unsupported: with statement
 test/language/expressions/call/tco-call-args.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/call/tco-member-args.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/call/tco-non-eval-function-dynamic.js # Test262Error: Expected SameValue(«0», «1») to be true
+test/language/expressions/call/tco-non-eval-function-dynamic.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/call/tco-non-eval-function.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/call/tco-non-eval-global.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/call/tco-non-eval-with.js # SyntaxError: unsupported: with statement
-test/language/expressions/call/with-base-obj.js # SyntaxError: unsupported: with statement
+test/language/expressions/call/tco-non-eval-with.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js # post-parity: SyntaxError: unsupported: decorator
 test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js # post-parity: SyntaxError: unsupported: decorator
 test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js # post-parity: SyntaxError: unsupported: decorator
@@ -9504,7 +9294,6 @@ test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-ide
 test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js # post-parity: SyntaxError: unsupported: decorator
 test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # post-parity: SyntaxError: unsupported: decorator
 test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # post-parity: SyntaxError: unsupported: decorator
-test/language/expressions/class/elements/nested-direct-eval-err-contains-arguments.js # Test262Error: Expected a SyntaxError but got a ReferenceError
 test/language/expressions/class/elements/syntax/valid/grammar-field-accessor.js # post-parity: SyntaxError: unsupported: auto-accessor
 test/language/expressions/class/private-getter-brand-check-multiple-evaluations-of-class-realm-function-ctor.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/class/private-getter-brand-check-multiple-evaluations-of-class-realm.js # skip: $262.createRealm is not available through engine-api
@@ -9519,65 +9308,8 @@ test/language/expressions/class/private-static-setter-multiple-evaluations-of-cl
 test/language/expressions/coalesce/tco-pos-null.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/coalesce/tco-pos-undefined.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/comma/tco-final.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/S11.13.2_A6.10_T1.js # Test262Error: #1: innerX === 2. Actual: 5
-test/language/expressions/compound-assignment/S11.13.2_A6.11_T1.js # Test262Error: #1: innerX === 2. Actual: 5
-test/language/expressions/compound-assignment/S11.13.2_A6.1_T1.js # Test262Error: #1: innerX === 2. Actual: 12
-test/language/expressions/compound-assignment/S11.13.2_A6.2_T1.js # Test262Error: #1: innerX === 2. Actual: 5
-test/language/expressions/compound-assignment/S11.13.2_A6.3_T1.js # Test262Error: #1: innerX === 2. Actual: 3
-test/language/expressions/compound-assignment/S11.13.2_A6.4_T1.js # Test262Error: #1: innerX === 2. Actual: 4
-test/language/expressions/compound-assignment/S11.13.2_A6.5_T1.js # Test262Error: #1: innerX === 2. Actual: 4
-test/language/expressions/compound-assignment/S11.13.2_A6.6_T1.js # Test262Error: #1: innerX === 2. Actual: 8
-test/language/expressions/compound-assignment/S11.13.2_A6.7_T1.js # Test262Error: #1: innerX === 2. Actual: 4
-test/language/expressions/compound-assignment/S11.13.2_A6.8_T1.js # Test262Error: #1: innerX === 2. Actual: 4
-test/language/expressions/compound-assignment/S11.13.2_A6.9_T1.js # Test262Error: #1: innerX === 2. Actual: 1
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--10.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--12.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--14.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--16.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--18.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--2.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--20.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--4.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--6.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--8.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v-.js # SyntaxError: unsupported: with statement
 test/language/expressions/conditional/tco-cond.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/conditional/tco-pos.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/delete/11.4.1-4.a-5.js # SyntaxError: unsupported: with statement
-test/language/expressions/delete/11.4.1-4.a-6.js # SyntaxError: unsupported: with statement
 test/language/expressions/delete/super-property-method.js # Test262Error: Expected a ReferenceError but got a SyntaxError
 test/language/expressions/delete/super-property-null-base.js # Test262Error: Expected a ReferenceError but got a SyntaxError
 test/language/expressions/delete/super-property-topropertykey.js # Test262Error: Expected a ReferenceError but got a SyntaxError
@@ -9619,96 +9351,20 @@ test/language/expressions/dynamic-import/import-defer/import-defer-transitive-as
 test/language/expressions/dynamic-import/import-defer/sync-dependency-of-deferred-async-module/main.js # Test262Error: Test262Error: Actual [dep, tla-with-dep start, tla-with-dep end, imports-tla-with-dep] and expected [dep, tla-with-dep start, tla-with-dep end] should have the same contents. 
 test/language/expressions/dynamic-import/import-defer/sync/main.js # Test262Error: Test262Error: Actual [dep, sync] and expected [] should have the same contents. 
 test/language/expressions/dynamic-import/import-fulfilled-member-of-errored-cycle.js # Test262Error: Test262Error: The import of C should reject Expected SameValue(«null», «null») to be false
-test/language/expressions/dynamic-import/syntax/valid/nested-with-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-attributes-trailing-comma-first.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-attributes-trailing-comma-second.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-defer-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-defer-script-code-valid.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-source-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-import-source-script-code-valid.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-nested-imports.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-expression-script-code-valid.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-attributes-trailing-comma-first.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-attributes-trailing-comma-second.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-defer-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-defer-script-code-valid.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-source-empty-str-is-valid-assign-expr.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-import-source-script-code-valid.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-nested-imports.js # SyntaxError: unsupported: with statement
-test/language/expressions/dynamic-import/syntax/valid/nested-with-script-code-valid.js # SyntaxError: unsupported: with statement
 test/language/expressions/dynamic-import/usage-from-eval.js # Error: VELYR_NOT_FOUND: module-code_FIXTURE.js: No such file or directory (os error 2)
-test/language/expressions/function/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/function/scope-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/function/scope-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/function/scope-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/function/scope-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/function/scope-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/function/unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/expressions/generators/eval-body-proto-realm.js # skip: $262.createRealm is not available through engine-api
-test/language/expressions/generators/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/generators/scope-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/generators/scope-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/generators/scope-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/generators/scope-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/generators/scope-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/generators/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/expressions/generators/unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/expressions/logical-and/tco-right.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/logical-or/tco-right.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/member-expression/computed-reference-null-or-undefined.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/new/non-ctor-err-realm.js # skip: $262.createRealm is not available through engine-api
-test/language/expressions/object/method-definition/async-gen-meth-eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/method-definition/async-meth-eval-var-scope-syntax-err.js # Test262Error: Test262Error: function should not be resolved
-test/language/expressions/object/method-definition/gen-meth-eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/method-definition/meth-eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/prop-def-id-eval-error-2.js # SyntaxError: unsupported: with statement
-test/language/expressions/object/prop-def-id-eval-error.js # SyntaxError: unsupported: with statement
-test/language/expressions/object/scope-gen-meth-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/scope-gen-meth-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-gen-meth-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-gen-meth-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-gen-meth-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-getter-body-lex-distinc.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/scope-meth-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/expressions/object/scope-meth-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-meth-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-meth-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-meth-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/expressions/object/scope-setter-body-lex-distinc.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
 test/language/expressions/optional-chaining/optional-call-preserves-this.js # TypeError: Cannot read properties of undefined (reading 'c')
-test/language/expressions/postfix-decrement/S11.3.2_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-decrement/S11.3.2_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-decrement/S11.3.2_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-decrement/operator-x-postfix-decrement-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-increment/S11.3.1_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-increment/S11.3.1_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-increment/S11.3.1_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-increment/operator-x-postfix-increment-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-decrement/S11.4.5_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-decrement/S11.4.5_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-decrement/S11.4.5_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-decrement/operator-prefix-decrement-x-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-increment/S11.4.4_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-increment/S11.4.4_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-increment/S11.4.4_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-increment/operator-prefix-increment-x-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
 test/language/expressions/super/realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/tagged-template/cache-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/tagged-template/tco-call.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/tagged-template/tco-member.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/tco-pos.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/yield/from-with.js # SyntaxError: unsupported: with statement
 test/language/expressions/yield/star-return-is-null.js # Test262Error: Expected SameValue(«undefined», «2») to be true
-test/language/function-code/eval-param-env-with-computed-key.js # Test262Error: Expected SameValue(«"outer"», «"inner"») to be true
-test/language/function-code/eval-param-env-with-prop-initializer.js # Test262Error: Expected SameValue(«"outer"», «"inner"») to be true
 test/language/global-code/script-decl-func.js # Test262Error: like-named configurable property Expected SameValue(«"number"», «"function"») to be true
-test/language/identifier-resolution/S10.2.2_A1_T5.js # SyntaxError: unsupported: with statement
-test/language/identifier-resolution/S10.2.2_A1_T6.js # SyntaxError: unsupported: with statement
-test/language/identifier-resolution/S10.2.2_A1_T7.js # SyntaxError: unsupported: with statement
-test/language/identifier-resolution/S10.2.2_A1_T8.js # SyntaxError: unsupported: with statement
-test/language/identifier-resolution/S10.2.2_A1_T9.js # SyntaxError: unsupported: with statement
 test/language/identifier-resolution/assign-to-global-undefined.js # expected ReferenceError, got success
 test/language/import/import-attributes/text-empty.js # SyntaxError: The requested module './text-empty_FIXTURE' does not provide an export named 'default'
 test/language/import/import-attributes/text-javascript.js # SyntaxError: Expected a semicolon or an implicit semicolon after a statement, but found none
@@ -9820,12 +9476,6 @@ test/language/literals/string/paragraph-separator-eval.js # Test262Error: Expect
 test/language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-source-and-export.js # cannot resolve module `<module source>` imported from `/Users/lucasbrito/dev/wdt/velyr-core/compat/vendor/test262/test/language/module-code/ambiguous-export-bindings/namespace-import-source-and-export
 test/language/module-code/source-phase-import/reexport-source-binding-named-import.js # cannot resolve module `<module source>` imported from `/Users/lucasbrito/dev/wdt/velyr-core/compat/vendor/test262/test/language/module-code/source-phase-import/reexport-source-binding_FIXTURE.js`: VEL
 test/language/module-code/source-phase-import/reexport-source-binding-namespace-get.js # cannot resolve module `<module source>` imported from `/Users/lucasbrito/dev/wdt/velyr-core/compat/vendor/test262/test/language/module-code/source-phase-import/reexport-source-binding_FIXTURE.js`: VEL
-test/language/statements/async-function/eval-var-scope-syntax-err.js # Test262Error: Test262Error: function should not be resolved
-test/language/statements/async-function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/statements/async-function/unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/statements/async-generator/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/statements/async-generator/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/statements/async-generator/unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/statements/async-generator/yield-star-return-then-getter-ticks.js # Test262Error: Test262Error: Actual [start, tick 1, get then, tick 2, get return, tick 3] and expected [start, tick 1, get then, tick 2, get return, get then, tick 3] should have the same contents. Tic
 test/language/statements/await-using/Symbol.asyncDispose-getter.js # SyntaxError: unsupported: using declaration
 test/language/statements/await-using/Symbol.asyncDispose-method-called-with-correct-this.js # SyntaxError: unsupported: using declaration
@@ -9904,7 +9554,6 @@ test/language/statements/class/decorator/syntax/valid/decorator-member-expr-iden
 test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # post-parity: SyntaxError: unsupported: decorator
 test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # post-parity: SyntaxError: unsupported: decorator
 test/language/statements/class/elements/class-field-is-observable-by-proxy.js # Test262Error: Expected SameValue(«undefined», «3») to be true
-test/language/statements/class/elements/nested-direct-eval-err-contains-arguments.js # Test262Error: Expected a SyntaxError but got a ReferenceError
 test/language/statements/class/elements/private-field-visible-to-direct-eval-on-initializer.js # SyntaxError: Private identifier '#m' is not allowed outside class bodies
 test/language/statements/class/elements/private-field-visible-to-direct-eval.js # SyntaxError: Private identifier '#m' is not allowed outside class bodies
 test/language/statements/class/elements/private-getter-visible-to-direct-eval-on-initializer.js # SyntaxError: Private identifier '#m' is not allowed outside class bodies
@@ -9931,36 +9580,7 @@ test/language/statements/for/tco-const-body.js # RangeError: Maximum call stack 
 test/language/statements/for/tco-let-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/for/tco-lhs-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/for/tco-var-body.js # RangeError: Maximum call stack size exceeded
-test/language/statements/function/S13.2.2_A14.js # Test262Error: #1: var obj = new FACTORY() does not lead to throwing exception
-test/language/statements/function/S13.2.2_A17_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A17_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A18_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A18_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T6.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T7.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13.2.2_A19_T8.js # SyntaxError: unsupported: with statement
 test/language/statements/function/S13_A15_T4.js # Test262Error: #1: __func(42,42,42) === "object". Actual: __func(42,42,42)===undefined
-test/language/statements/function/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/statements/function/scope-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/statements/function/scope-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/function/scope-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/function/scope-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/function/scope-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/statements/function/unscopables-with.js # SyntaxError: unsupported: with statement
-test/language/statements/generators/eval-var-scope-syntax-err.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/statements/generators/scope-body-lex-distinct.js # Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all
-test/language/statements/generators/scope-param-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/generators/scope-param-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/generators/scope-param-rest-elem-var-close.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/generators/scope-param-rest-elem-var-open.js # Test262Error: Expected SameValue(«"outside"», «"inside"») to be true
-test/language/statements/generators/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
-test/language/statements/generators/unscopables-with.js # SyntaxError: unsupported: with statement
 test/language/statements/if/tco-else-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/if/tco-if-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/labeled/tco.js # RangeError: Maximum call stack size exceeded
@@ -9968,7 +9588,6 @@ test/language/statements/return/tco.js # RangeError: Maximum call stack size exc
 test/language/statements/switch/tco-case-body-dflt.js # RangeError: Maximum call stack size exceeded
 test/language/statements/switch/tco-case-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/switch/tco-dftl-body.js # RangeError: Maximum call stack size exceeded
-test/language/statements/try/S12.14_A14.js # SyntaxError: unsupported: with statement
 test/language/statements/try/completion-values.js # Test262Error: Expected SameValue(«39», «42») to be true
 test/language/statements/try/tco-catch-finally.js # RangeError: Maximum call stack size exceeded
 test/language/statements/try/tco-catch.js # RangeError: Maximum call stack size exceeded
@@ -10020,168 +9639,7 @@ test/language/statements/using/throws-if-initializer-not-object.js # SyntaxError
 test/language/statements/using/throws-suppressederror-if-multiple-errors-during-disposal.js # SyntaxError: unsupported: using declaration
 test/language/statements/using/using-allows-null-initializer.js # SyntaxError: unsupported: using declaration
 test/language/statements/using/using-allows-undefined-initializer.js # SyntaxError: unsupported: using declaration
-test/language/statements/variable/binding-resolution.js # SyntaxError: unsupported: with statement
 test/language/statements/while/tco-body.js # RangeError: Maximum call stack size exceeded
-test/language/statements/with/12.10-0-1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-10.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-11.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-12.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-7.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-8.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-0-9.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-2-1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-2-2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-2-3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-2-4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-2-5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10-7-1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/12.10.1-13-s.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.10_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.10_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.10_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.10_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.10_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.11_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.11_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.11_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.11_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.11_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.12_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.12_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.12_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.12_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.12_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.1_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.1_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.1_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.2_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.2_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.2_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.2_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.2_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.3_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.3_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.3_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.3_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.3_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.4_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.4_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.4_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.4_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.4_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.5_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.5_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.5_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.5_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.5_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.6_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.6_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.6_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.7_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.7_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.7_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.7_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.7_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.8_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.8_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.8_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.8_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.8_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.9_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.9_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A1.9_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.10_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.10_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.10_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.10_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.10_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.11_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.11_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.11_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.11_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.11_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.12_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.12_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.12_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.12_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.12_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.1_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.1_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.1_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.2_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.2_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.2_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.2_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.2_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.3_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.3_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.3_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.3_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.4_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.4_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.4_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.4_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.4_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.5_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.5_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.5_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.5_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.5_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.6_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.6_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.6_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.7_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.7_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.7_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.7_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.7_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.8_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.8_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.8_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.8_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.8_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.9_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.9_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A3.9_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A4_T6.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T1.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T2.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T4.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T5.js # SyntaxError: unsupported: with statement
-test/language/statements/with/S12.10_A5_T6.js # SyntaxError: unsupported: with statement
-test/language/statements/with/binding-blocked-by-unscopables.js # SyntaxError: unsupported: with statement
-test/language/statements/with/binding-not-blocked-by-unscopables-falsey-prop.js # SyntaxError: unsupported: with statement
-test/language/statements/with/binding-not-blocked-by-unscopables-non-obj.js # SyntaxError: unsupported: with statement
-test/language/statements/with/cptn-abrupt-empty.js # SyntaxError: unsupported: with statement
-test/language/statements/with/cptn-nrml.js # SyntaxError: unsupported: with statement
-test/language/statements/with/get-binding-value-call-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/get-binding-value-idref-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/get-mutable-binding-binding-deleted-in-get-unscopables-strict-mode.js # SyntaxError: unsupported: with statement
-test/language/statements/with/get-mutable-binding-binding-deleted-in-get-unscopables.js # SyntaxError: unsupported: with statement
-test/language/statements/with/has-binding-call-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/has-binding-idref-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/has-property-err.js # SyntaxError: unsupported: with statement
-test/language/statements/with/let-block-with-newline.js # SyntaxError: unsupported: with statement
-test/language/statements/with/let-identifier-with-newline.js # SyntaxError: unsupported: with statement
-test/language/statements/with/scope-var-close.js # SyntaxError: unsupported: with statement
-test/language/statements/with/scope-var-open.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-binding-deleted-in-get-unscopables-strict-mode.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-binding-deleted-in-get-unscopables.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-binding-deleted-with-typed-array-in-proto-chain-strict-mode.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-binding-deleted-with-typed-array-in-proto-chain.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-idref-compound-assign-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/set-mutable-binding-idref-with-proxy-env.js # SyntaxError: unsupported: with statement
-test/language/statements/with/unscopables-get-err.js # SyntaxError: unsupported: with statement
-test/language/statements/with/unscopables-inc-dec.js # SyntaxError: unsupported: with statement
-test/language/statements/with/unscopables-not-referenced-for-undef.js # SyntaxError: unsupported: with statement
-test/language/statements/with/unscopables-prop-get-err.js # SyntaxError: unsupported: with statement
 test/language/types/reference/get-value-prop-base-primitive-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/types/reference/put-value-prop-base-primitive-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/types/reference/put-value-prop-base-primitive.js # Test262Error: number Expected SameValue(«0», «1») to be true
