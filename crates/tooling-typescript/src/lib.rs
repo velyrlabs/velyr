@@ -10,13 +10,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oxc_allocator::Allocator;
+use oxc_ast::ast::Program;
 use oxc_codegen::{Codegen, CodegenOptions};
 use oxc_parser::Parser;
-use oxc_semantic::SemanticBuilder;
+use oxc_semantic::{Scoping, SemanticBuilder};
 use oxc_span::SourceType;
 use oxc_transformer::Transformer;
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
+use velyr_runtime_modules::{HELPER_MODULE_NAME, MediaType, Result, SourceTransform, Transformed};
 use velyr_tooling_tsconfig::{TsConfig, TsconfigLoader};
 
 pub use cache::platform_cache_dir;
@@ -95,6 +96,45 @@ fn failure(specifier: &str, source: &str, message: &str, offset: Option<usize>) 
     VelyrError::invalid_data(format!("{specifier}:{line}:{column}: {message}"))
 }
 
+fn build_scoping(program: &Program<'_>) -> Scoping {
+    SemanticBuilder::new()
+        .with_excess_capacity(2.0)
+        .with_enum_eval(true)
+        .build(program)
+        .semantic
+        .into_scoping()
+}
+
+/// TC39 decorators and `accessor` (legacy mode keeps the decorators for oxc's own transform).
+fn lower_decorators<'a>(
+    allocator: &'a Allocator,
+    program: &mut Program<'a>,
+    scoping: Scoping,
+    legacy: bool,
+) {
+    velyr_tooling_decorators::lower(
+        allocator,
+        program,
+        scoping,
+        velyr_tooling_decorators::Options {
+            accessors: true,
+            decorators: !legacy,
+        },
+    );
+    if !legacy && velyr_tooling_decorators::uses_helper(program) {
+        let import = format!(
+            "import {} from \"{HELPER_MODULE_NAME}/helpers/{}\";",
+            velyr_tooling_decorators::HELPER_BINDING,
+            velyr_tooling_decorators::HELPER_NAME
+        );
+        let source = allocator.alloc_str(&import);
+        let mut header = Parser::new(allocator, source, SourceType::mjs())
+            .parse()
+            .program;
+        program.body.insert(0, header.body.remove(0));
+    }
+}
+
 fn strip(
     specifier: &str,
     source: &str,
@@ -116,17 +156,15 @@ fn strip(
         ));
     }
     let mut program = parsed.program;
-    let semantic = SemanticBuilder::new()
-        .with_excess_capacity(2.0)
-        .with_enum_eval(true)
-        .build(&program);
+    let options = lowered_options(media_type, config, lowering);
+    let mut scoping = build_scoping(&program);
+    if velyr_tooling_decorators::needs_pass(&program) {
+        lower_decorators(&allocator, &mut program, scoping, options.decorator.legacy);
+        scoping = build_scoping(&program);
+    }
     let path = Path::new(specifier);
-    let transformed = Transformer::new(
-        &allocator,
-        path,
-        &lowered_options(media_type, config, lowering),
-    )
-    .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
+    let transformed =
+        Transformer::new(&allocator, path, &options).build_with_scoping(scoping, &mut program);
     if let Some(first) = transformed.diagnostics.first() {
         return Err(failure(
             specifier,

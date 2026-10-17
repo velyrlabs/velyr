@@ -5305,6 +5305,7 @@ name = "velyr-tooling-typescript"
 version = "0.1.0"
 dependencies = [
  "oxc_allocator",
+ "oxc_ast",
  "oxc_codegen",
  "oxc_parser",
  "oxc_semantic",
@@ -5317,6 +5318,7 @@ dependencies = [
  "velyr-runtime-errors",
  "velyr-runtime-modules",
  "velyr-runtime-permissions",
+ "velyr-tooling-decorators",
  "velyr-tooling-tsconfig",
 ]
 

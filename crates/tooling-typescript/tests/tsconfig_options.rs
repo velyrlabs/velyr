@@ -128,7 +128,7 @@ fn verbatim_module_syntax_keeps_type_only_imports() {
 fn node_modules_files_get_defaults() {
     let (_dir, root, transform) = project(LEGACY, false);
     let code = run(&transform, &root.join("node_modules/p/x.ts"), DECORATED);
-    assert!(code.contains("@Log"), "{code}");
+    assert!(code.contains("applyDecs2311"), "{code}");
 }
 
 #[test]
@@ -163,5 +163,5 @@ fn disk_cache_keys_on_derived_options() {
     let edited = TypeScriptTransform::new(Some(root.join(".cache"))).with_tsconfig(loader);
     let code = run(&edited, &file, DECORATED);
     assert_eq!(edited.cache_hits(), 0);
-    assert!(code.contains("@Log"), "{code}");
+    assert!(code.contains("applyDecs2311"), "{code}");
 }

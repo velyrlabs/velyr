@@ -4,11 +4,13 @@ use std::collections::HashSet;
 
 use oxc_allocator::{Allocator, CloneIn, TakeIn, Vec as ArenaVec};
 use oxc_ast::ast::{AccessorProperty, Class, ClassElement, PropertyKey, Statement};
+use oxc_ast_visit::VisitMut;
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
 use oxc_traverse::{Traverse, TraverseCtx};
 
 use crate::Options;
+use crate::template::ResetNameSpans;
 
 pub(crate) struct AccessorPass<'a> {
     allocator: &'a Allocator,
@@ -44,6 +46,7 @@ impl<'a> AccessorPass<'a> {
         let text: &'a str = self.allocator.alloc_str(&text);
         let parsed = Parser::new(self.allocator, text, SourceType::mjs()).parse();
         let mut program = parsed.program;
+        ResetNameSpans.visit_program(&mut program);
         match program.body.pop() {
             Some(Statement::ClassDeclaration(mut class)) => class.body.body.drain(..).collect(),
             _ => unreachable!("template is always a class declaration"),
@@ -57,6 +60,7 @@ impl<'a> AccessorPass<'a> {
         let mut program = Parser::new(self.allocator, text, SourceType::mjs())
             .parse()
             .program;
+        ResetNameSpans.visit_program(&mut program);
         let Some(Statement::VariableDeclaration(mut decl)) = program.body.pop() else {
             unreachable!("template is always a variable declaration");
         };

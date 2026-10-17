@@ -28,7 +28,8 @@ pub(crate) fn resolve_with(
     ctx: &ResolveContext,
 ) -> Result<ResolvedModule> {
     // Before the import map, so nothing can shadow the embedded helpers.
-    if let Some(path) = crate::embedded::resolve(specifier)? {
+    let importer = referrer.to_path().unwrap_or_default();
+    if let Some(path) = crate::embedded::resolve(specifier, &importer)? {
         let id = ModuleId::from_path(&path).ok_or_else(|| {
             VelyrError::invalid_data("embedded path is not representable as a URL")
         })?;

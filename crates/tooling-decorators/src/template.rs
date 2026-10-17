@@ -4,10 +4,13 @@
 //! `$$eN;` field for the N-th class element and a `$$sN;` statement for the N-th statement list. Spans of template nodes are template-local.
 
 use oxc_allocator::{Allocator, TakeIn, Vec as ArenaVec};
-use oxc_ast::ast::{ClassBody, ClassElement, Expression, PropertyKey, Statement};
+use oxc_ast::ast::{
+    BindingIdentifier, ClassBody, ClassElement, Expression, IdentifierName, IdentifierReference,
+    PrivateIdentifier, PropertyKey, Statement,
+};
 use oxc_ast_visit::{VisitMut, walk_mut};
 use oxc_parser::Parser;
-use oxc_span::SourceType;
+use oxc_span::{SPAN, SourceType};
 
 pub(crate) struct Template<'a> {
     allocator: &'a Allocator,
@@ -49,6 +52,7 @@ impl<'a> Template<'a> {
         let mut program = Parser::new(self.allocator, text, SourceType::mjs())
             .parse()
             .program;
+        ResetNameSpans.visit_program(&mut program);
         let mut substitute = Substitute {
             allocator: self.allocator,
             slots: &mut self.slots,
@@ -76,6 +80,27 @@ impl<'a> Template<'a> {
             }
             _ => unreachable!("template is always a class declaration"),
         }
+    }
+}
+
+/// Template-local spans point past the real source, and codegen reads names through spans.
+pub(crate) struct ResetNameSpans;
+
+impl<'a> VisitMut<'a> for ResetNameSpans {
+    fn visit_identifier_reference(&mut self, it: &mut IdentifierReference<'a>) {
+        it.span = SPAN;
+    }
+
+    fn visit_binding_identifier(&mut self, it: &mut BindingIdentifier<'a>) {
+        it.span = SPAN;
+    }
+
+    fn visit_identifier_name(&mut self, it: &mut IdentifierName<'a>) {
+        it.span = SPAN;
+    }
+
+    fn visit_private_identifier(&mut self, it: &mut PrivateIdentifier<'a>) {
+        it.span = SPAN;
     }
 }
 

@@ -22,12 +22,33 @@ const FILES: &[(&str, &str)] = &[
         include_str!("../helpers/decorateMetadata.js"),
     ),
     ("usingCtx", include_str!("../helpers/usingCtx.js")),
+    (
+        "applyDecs2311",
+        include_str!("../helpers/applyDecs2311.js"),
+    ),
+    ("typeof", include_str!("../helpers/typeof.js")),
+    ("checkInRHS", include_str!("../helpers/checkInRHS.js")),
+    (
+        "setFunctionName",
+        include_str!("../helpers/setFunctionName.js"),
+    ),
+    ("toPropertyKey", include_str!("../helpers/toPropertyKey.js")),
+    ("toPrimitive", include_str!("../helpers/toPrimitive.js")),
 ];
 
 /// `Ok(None)` when `specifier` is not an embedded one; `NotFound` for an unknown helper.
-pub(crate) fn resolve(specifier: &str) -> Result<Option<PathBuf>> {
-    let Some(name) = specifier.strip_prefix(SPECIFIER_PREFIX) else {
-        return Ok(None);
+/// A `./name.js` specifier from an embedded `referrer` stays inside the table.
+pub(crate) fn resolve(specifier: &str, referrer: &Path) -> Result<Option<PathBuf>> {
+    let name = match specifier.strip_prefix(SPECIFIER_PREFIX) {
+        Some(name) => name,
+        None if is_embedded(referrer) => match specifier
+            .strip_prefix("./")
+            .and_then(|rest| rest.strip_suffix(".js"))
+        {
+            Some(name) => name,
+            None => return Ok(None),
+        },
+        None => return Ok(None),
     };
     if !FILES.iter().any(|(known, _)| *known == name) {
         return Err(VelyrError::not_found(format!(
