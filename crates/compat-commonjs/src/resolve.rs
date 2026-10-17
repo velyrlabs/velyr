@@ -60,7 +60,7 @@ fn load_as_file(base: &Path) -> Option<PathBuf> {
 
 /// TypeScript sources a JavaScript specifier may stand for: `./x.cjs` is `x.cts`, `./x.js` is
 /// `x.ts`, and `./x` may be either. Only tried when the requiring file is TypeScript itself.
-fn load_typescript(base: &Path) -> Option<PathBuf> {
+fn load_typescript(base: &Path, auth: Auth) -> Option<PathBuf> {
     let name = base.file_name()?.to_str()?;
     let swapped = [(".cjs", "cts"), (".js", "ts"), (".mjs", "mts")]
         .iter()
@@ -72,7 +72,10 @@ fn load_typescript(base: &Path) -> Option<PathBuf> {
             .map(|ts| base.with_file_name(format!("{name}.{ts}")))
             .collect(),
     };
-    candidates.into_iter().find(|candidate| is_file(candidate))
+    // An unauthorized candidate reads as missing: probing it would reveal that it exists.
+    candidates
+        .into_iter()
+        .find(|candidate| auth(candidate).is_ok() && is_file(candidate))
 }
 
 fn is_typescript(path: &Path) -> bool {
@@ -194,7 +197,7 @@ pub fn resolve(request: &str, from: &Path, conditions: &[String], auth: Auth) ->
     };
     let found = if let Some(target) = path_target {
         match load_path(&target, auth)? {
-            None if is_typescript(from) => load_typescript(&target),
+            None if is_typescript(from) => load_typescript(&target, auth),
             found => found,
         }
     } else if request.starts_with('#') {
@@ -203,4 +206,25 @@ pub fn resolve(request: &str, from: &Path, conditions: &[String], auth: Auth) ->
         resolve_package(request, from_dir, conditions, auth)?
     };
     found.map(real).ok_or_else(|| not_found(request, from))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn typescript_candidates_are_authorized_before_they_are_probed() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        fs::write(root.join("dep.ts"), "").unwrap();
+        let from = root.join("main.cts");
+        let deny_ts = |path: &Path| match path.extension().is_some_and(|ext| ext == "ts") {
+            true => Err(VelyrError::permission_denied("import", "dep")),
+            false => Ok(()),
+        };
+        let err = resolve("./dep", &from, &[], &deny_ts).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::NotFound, "{err}");
+        let allow = |_: &Path| Ok(());
+        assert!(resolve("./dep", &from, &[], &allow).is_ok());
+    }
 }
