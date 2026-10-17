@@ -436,9 +436,7 @@ fn op_async_call(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
     let prepared = prepare(ctx, &mut guards, &name, &parts).map(|work| guarded(guards, work));
     op_async(ctx, |_token| async move {
         let result = match prepared {
-            Ok(work) => tokio::task::spawn_blocking(work)
-                .await
-                .map_err(|err| VelyrError::internal(err.to_string()))?,
+            Ok(work) => velyr_runtime_ops::blocking(work).await?,
             Err(error) => Err(error),
         };
         Ok(CompletionValue::Bytes(encode(result)))

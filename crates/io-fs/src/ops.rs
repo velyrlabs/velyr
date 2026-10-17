@@ -5,7 +5,7 @@ use std::time::UNIX_EPOCH;
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
 use velyr_runtime_event_loop::CompletionValue;
-use velyr_runtime_ops::{CapabilityKind, authorize, op_async};
+use velyr_runtime_ops::{CapabilityKind, authorize, blocking, op_async};
 use velyr_runtime_permissions::Request;
 
 pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 3] = [
@@ -152,7 +152,9 @@ fn op_fs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostEr
     }
     let path = authorized_path(ctx, "op_fs_read", args, false)?;
     op_async(ctx, |_token| async move {
-        let bytes = tokio::fs::read(path).await.map_err(io_error)?;
+        let bytes = blocking(move || std::fs::read(path))
+            .await?
+            .map_err(io_error)?;
         Ok(read_value(bytes, text))
     })
 }
@@ -185,7 +187,9 @@ fn op_fs_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostE
         }
     };
     op_async(ctx, |_token| async move {
-        tokio::fs::write(path, bytes).await.map_err(io_error)?;
+        blocking(move || std::fs::write(path, bytes))
+            .await?
+            .map_err(io_error)?;
         Ok(CompletionValue::Undefined)
     })
 }
@@ -195,7 +199,9 @@ fn op_fs_stat(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostEr
     let _span = tracing::debug_span!("velyr.ops.fs_stat").entered();
     let path = authorized_path(ctx, "op_fs_stat", args, false)?;
     op_async(ctx, |_token| async move {
-        let meta = tokio::fs::metadata(path).await.map_err(io_error)?;
+        let meta = blocking(move || std::fs::metadata(path))
+            .await?
+            .map_err(io_error)?;
         let mtime_ms = meta
             .modified()
             .ok()

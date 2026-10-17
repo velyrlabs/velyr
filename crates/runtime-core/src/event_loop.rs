@@ -445,6 +445,7 @@ where
     F: FnOnce(&mut LoopIsolate<E::Isolate>, CompletionSender, TimerHandle),
 {
     let max_completions = config.max_completions_per_tick;
+    let max_blocking_threads = config.max_blocking_threads;
     let timer_quota = Arc::new(QuotaContext::new(config.quotas.clone().unwrap_or_default()));
     let capabilities = config.capabilities.clone();
     let resolver = config.module_resolver.clone();
@@ -469,10 +470,7 @@ where
     }));
     install(event_loop.isolate(), sender, timers);
 
-    let tokio = tokio::runtime::Builder::new_current_thread()
-        .enable_io()
-        .enable_time()
-        .build()
+    let tokio = crate::blocking_pool::build_runtime(max_blocking_threads)
         .map_err(|err| RunError::Setup(err.to_string()))?;
     let result = tokio.block_on(async {
         if let Entry::Module = entry {

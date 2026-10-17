@@ -26,12 +26,14 @@ use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::{LeakEntry, QuotaConfig};
 use watchdog::Watchdog;
 
+mod blocking_pool;
 mod esm;
 mod event_loop;
 pub mod metrics;
 mod shutdown;
 mod watchdog;
 
+pub use blocking_pool::peak_blocking_threads;
 pub use esm::{EsmRequire, require_esm};
 pub use event_loop::{LoopIsolate, run_file, run_module_file};
 
@@ -76,6 +78,8 @@ pub struct RuntimeConfig {
     /// Reads module text for the entry module's graph; `None` is `FsLoader` (the disk). Single-file
     /// executables pass a loader over their embedded files.
     pub module_loader: Option<Arc<dyn ModuleLoader>>,
+    /// Cap on the isolate's Tokio blocking threads; `None` is `min(8, available_parallelism)`.
+    pub max_blocking_threads: Option<usize>,
 }
 
 /// A module resolver shared across the isolate thread and its host.
@@ -117,6 +121,7 @@ impl Default for RuntimeConfig {
             module_resolver: None,
             source_transform: None,
             module_loader: None,
+            max_blocking_threads: None,
         }
     }
 }

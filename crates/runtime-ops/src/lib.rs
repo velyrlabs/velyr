@@ -12,7 +12,7 @@ mod permissions_query;
 mod registry;
 mod test_ops;
 
-pub use async_op::{op_async, op_async_on};
+pub use async_op::{blocking, op_async, op_async_on};
 pub use context::{OpContext, authorize, install_op_context, take_leak_report};
 pub use registry::{CapabilityKind, OpId, OpRegistry};
 pub use test_ops::{test_host_functions, test_ops};

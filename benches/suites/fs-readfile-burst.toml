@@ -1,0 +1,7 @@
+# "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+# Runtime memory plan RT-19: 1000 concurrent 1 MiB reads; rss_mb is indicative only on a loaded machine.
+name = "fs-readfile-burst"
+command = ["velyr", "run", "--allow-read", "--allow-write", "benches/fixtures/fs-readfile-burst.js"]
+iterations = 10
+warmup = 2
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds"]

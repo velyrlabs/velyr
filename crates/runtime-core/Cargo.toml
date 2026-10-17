@@ -21,6 +21,9 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 velyr-engine-v8 = { path = "../engine-v8" }
+velyr-io-fs = { path = "../io-fs" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+tempfile = "3"
 
 [lints]
 workspace = true
