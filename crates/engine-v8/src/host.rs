@@ -377,12 +377,15 @@ impl CallContext for HostContext<'_, '_, '_> {
         value: &Value,
         transfer: &[Value],
     ) -> Result<SerializedValue, HostError> {
+        // Serialization reads `Shared::slots`; release the borrow `slot` may hold.
+        self.slots = None;
         v8::tc_scope!(let tc, &mut *self.scope);
         serialize::serialize(tc, self.shared, value, transfer)
             .ok_or_else(|| caught(tc, self.shared))
     }
 
     fn deserialize(&mut self, serialized: &SerializedValue) -> Result<Value, HostError> {
+        self.slots = None;
         v8::tc_scope!(let tc, &mut *self.scope);
         serialize::deserialize(tc, self.shared, serialized).ok_or_else(|| caught(tc, self.shared))
     }
