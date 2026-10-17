@@ -15,7 +15,7 @@ default = ["profile-full"]
 profile-minimal = []
 profile-web = ["profile-minimal", "web", "typescript", "jsx"]
 profile-node = ["profile-web", "npm", "node"]
-profile-full = ["profile-node", "telemetry", "inspector", "velyr-engine-native?/intl-all-locales"]
+profile-full = ["profile-node", "telemetry", "inspector", "velyr-engine-native?/intl-all-locales", "velyr-engine-native?/intl-experimental"]
 # fetch, WebSocket, HTTP/TLS, `velyr serve`.
 web = ["dep:velyr-web-fetch", "dep:velyr-web-websocket", "dep:velyr-io-http", "dep:velyr-io-tls"]
 # npm resolver and `velyr add|install|remove`.
