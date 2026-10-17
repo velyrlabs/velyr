@@ -3,6 +3,7 @@
 //! Backing stores live outside the GC heap (see `store`); objects hold them in slots.
 
 mod atomics;
+mod base64;
 mod buffer;
 mod constructors;
 mod data_view;
@@ -31,6 +32,7 @@ pub(crate) struct TypedArray {
 pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     buffer::install(vm)?;
     constructors::install(vm)?;
+    base64::install(vm)?;
     data_view::install(vm)?;
     atomics::install(vm)
 }
