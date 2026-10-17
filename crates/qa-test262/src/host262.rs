@@ -38,16 +38,44 @@ pub fn check_parse_phase<I: Isolate>(isolate: &mut I, meta: &Meta, source: &Sour
     };
     match isolate.check_script(source) {
         Err(e) if e.is_unsupported() => ParsePhase::Unavailable,
-        Err(e) => ParsePhase::Done(judge_negative(&negative.error_type, &e.message)),
+        Err(e) => ParsePhase::Done(judge_parse_error(&negative.error_type, &e.message)),
         Ok(()) => ParsePhase::Done(Err("expected parse error, got successful parse".to_owned())),
     }
 }
 
-/// An error matches when it starts with the expected type; engine gaps never match.
+/// A parse-phase engine gap is never the expected parse error; the runtime phase has no such rule.
+fn judge_parse_error(error_type: &str, message: &str) -> Result<(), String> {
+    if message.starts_with(UNSUPPORTED_PREFIX) {
+        return Err(format!("expected {error_type}, got {message}"));
+    }
+    judge_negative(error_type, message)
+}
+
+/// A runtime error matches when it starts with the expected type.
 pub fn judge_negative(error_type: &str, message: &str) -> Result<(), String> {
-    if message.starts_with(error_type) && !message.starts_with(UNSUPPORTED_PREFIX) {
+    if message.starts_with(error_type) {
         Ok(())
     } else {
         Err(format!("expected {error_type}, got {message}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runtime_negative_accepts_engine_gap_syntax_error() {
+        assert_eq!(
+            judge_negative("SyntaxError", "SyntaxError: unsupported: direct eval"),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn parse_phase_engine_gap_is_not_expected_error() {
+        let gap = judge_parse_error("SyntaxError", "SyntaxError: unsupported: with");
+        assert!(gap.is_err());
+        assert_eq!(judge_parse_error("SyntaxError", "SyntaxError: unexpected token"), Ok(()));
     }
 }
