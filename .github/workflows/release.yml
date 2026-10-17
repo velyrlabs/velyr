@@ -29,7 +29,7 @@ jobs:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, archive: tar.gz }
           - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm, archive: tar.gz }
           - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, archive: tar.gz, musl: true }
-          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, archive: tar.gz, musl: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, archive: tar.gz, musl: true, rustflags: "-C link-arg=-lgcc" }
           - { target: x86_64-apple-darwin, os: macos-15-intel, archive: tar.gz }
           - { target: aarch64-apple-darwin, os: macos-latest, archive: tar.gz }
           - { target: x86_64-pc-windows-msvc, os: windows-latest, archive: zip }
@@ -49,7 +49,10 @@ jobs:
       # Runs inside the repo so the target is added to the pinned toolchain.
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
+      # rusty_v8 on arm64 needs __clear_cache; rustc's musl link uses -nodefaultlibs, so libgcc must be explicit.
       - name: Build (cargo auditable)
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo auditable build --release --locked -p velyr-cli --target ${{ matrix.target }}
       - name: Package
         env:
