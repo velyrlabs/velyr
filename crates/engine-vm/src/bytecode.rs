@@ -237,6 +237,15 @@ pub enum Instruction {
     GetSuper,
     /// `super[reg] = acc` (value preserved).
     SetSuper(Reg),
+    /// `acc` = the `[[GetPrototypeOf]]` of the running method's home object (GetSuperBase).
+    LdaSuperBase,
+    /// `acc` = `reg[acc]` with `this` as receiver; `reg` holds a `LdaSuperBase` result.
+    GetSuperFrom(Reg),
+    /// `base[key] = acc` with `this` as receiver (value preserved); `base` is a `LdaSuperBase` result.
+    SetSuperFrom {
+        base: Reg,
+        key: Reg,
+    },
 
     Call {
         callee: Reg,

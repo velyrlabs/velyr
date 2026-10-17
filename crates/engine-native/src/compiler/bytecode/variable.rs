@@ -74,7 +74,7 @@ impl FunctionCompiler<'_> {
 
     /// The function owning the `arguments` object an unresolved `arguments` names, or
     /// `None` at script level (a global lookup).
-    fn arguments_owner(&self, id: &IdentifierReference) -> Option<ScopeId> {
+    pub(super) fn arguments_owner(&self, id: &IdentifierReference) -> Option<ScopeId> {
         if id.name != "arguments" {
             return None;
         }

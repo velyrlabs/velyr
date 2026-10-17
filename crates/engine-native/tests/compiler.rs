@@ -190,7 +190,6 @@ fn unsupported_constructs_are_explicit_syntax_errors() {
         ("with ({}) {}", "with statement"),
         ("function f() { eval('1'); }", "direct eval"),
         ("{ function f() {} }", "block-level function in sloppy mode"),
-        ("let o = {}; delete o?.a;", "delete of optional chain"),
     ] {
         let message = compile_error(source);
         assert_eq!(

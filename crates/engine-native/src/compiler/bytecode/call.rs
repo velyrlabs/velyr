@@ -18,8 +18,11 @@ use crate::compiler::JsResult;
 impl FunctionCompiler<'_> {
     pub fn member(&mut self, member: &MemberExpression) -> JsResult<()> {
         if member.object().is_super() {
-            self.super_key(member)?;
-            self.e.emit_at(member.span(), I::GetSuper);
+            let instruction = match self.super_key(member)? {
+                Some(base) => I::GetSuperFrom(base),
+                None => I::GetSuper,
+            };
+            self.e.emit_at(member.span(), instruction);
             return Ok(());
         }
         match member {
@@ -50,17 +53,27 @@ impl FunctionCompiler<'_> {
         Ok(())
     }
 
-    /// The key of `super.x`/`super[x]` in `acc`.
-    pub fn super_key(&mut self, member: &MemberExpression) -> JsResult<()> {
+    /// The key of `super.x`/`super[x]` in `acc`. A computed key is left unconverted and
+    /// its base is returned: `this` (TDZ check), the key and GetSuperBase run in spec order.
+    pub fn super_key(&mut self, member: &MemberExpression) -> JsResult<Option<Reg>> {
         match member {
-            MemberExpression::StaticMemberExpression(m) => self.e.load_string(&m.property.name),
-            MemberExpression::ComputedMemberExpression(m) => {
-                self.expression(&m.expression)?;
-                self.e.emit(I::ToPropertyKey);
+            MemberExpression::StaticMemberExpression(m) => {
+                self.e.load_string(&m.property.name);
+                Ok(None)
             }
-            MemberExpression::PrivateFieldExpression(_) => return Err(unsupported("super.#x")),
+            MemberExpression::ComputedMemberExpression(m) => {
+                self.e.emit(I::LdaThis);
+                self.expression(&m.expression)?;
+                let raw = self.e.alloc();
+                self.e.emit(I::Star(raw));
+                self.e.emit(I::LdaSuperBase);
+                let base = self.e.alloc();
+                self.e.emit(I::Star(base));
+                self.e.emit(I::Ldar(raw));
+                Ok(Some(base))
+            }
+            MemberExpression::PrivateFieldExpression(_) => Err(unsupported("super.#x")),
         }
-        Ok(())
     }
 
     /// Evaluates a member's object into a register, short-circuiting an optional link.
@@ -95,6 +108,38 @@ impl FunctionCompiler<'_> {
         self.e.bind(nullish);
         self.e.emit(I::LdaUndefined);
         self.e.bind(end);
+        Ok(())
+    }
+
+    /// `delete a?.b`: the last link is deleted unless the chain short-circuits (then `true`).
+    pub fn delete_chain(&mut self, chain: &ChainExpression) -> JsResult<()> {
+        let nullish = self.e.new_label();
+        let outer = self.optional_chain.replace(nullish);
+        let result = self.delete_link(&chain.expression);
+        self.optional_chain = outer;
+        result?;
+        let end = self.e.new_label();
+        self.e.jump(I::Jump, end);
+        self.e.bind(nullish);
+        self.e.emit(I::LdaTrue);
+        self.e.bind(end);
+        Ok(())
+    }
+
+    fn delete_link(&mut self, element: &ChainElement) -> JsResult<()> {
+        match element {
+            ChainElement::StaticMemberExpression(m) => {
+                let object = self.member_object(&m.object, m.optional)?;
+                self.e.load_string(&m.property.name);
+                self.e.emit_at(m.span, I::DeleteProperty { object });
+            }
+            ChainElement::ComputedMemberExpression(m) => {
+                let object = self.member_object(&m.object, m.optional)?;
+                self.expression(&m.expression)?;
+                self.e.emit_at(m.span, I::DeleteProperty { object });
+            }
+            _ => return Err(unsupported("delete of this optional chain")),
+        }
         Ok(())
     }
 

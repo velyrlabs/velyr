@@ -485,13 +485,15 @@ pub(super) fn uses_super_property(code: &FunctionCode) -> bool {
         let text = script.map(|s| s.slice(code.source_start, code.source_end));
         return text.is_some_and(|text| text.contains("super"));
     }
-    code.instructions
-        .iter()
-        .any(|i| matches!(i, I::GetSuper | I::SetSuper(_)))
-        || code.constants.iter().any(|constant| {
-            matches!(constant, Constant::Function(inner)
+    code.instructions.iter().any(|i| {
+        matches!(
+            i,
+            I::GetSuper | I::SetSuper(_) | I::GetSuperFrom(_) | I::SetSuperFrom { .. }
+        )
+    }) || code.constants.iter().any(|constant| {
+        matches!(constant, Constant::Function(inner)
                 if inner.kind == FunctionKind::Arrow && uses_super_property(inner))
-        })
+    })
 }
 
 pub fn binding_name<'b>(pattern: &'b BindingPattern) -> Option<&'b str> {

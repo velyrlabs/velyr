@@ -81,14 +81,20 @@ impl Interpreter {
             }
             I::SetSuper(key) => {
                 let (base, this) = self.super_base()?;
-                let key = self.object_key(&self.reg(*key).clone())?;
-                let Some(base) = self.as_object(&base) else {
-                    return Err(self.error(ErrorKind::Type, "Cannot set properties of null"));
+                self.set_super(base, this, &self.reg(*key).clone(), acc)?;
+            }
+            I::LdaSuperBase => self.state.acc = self.super_home_base()?,
+            I::GetSuperFrom(base) => {
+                let (base, this) = (self.reg(*base).clone(), self.this_value()?);
+                let key = self.object_key(&acc)?;
+                self.state.acc = match self.as_object(&base) {
+                    Some(base) => self.get(base, key, &this)?,
+                    None => self.get_value(&base, key, None)?,
                 };
-                if !self.set(base, key, acc, &this)? && self.top().info.code.is_strict {
-                    let message = "Cannot assign to read only property of super";
-                    return Err(self.error(ErrorKind::Type, message));
-                }
+            }
+            I::SetSuperFrom { base, key } => {
+                let (base, this) = (self.reg(*base).clone(), self.this_value()?);
+                self.set_super(base, this, &self.reg(*key).clone(), acc)?;
             }
             other => return Err(self.internal(&format!("unexpected instruction {other:?}"))),
         }
@@ -383,6 +389,10 @@ impl Interpreter {
     /// (HomeObject.[[Prototype]], this) for a `super` property reference.
     fn super_base(&mut self) -> JsResult<(Value, Value)> {
         let this = self.this_value()?;
+        Ok((self.super_home_base()?, this))
+    }
+
+    fn super_home_base(&mut self) -> JsResult<Value> {
         let function = self.top().env.function.clone();
         let home = match self.callable(&function) {
             Some(Callable::Closure(closure)) => closure.home.clone(),
@@ -391,8 +401,19 @@ impl Interpreter {
         let Some(home) = self.as_object(&home) else {
             return Err(self.internal("super property outside a method"));
         };
-        let base = self.prototype_of(home)?.map_or(Value::Null, object_value);
-        Ok((base, this))
+        Ok(self.prototype_of(home)?.map_or(Value::Null, object_value))
+    }
+
+    fn set_super(&mut self, base: Value, this: Value, key: &Value, value: Value) -> JsResult<()> {
+        let key = self.object_key(key)?;
+        let Some(base) = self.as_object(&base) else {
+            return Err(self.error(ErrorKind::Type, "Cannot set properties of null"));
+        };
+        if !self.set(base, key, value, &this)? && self.top().info.code.is_strict {
+            let message = "Cannot assign to read only property of super";
+            return Err(self.error(ErrorKind::Type, message));
+        }
+        Ok(())
     }
 }
 

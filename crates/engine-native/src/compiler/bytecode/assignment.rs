@@ -24,6 +24,7 @@ pub enum Place<'b, 'a> {
     },
     /// `super[key]`, with `this` and the home object resolved at each access.
     Super {
+        base: Option<Reg>,
         key: Reg,
     },
 }
@@ -39,10 +40,13 @@ impl FunctionCompiler<'_> {
         if let Some(member) = target.as_member_expression()
             && member.object().is_super()
         {
-            self.super_key(member)?;
+            let base = self.super_key(member)?;
+            if convert_key && base.is_some() {
+                self.e.emit(I::ToPropertyKey);
+            }
             let key = self.e.alloc();
             self.e.emit(I::Star(key));
-            return Ok(Place::Super { key });
+            return Ok(Place::Super { base, key });
         }
         match target {
             SimpleAssignmentTarget::AssignmentTargetIdentifier(id) => Ok(Place::Binding(id)),
@@ -97,9 +101,9 @@ impl FunctionCompiler<'_> {
                 self.e.emit(I::Ldar(key));
                 self.e.emit(I::GetKeyed { object });
             }
-            Place::Super { key } => {
+            Place::Super { base, key } => {
                 self.e.emit(I::Ldar(key));
-                self.e.emit(I::GetSuper);
+                self.e.emit(base.map_or(I::GetSuper, I::GetSuperFrom));
             }
         }
         Ok(())
@@ -115,7 +119,11 @@ impl FunctionCompiler<'_> {
                 cache: 0,
             }),
             Place::Keyed { object, key } => self.e.emit(I::SetKeyed { object, key }),
-            Place::Super { key } => self.e.emit(I::SetSuper(key)),
+            Place::Super { base: None, key } => self.e.emit(I::SetSuper(key)),
+            Place::Super {
+                base: Some(base),
+                key,
+            } => self.e.emit(I::SetSuperFrom { base, key }),
         }
         Ok(())
     }
@@ -186,7 +194,9 @@ impl FunctionCompiler<'_> {
             Expression::Identifier(id) => {
                 let is_unresolved = self.analysis.symbol_of(id.reference_id()).is_none()
                     && self.outer_binding(&id.name).is_none();
-                if is_unresolved && !self.is_strict {
+                if self.arguments_owner(id).is_some() {
+                    self.e.emit(I::LdaFalse);
+                } else if is_unresolved && !self.is_strict {
                     let index = self.e.string(&id.name);
                     self.e.emit(I::DeleteGlobal(index));
                 } else {
@@ -203,7 +213,7 @@ impl FunctionCompiler<'_> {
                 self.expression(&member.expression)?;
                 self.e.emit_at(member.span, I::DeleteProperty { object });
             }
-            Expression::ChainExpression(_) => return Err(unsupported("delete of optional chain")),
+            Expression::ChainExpression(chain) => self.delete_chain(chain)?,
             other => {
                 self.expression(other)?;
                 self.e.emit(I::LdaTrue);
