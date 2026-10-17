@@ -41,13 +41,18 @@ pub fn encoding_host_functions() -> Vec<HostFunctionDef> {
 /// Registers the decoder table and runs [`ENCODING_JS`]. Call from the `install` hook of
 /// `run_file`, after the `encoding_host_functions` are registered.
 pub fn install_encoding(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(DecoderTable::default());
+    install_encoding_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:encoding".into(),
             text: ENCODING_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_encoding`], for an isolate whose [`ENCODING_JS`] already ran.
+pub fn install_encoding_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(DecoderTable::default());
 }
 
 fn lookup(label: &str) -> Option<&'static Encoding> {

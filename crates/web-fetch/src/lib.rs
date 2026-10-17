@@ -50,11 +50,16 @@ pub fn fetch_host_functions() -> Vec<HostFunctionDef> {
 
 /// Runs [`FETCH_JS`]. Call after `install_net`, `install_web_streams`, events, encoding and URL.
 pub fn install_web_fetch(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(client::FetchState::default());
+    install_web_fetch_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:fetch".into(),
             text: FETCH_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_web_fetch`], for an isolate whose [`FETCH_JS`] already ran.
+pub fn install_web_fetch_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(client::FetchState::default());
 }

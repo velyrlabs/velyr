@@ -31,7 +31,7 @@ use host::SharedSlot;
 use shared::Shared;
 
 pub use inspector::{InspectorEvent, InspectorOptions};
-pub use snapshot::create_snapshot;
+pub use snapshot::{SNAPSHOT_RESULTS_KEY, create_snapshot};
 
 static PLATFORM_INIT: Once = Once::new();
 /// Kept to pump each isolate's foreground task queue (`V8Isolate::run_platform_tasks`).
@@ -46,6 +46,8 @@ const V8_FLAGS: &str = "--max-semi-space-size=16";
 #[derive(Debug, Default, Clone)]
 pub struct V8Engine {
     snapshot: Option<&'static [u8]>,
+    /// The snapshot's host functions, bound again on every isolate it boots.
+    snapshot_ops: Arc<[HostFunctionDef]>,
     inspector: Option<inspector::PendingInspector>,
 }
 
@@ -55,10 +57,12 @@ impl V8Engine {
     }
 
     /// Boots every isolate's context from `blob`, made by [`create_snapshot`] with this same V8
-    /// build and flags (V8 aborts the process on a mismatched blob).
-    pub fn with_snapshot(blob: &'static [u8]) -> Self {
+    /// build and flags (V8 aborts the process on a mismatched blob) and these `host_functions`,
+    /// in the same order: `create_isolate` fails when the names differ.
+    pub fn with_snapshot(blob: &'static [u8], host_functions: Vec<HostFunctionDef>) -> Self {
         Self {
             snapshot: Some(blob),
+            snapshot_ops: host_functions.into(),
             inspector: None,
         }
     }
@@ -116,7 +120,22 @@ impl Engine for V8Engine {
         let context = {
             v8::scope!(let scope, &mut isolate);
             let context = v8::Context::new(scope, Default::default());
-            v8::Global::new(scope, context)
+            let relinked = match self.snapshot {
+                Some(_) => {
+                    let scope = &mut v8::ContextScope::new(scope, context);
+                    snapshot::relink(scope, &shared, &self.snapshot_ops)
+                }
+                None => Ok(()),
+            };
+            relinked.map(|()| v8::Global::new(scope, context))
+        };
+        let context = match context {
+            Ok(context) => context,
+            Err(err) => {
+                // Before `heap_guard`: V8 may call the heap callback until the isolate is gone.
+                drop(isolate);
+                return Err(err);
+            }
         };
         let inspector = self
             .inspector
@@ -131,6 +150,10 @@ impl Engine for V8Engine {
             _heap_guard: heap_guard,
             platform_busy: false,
         })
+    }
+
+    fn boots_from_snapshot(&self) -> bool {
+        self.snapshot.is_some()
     }
 }
 
@@ -167,8 +190,30 @@ impl V8Isolate {
     }
 }
 
+/// Origin of a classic script: `name` is what its stack frames show.
+fn script_origin<'s>(
+    scope: &v8::PinScope<'s, '_>,
+    name: v8::Local<'s, v8::String>,
+) -> v8::ScriptOrigin<'s> {
+    v8::ScriptOrigin::new(
+        scope,
+        name.into(),
+        0,
+        0,
+        false,
+        0,
+        None,
+        false,
+        false,
+        false,
+        None,
+    )
+}
+
 impl Drop for V8Isolate {
     fn drop(&mut self) {
+        // Node-API teardown runs addon finalizers in the context: before any Global is released.
+        self.enter(host::run_native_teardown);
         // The isolate slot keeps `Shared` alive past this point; release its Globals first.
         self.shared.clear_globals();
     }
@@ -184,19 +229,7 @@ impl Isolate for V8Isolate {
             ) else {
                 return Err(internal_exception("source too long"));
             };
-            let origin = v8::ScriptOrigin::new(
-                tc,
-                name.into(),
-                0,
-                0,
-                false,
-                0,
-                None,
-                false,
-                false,
-                false,
-                None,
-            );
+            let origin = script_origin(tc, name);
             shared.microtasks_dirty.set(true);
             let result = v8::Script::compile(tc, text, Some(&origin)).and_then(|s| s.run(tc));
             match result {

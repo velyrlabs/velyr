@@ -152,6 +152,8 @@ The major interpreter is the "classical backtracking" which uses an explicit bac
 )]
 // Clippy's manual_range_contains suggestion produces worse codegen.
 #![allow(clippy::manual_range_contains)]
+// Vendored upstream code (VELYR-172): not linted by velyr's clippy; overrides the warn above.
+#![allow(clippy::all)]
 
 #[cfg(all(not(feature = "std"), not(feature = "alloc")))]
 compile_error!(

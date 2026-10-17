@@ -2,3 +2,6 @@ engine-v8
 engine-gc
 engine-vm
 compat-napi
+# Vendored upstream regress fork (VELYR-158/172), crates/engine-vm/vendor/regress: unsafe is
+# upstream code gated behind its prohibit-unsafe feature; the vendor dir is scanned by check-unsafe.sh.
+regress

@@ -14,12 +14,13 @@
   }
   const net = global[Symbol.for("velyr.internal.net")];
   const { listen } = global.Velyr;
-  const decoder = new TextDecoder();
+  // Created on first use: the constructor calls a host function, and this script is snapshotted.
+  let decoder;
   const DONE = Object.freeze({ done: true, value: undefined });
 
   const pem = (value, what) => {
     if (typeof value === "string") return value;
-    if (value instanceof Uint8Array || value instanceof ArrayBuffer) return decoder.decode(value);
+    if (value instanceof Uint8Array || value instanceof ArrayBuffer) return (decoder ??= new TextDecoder()).decode(value);
     throw new TypeError(`Velyr tls: ${what} must be a PEM string or bytes`);
   };
 

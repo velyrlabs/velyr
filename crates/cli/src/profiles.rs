@@ -7,45 +7,81 @@
 //! Web crates (fetch, WebSocket, HTTP/TLS) sit behind `cfg(feature = "web")` and the npm resolver behind
 //! `cfg(feature = "npm")`; `profile-minimal` links neither (see the features in Cargo.toml).
 
+mod bootstrap;
+
 use std::sync::Arc;
 use velyr_engine_api::Isolate as _;
-use velyr_engine_api::{Engine, EngineFeatures, HostFunctionDef};
-use velyr_engine_v8::V8Engine;
-use velyr_io_fs::{fs_host_functions, install_fs};
+use velyr_engine_api::{
+    Engine, EngineFeatures, HostFunctionDef, JsException, JsString, Source, Value,
+};
+use velyr_engine_v8::{SNAPSHOT_RESULTS_KEY, V8Engine};
 #[cfg(feature = "web")]
 use velyr_io_http::{HttpMetrics, set_http_metrics};
-use velyr_io_net::{install_net, net_host_functions};
-use velyr_io_process::{install_command, process_host_functions};
+use velyr_io_net::{install_net_slots, system_resolver};
 #[cfg(feature = "web")]
-use velyr_io_tls::{install_tls, tls_host_functions};
-use velyr_runtime_core::metrics::{self, install_metrics, metrics_host_functions};
+use velyr_io_tls::install_tls_slots;
+use velyr_runtime_core::metrics::{self, install_metrics};
 use velyr_runtime_core::{LoopIsolate, ModuleResolverHandle};
 use velyr_runtime_event_loop::{CompletionSender, TimerHandle};
 
 use velyr_runtime_core::RuntimeConfig;
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_ops::{
-    BOOTSTRAP_JS, OpContext, OpRegistry, take_leak_report, test_host_functions,
-};
+use velyr_runtime_ops::{BOOTSTRAP_JS, OpContext, take_leak_report};
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::{QuotaConfig, QuotaContext};
 use velyr_runtime_workers::{
     ParentContext, SpawnRequest, WorkerHandle, WorkerHost, WorkerOptions, WorkerScope,
-    install_web_api, web_api_host_functions,
+    install_web_api_slots, start_web_api, worker_host_functions,
 };
 use velyr_web_core::{
-    encoding_host_functions, install_encoding, install_events, install_performance,
-    install_structured_clone, install_timers, install_url, performance_host_functions,
-    structured_clone_host_functions, timer_host_functions, url_host_functions,
+    install_blob_slots, install_encoding_slots, install_performance_slots, install_timer_slots,
 };
-use velyr_web_crypto::{crypto_host_functions, install_web_crypto};
 #[cfg(feature = "web")]
-use velyr_web_fetch::{fetch_host_functions, install_web_fetch};
-use velyr_web_streams::{flate_host_functions, install_web_streams};
-#[cfg(feature = "web")]
-use velyr_web_websocket::{install_web_websocket, websocket_host_functions};
+use velyr_web_fetch::install_web_fetch_slots;
+use velyr_web_streams::install_web_streams_slots;
+
+pub use bootstrap::host_functions;
 
 use crate::permissions::Permissions;
+
+/// The startup snapshot `build.rs` baked for this profile; empty when the build could not
+/// (cross-compiling).
+static SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/startup.snapshot"));
+
+/// The engine `velyr run` and its workers use: booting from the startup snapshot unless the
+/// build has none or `VELYR_NO_SNAPSHOT=1`.
+pub fn v8_engine() -> V8Engine {
+    let disabled = std::env::var_os("VELYR_NO_SNAPSHOT").is_some_and(|value| value == "1");
+    if SNAPSHOT.is_empty() || disabled {
+        return V8Engine::new();
+    }
+    V8Engine::with_snapshot(SNAPSHOT, host_functions(V8Engine::new().features()))
+}
+
+/// How a run's isolates start.
+#[derive(Clone, Copy)]
+pub struct Boot {
+    pub features: EngineFeatures,
+    /// The startup snapshot already holds the host functions and bootstrap scripts.
+    pub from_snapshot: bool,
+}
+
+impl Boot {
+    pub fn of(engine: &impl Engine) -> Self {
+        Self {
+            features: engine.features(),
+            from_snapshot: engine.boots_from_snapshot(),
+        }
+    }
+
+    /// What runtime-core registers and evaluates before `install`: nothing the snapshot holds.
+    pub fn bootstrap(&self) -> (Vec<HostFunctionDef>, &'static str) {
+        if self.from_snapshot {
+            return (Vec::new(), "");
+        }
+        (host_functions(self.features), BOOTSTRAP_JS)
+    }
+}
 
 /// Feeds io-http's request reports into the runtime metrics.
 #[cfg(feature = "web")]
@@ -61,37 +97,6 @@ impl HttpMetrics for HttpSink {
 /// `velyr run` hosts a single isolate.
 const ISOLATE_ID: u64 = 0;
 
-pub fn host_functions(features: EngineFeatures) -> Vec<HostFunctionDef> {
-    let mut functions = OpRegistry::builtin().host_functions().to_vec();
-    functions.extend(timer_host_functions());
-    functions.extend(url_host_functions());
-    functions.extend(performance_host_functions());
-    functions.extend(encoding_host_functions());
-    functions.extend(flate_host_functions());
-    functions.extend(crypto_host_functions());
-    functions.extend(fs_host_functions());
-    functions.extend(net_host_functions());
-    functions.extend(process_host_functions());
-    #[cfg(feature = "web")]
-    {
-        functions.extend(tls_host_functions());
-        functions.extend(fetch_host_functions());
-        functions.extend(websocket_host_functions());
-    }
-    functions.extend(metrics_host_functions());
-    functions.extend(web_api_host_functions());
-    #[cfg(feature = "node")]
-    {
-        functions.extend(velyr_compat_commonjs::commonjs_host_functions());
-        functions.extend(velyr_compat_node::compat_node_host_functions());
-    }
-    if features.contains(EngineFeatures::SERIALIZE) {
-        functions.extend(structured_clone_host_functions());
-    }
-    functions.extend(test_host_functions());
-    functions
-}
-
 /// Runs on the main isolate's thread after the op bootstrap and before user code.
 pub fn install<I: velyr_engine_api::Isolate>(
     isolate: &mut LoopIsolate<I>,
@@ -99,7 +104,7 @@ pub fn install<I: velyr_engine_api::Isolate>(
     timers: TimerHandle,
     permissions: Arc<CapabilitySet>,
     quotas: QuotaConfig,
-    features: EngineFeatures,
+    boot: Boot,
     script: &std::path::Path,
 ) {
     let quotas = Arc::new(QuotaContext::new(quotas));
@@ -113,16 +118,17 @@ pub fn install<I: velyr_engine_api::Isolate>(
     // Every `Velyr.serve` request lands in the HTTP metrics.
     #[cfg(feature = "web")]
     let _ = set_http_metrics(Arc::new(HttpSink));
-    install_metrics(isolate).expect("metrics bootstrap is valid JS");
     install_globals(
         isolate,
         timers,
-        features,
+        boot,
         worker_host(permissions.clone(), None),
         None,
         permissions,
         Some(script),
     );
+    // Last, on both boot paths, so `Velyr` has the same key order with and without a snapshot.
+    install_metrics(isolate).expect("metrics bootstrap is valid JS");
 }
 
 /// Like [`install`] for a worker isolate, whose op context `WorkerHandle::spawn` already set up
@@ -130,26 +136,20 @@ pub fn install<I: velyr_engine_api::Isolate>(
 fn install_worker<I: velyr_engine_api::Isolate>(
     isolate: &mut LoopIsolate<I>,
     timers: TimerHandle,
-    features: EngineFeatures,
+    boot: Boot,
     host: WorkerHost,
     scope: WorkerScope<'_>,
     permissions: Arc<CapabilitySet>,
 ) {
-    install_globals(
-        isolate,
-        timers,
-        features,
-        host,
-        Some(scope),
-        permissions,
-        None,
-    );
+    install_globals(isolate, timers, boot, host, Some(scope), permissions, None);
 }
 
+/// The same steps with and without a snapshot: the slots, the bootstrap scripts (or the values
+/// they left in the snapshot), then what runs per isolate (worker scope, node compat).
 fn install_globals<I: velyr_engine_api::Isolate>(
     isolate: &mut LoopIsolate<I>,
     timers: TimerHandle,
-    features: EngineFeatures,
+    boot: Boot,
     host: WorkerHost,
     scope: Option<WorkerScope<'_>>,
     permissions: Arc<CapabilitySet>,
@@ -157,45 +157,111 @@ fn install_globals<I: velyr_engine_api::Isolate>(
     script: Option<&std::path::Path>,
 ) {
     #[cfg(not(feature = "node"))]
-    let _ = (&permissions, script);
+    let _ = script;
+    install_slots(isolate, &timers, host, scope.as_ref(), permissions);
+    let values = if boot.from_snapshot {
+        BootValues::take_from_snapshot(isolate)
+    } else {
+        BootValues::evaluate(isolate, boot.features)
+    }
+    .expect("bootstrap scripts are valid JS");
+    timers.set_dispatcher(values.timers);
+    // `Worker` and the worker global scope; messages need structured clone.
+    start_web_api(isolate, &values.messaging, &values.worker, scope)
+        .expect("worker bootstrap is valid JS");
     #[cfg(feature = "node")]
-    let process_timers = timers.clone();
-    install_timers(isolate, timers).expect("timers bootstrap is valid JS");
-    install_url(isolate).expect("url bootstrap is valid JS");
-    install_performance(isolate).expect("performance bootstrap is valid JS");
-    // Before encoding so atob/btoa find DOMException (they look it up at throw time anyway).
-    install_events(isolate).expect("events bootstrap is valid JS");
-    install_encoding(isolate).expect("encoding bootstrap is valid JS");
-    // After events (AbortController) and encoding (TextEncoder/TextDecoder), which it builds on.
-    install_web_streams(isolate).expect("streams bootstrap is valid JS");
-    // After events (DOMException) and the op context (its ops are async).
-    install_web_crypto(isolate).expect("crypto bootstrap is valid JS");
-    install_fs(isolate).expect("fs bootstrap is valid JS");
-    // After streams: Conn.readable/writable use its native stream hooks.
-    install_net(isolate).expect("net bootstrap is valid JS");
-    // After streams: ChildProcess.stdout/stderr/stdin use its native stream hooks.
-    install_command(isolate).expect("command bootstrap is valid JS");
+    install_node(isolate, timers, script);
+}
+
+/// The Rust state the bootstrap scripts' host functions use, installed on every boot.
+fn install_slots<I: velyr_engine_api::Isolate>(
+    isolate: &mut LoopIsolate<I>,
+    timers: &TimerHandle,
+    host: WorkerHost,
+    scope: Option<&WorkerScope<'_>>,
+    permissions: Arc<CapabilitySet>,
+) {
+    #[cfg(not(feature = "node"))]
+    let _ = permissions;
+    install_timer_slots(isolate, timers.clone());
+    install_blob_slots(isolate);
+    install_performance_slots(isolate);
+    install_encoding_slots(isolate);
+    install_web_streams_slots(isolate);
+    install_net_slots(isolate, system_resolver());
     #[cfg(feature = "web")]
     {
-        // After net: Velyr.connectTls/listenTls wrap its Conn.
-        install_tls(isolate).expect("tls bootstrap is valid JS");
-        // After net (resolver), streams (body streams), events (AbortSignal), encoding and URL.
-        install_web_fetch(isolate).expect("fetch bootstrap is valid JS");
-        // After fetch (Velyr.serve upgrade hook) and Blob.
-        install_web_websocket(isolate).expect("websocket bootstrap is valid JS");
+        install_tls_slots(isolate);
+        install_web_fetch_slots(isolate);
     }
-    // After events: structured_clone.js rethrows as DOMException when it is available.
-    if features.contains(EngineFeatures::SERIALIZE) {
-        install_structured_clone(isolate).expect("structured clone bootstrap is valid JS");
-    }
-    // After events (EventTarget, DOMException) and the op context; messages need structured clone.
-    install_web_api(isolate, Some(host), scope).expect("worker bootstrap is valid JS");
-    // `require` for CommonJS; `import` of CommonJS goes through the module host's transform.
+    install_web_api_slots(isolate, Some(host), scope);
     #[cfg(feature = "node")]
-    {
-        velyr_compat_commonjs::install_commonjs(isolate, permissions)
-            .expect("commonjs bootstrap is valid JS");
-        install_node(isolate, process_timers, script);
+    velyr_compat_commonjs::install_commonjs_slots(isolate, permissions);
+}
+
+/// Completion values of the bootstrap scripts that the host keeps.
+struct BootValues {
+    timers: Value,
+    messaging: Value,
+    worker: Value,
+}
+
+impl BootValues {
+    /// Runs the profile's bootstrap scripts (no snapshot).
+    fn evaluate(
+        isolate: &mut impl velyr_engine_api::Isolate,
+        features: EngineFeatures,
+    ) -> Result<Self, JsException> {
+        let mut values = Self {
+            timers: Value::Undefined,
+            messaging: Value::Undefined,
+            worker: Value::Undefined,
+        };
+        for source in bootstrap::scripts(features) {
+            let value = isolate.eval_script(&source)?;
+            match source.name.as_str() {
+                bootstrap::TIMERS => values.timers = value,
+                bootstrap::MESSAGING => values.messaging = value,
+                bootstrap::WORKER => values.worker = value,
+                _ => {}
+            }
+        }
+        Ok(values)
+    }
+
+    /// Reads them from the snapshot's results and deletes those, with the worker messaging ops
+    /// `WorkerHandle::spawn` registers after boot (messaging.js deletes them when it runs).
+    fn take_from_snapshot(
+        isolate: &mut impl velyr_engine_api::Isolate,
+    ) -> Result<Self, JsException> {
+        tracing::debug!(target: "velyr.cli.snapshot", "isolate booted from the startup snapshot");
+        let hidden: Vec<String> = worker_host_functions()
+            .iter()
+            .map(|def| format!("{:?}", def.name))
+            .collect();
+        let text = format!(
+            "(function (key, ops) {{
+              const values = globalThis[key];
+              delete globalThis[key];
+              for (const op of ops) delete globalThis[op];
+              return (name) => values[name];
+            }})(Symbol.for({SNAPSHOT_RESULTS_KEY:?}), [{}])",
+            hidden.join(", ")
+        );
+        let source = Source {
+            name: "velyr:snapshot".into(),
+            text,
+        };
+        let pick = isolate.eval_script(&source)?;
+        let mut take = |name: &str| {
+            let name = Value::String(JsString::from(name));
+            isolate.call(&pick, &Value::Undefined, &[name])
+        };
+        Ok(Self {
+            timers: take(bootstrap::TIMERS)?,
+            messaging: take(bootstrap::MESSAGING)?,
+            worker: take(bootstrap::WORKER)?,
+        })
     }
 }
 
@@ -219,10 +285,8 @@ fn install_node<I: velyr_engine_api::Isolate>(
         };
         node::configure_process(isolate, config);
     }
-    node::install_compat_node(isolate).expect("node bootstrap is valid JS");
-    node::install_buffer_global(isolate).expect("buffer bootstrap is valid JS");
-    let drain =
-        node::install_process_global(isolate, timers).expect("process bootstrap is valid JS");
+    // The ~685 KB bootstrap runs on first use of `process`, `Buffer`, a `node:` import or `require`.
+    let drain = node::install_node_lazy(isolate, timers).expect("node bootstrap is valid JS");
     isolate.set_tick_hook(drain);
 }
 
@@ -280,8 +344,9 @@ fn spawn_worker(
             (built.capabilities, built.quotas)
         }
     };
-    let engine = V8Engine::new();
-    let features = engine.features();
+    let engine = v8_engine();
+    let boot = Boot::of(&engine);
+    let (host_functions, bootstrap_js) = boot.bootstrap();
     let options = WorkerOptions {
         entry: request.entry,
         requested: requested.clone(),
@@ -296,14 +361,14 @@ fn spawn_worker(
             source_transform: crate::transforms::source_transform(&requested),
             ..RuntimeConfig::default()
         },
-        host_functions: host_functions(features),
-        bootstrap_js: BOOTSTRAP_JS,
+        host_functions,
+        bootstrap_js,
     };
     // Nested workers inherit the heap limit this one runs with.
     let host = worker_host(policy.clone(), parent.heap_limit_bytes);
     let (name, group) = (request.name, request.group);
     WorkerHandle::spawn(engine, parent, options, move |isolate, _sender, timers| {
         let scope = WorkerScope { name: &name, group };
-        install_worker(isolate, timers, features, host, scope, requested);
+        install_worker(isolate, timers, boot, host, scope, requested);
     })
 }

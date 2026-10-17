@@ -61,13 +61,18 @@ pub fn blob_host_functions() -> Vec<HostFunctionDef> {
 /// Registers the store and runs [`BLOB_JS`]. Call after `install_url`, with the
 /// `blob_host_functions` registered.
 pub fn install_blob(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(BlobStore::default());
+    install_blob_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:blob".into(),
             text: BLOB_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_blob`], for an isolate whose [`BLOB_JS`] already ran.
+pub fn install_blob_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(BlobStore::default());
 }
 
 fn store(ctx: &mut dyn CallContext) -> Result<&mut BlobStore, HostError> {

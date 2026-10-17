@@ -21,11 +21,16 @@ pub const STREAMS_JS: &str = concat!(
 /// after `flate_host_functions` are registered and after timers, events and encoding are installed
 /// (it uses `AbortController`, `TextEncoder` and `TextDecoder`).
 pub fn install_web_streams(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(FlateTable::default());
+    install_web_streams_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:streams".into(),
             text: STREAMS_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_web_streams`], for an isolate whose [`STREAMS_JS`] already ran.
+pub fn install_web_streams_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(FlateTable::default());
 }

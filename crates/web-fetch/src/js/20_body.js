@@ -49,7 +49,8 @@
   const bodies = new WeakMap();
   const blobInternal = global[Symbol.for("velyr.internal.blob")] ?? { isBlob: () => false };
   const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
+  // Created on first use: the constructor calls a host function, and this script is snapshotted.
+  let decoder;
 
   function bodyStateOf(owner) {
     if (!bodies.has(owner)) throw new TypeError("Illegal invocation");
@@ -153,10 +154,10 @@
       return copyBytes(await consume(this));
     },
     async text() {
-      return decoder.decode(await consume(this));
+      return (decoder ??= new TextDecoder()).decode(await consume(this));
     },
     async json() {
-      return JSON.parse(decoder.decode(await consume(this)));
+      return JSON.parse((decoder ??= new TextDecoder()).decode(await consume(this)));
     },
     async formData() {
       return parseFormData(await consume(this), this.headers.get("content-type"));

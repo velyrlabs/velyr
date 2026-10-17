@@ -26,11 +26,16 @@ pub fn tls_host_functions() -> Vec<HostFunctionDef> {
 
 /// Runs [`TLS_JS`]. Call after `install_net` (it uses the net bootstrap and its internal hook).
 pub fn install_tls(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(tls::TlsState::default());
+    install_tls_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:tls".into(),
             text: TLS_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_tls`], for an isolate whose [`TLS_JS`] already ran.
+pub fn install_tls_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(tls::TlsState::default());
 }

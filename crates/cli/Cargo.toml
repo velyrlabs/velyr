@@ -15,12 +15,13 @@ default = ["profile-full"]
 profile-minimal = []
 profile-web = ["profile-minimal", "web", "typescript", "jsx"]
 profile-node = ["profile-web", "npm", "node"]
-profile-full = ["profile-node", "telemetry", "inspector"]
+profile-full = ["profile-node", "telemetry", "inspector", "velyr-engine-native?/intl-all-locales"]
 # fetch, WebSocket, HTTP/TLS, `velyr serve`.
 web = ["dep:velyr-web-fetch", "dep:velyr-web-websocket", "dep:velyr-io-http", "dep:velyr-io-tls"]
 # npm resolver and `velyr add|install|remove`.
 npm = ["dep:velyr-compat-npm"]
-node = ["npm", "typescript", "dep:velyr-compat-commonjs", "dep:velyr-compat-node"]
+# `velyr-compat-napi` is a direct dependency so `build.rs` exports its `napi_*` from `velyr`.
+node = ["npm", "typescript", "dep:velyr-compat-commonjs", "dep:velyr-compat-napi", "dep:velyr-compat-node"]
 # TypeScript stripping in the module host.
 typescript = ["dep:velyr-tooling-typescript"]
 # JSX transform (.jsx and .tsx) in the module host.
@@ -44,6 +45,7 @@ velyr-io-net = { path = "../io-net" }
 velyr-io-process = { path = "../io-process" }
 velyr-compat-npm = { path = "../compat-npm", optional = true }
 velyr-compat-commonjs = { path = "../compat-commonjs", optional = true }
+velyr-compat-napi = { path = "../compat-napi", optional = true }
 velyr-compat-node = { path = "../compat-node", optional = true }
 velyr-io-tls = { path = "../io-tls", optional = true }
 velyr-tooling-typescript = { path = "../tooling-typescript", optional = true }
@@ -56,6 +58,9 @@ velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-vfs = { path = "../runtime-vfs" }
+glob = "0.3"
+regex = "1"
 velyr-runtime-telemetry = { path = "../runtime-telemetry", optional = true }
 velyr-runtime-inspector = { path = "../runtime-inspector", optional = true }
 velyr-runtime-workers = { path = "../runtime-workers" }
@@ -83,6 +88,26 @@ oxc_ast_visit = "=0.154.0"
 oxc_parser = "=0.154.0"
 oxc_span = "=0.154.0"
 jsonc-parser = { version = "0.34.0", features = ["serde"] }
+
+# `build.rs` bakes the startup snapshot from the same op list and scripts as the binary
+# (src/profiles/bootstrap.rs); optional ones follow the profile features above.
+[build-dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-io-fs = { path = "../io-fs" }
+velyr-io-net = { path = "../io-net" }
+velyr-io-process = { path = "../io-process" }
+velyr-io-tls = { path = "../io-tls", optional = true }
+velyr-compat-commonjs = { path = "../compat-commonjs", optional = true }
+velyr-compat-node = { path = "../compat-node", optional = true }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-workers = { path = "../runtime-workers" }
+velyr-web-core = { path = "../web-core" }
+velyr-web-crypto = { path = "../web-crypto" }
+velyr-web-fetch = { path = "../web-fetch", optional = true }
+velyr-web-websocket = { path = "../web-websocket", optional = true }
+velyr-web-streams = { path = "../web-streams" }
 
 [dev-dependencies]
 assert_cmd = "2.2"

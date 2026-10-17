@@ -58,22 +58,77 @@ mod zlib_gzip;
 mod zlib_ops;
 mod zlib_zstd;
 
-use velyr_engine_api::{Isolate, JsException, Source, Value};
+use velyr_engine_api::{
+    CallContext, HostError, HostFunctionDef, Isolate, JsException, Source, Value,
+};
 use velyr_runtime_event_loop::TimerHandle;
 
-pub use buffer_ops::compat_node_host_functions;
 pub use process_ops::ProcessConfig;
 pub use registry::{BUILTINS, Builtin, NodeBuiltinResolver, builtin_name, facade_source};
+
+const LAZY_INSTALL_JS: &str = include_str!("../js/lazy_install.js");
+const REGISTRY_JS: &str = include_str!("registry.js");
+
+/// The byte, process and builtin ops, plus `op_node_bootstrap_source` (the bootstrap text the lazy
+/// install evaluates on first use; both installs remove it from the global).
+pub fn compat_node_host_functions() -> Vec<HostFunctionDef> {
+    let mut defs = buffer_ops::compat_node_host_functions();
+    defs.push(HostFunctionDef {
+        name: "op_node_bootstrap_source",
+        arity: 0,
+        callback: op_bootstrap_source,
+    });
+    defs
+}
+
+fn op_bootstrap_source(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value, HostError> {
+    let mut text = registry::bootstrap_source();
+    text.push_str("\n//# sourceURL=velyr:compat-node");
+    Ok(ctx.create_string(text.as_str().into()))
+}
 
 /// Defines the Tier 1 builtins in `isolate`. Call after `install_commonjs`, if that is used.
 pub fn install_compat_node(isolate: &mut impl Isolate) -> Result<(), JsException> {
     isolate.set_slot(http_client_ops::HttpState::default());
+    let mut text = registry::bootstrap_source();
+    text.push_str("\ndelete globalThis.op_node_bootstrap_source;");
     isolate
         .eval_script(&Source {
             name: "velyr:compat-node".into(),
-            text: registry::bootstrap_source(),
+            text,
         })
         .map(drop)
+}
+
+/// What [`install_compat_node`], [`install_buffer_global`] and [`install_process_global`] do
+/// together, but the bootstrap only runs on first use: `process`, `Buffer`, `setImmediate`, the
+/// node timers, `globalThis[Symbol.for("velyr.node")]` (every `node:x` facade) and the first
+/// CommonJS `require` (through `velyr.commonjs`' `builtins`, so install that first). A script
+/// that touches none of them never pays for the ~685 KB of JS. Returns the `nextTick` drain for
+/// `LoopIsolate::set_tick_hook`. Needs [`compat_node_host_functions`] registered, like the eager one.
+pub fn install_node_lazy(
+    isolate: &mut impl Isolate,
+    timers: TimerHandle,
+) -> Result<Value, JsException> {
+    isolate.set_slot(http_client_ops::HttpState::default());
+    let immediates = timers.immediates();
+    isolate.set_slot(process_ops::ImmediateSlot(immediates.clone()));
+    // Only the ops the bootstrap itself captures are hidden, as the eager install does.
+    let hidden: Vec<String> = buffer_ops::compat_node_host_functions()
+        .iter()
+        .map(|def| def.name)
+        .filter(|name| REGISTRY_JS.contains(&format!("\"{name}\"")))
+        .map(|name| format!("{name:?}"))
+        .collect();
+    let pick = eval_value(
+        isolate,
+        "velyr:compat-node-lazy",
+        &LAZY_INSTALL_JS.replace("/*OPS*/", &format!("[{}]", hidden.join(", "))),
+    )?;
+    let drain = isolate.call(&pick, &Value::Undefined, &[Value::Number(0.0)])?;
+    let dispatch = isolate.call(&pick, &Value::Undefined, &[Value::Number(1.0)])?;
+    immediates.set_dispatcher(dispatch);
+    Ok(drain)
 }
 
 /// Defines `globalThis.Buffer` (non-enumerable, like Node). Opt-in: hosts call it for the node
@@ -146,7 +201,12 @@ fn emit(isolate: &mut impl Isolate, args: &str, values: &[Value]) -> Result<Valu
         isolate,
         "velyr:compat-node-emit",
         &format!(
-            r#"(function (a, b) {{ return globalThis[Symbol.for("velyr.node")].require("process").emit({args}); }})"#
+            // Before the lazy install booted, nothing can listen: do not boot it to say so.
+            r#"(function (a, b) {{
+                const d = Object.getOwnPropertyDescriptor(globalThis, Symbol.for("velyr.node"));
+                if (d && d.get) return false;
+                return globalThis[Symbol.for("velyr.node")].require("process").emit({args});
+            }})"#
         ),
     )?;
     isolate.call(&function, &Value::Undefined, values)

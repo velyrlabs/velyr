@@ -45,16 +45,22 @@ pub fn performance_host_functions() -> Vec<HostFunctionDef> {
 /// Captures the clock origin and runs [`PERFORMANCE_JS`]. Call from the `install` hook of
 /// `run_file`, after the `performance_host_functions` are registered.
 pub fn install_performance(isolate: &mut impl Isolate) -> Result<(), JsException> {
-    isolate.set_slot(PerfClock {
-        origin: Instant::now(),
-        time_origin_ms: round_to_resolution(wall_clock_micros()),
-    });
+    install_performance_slots(isolate);
     isolate
         .eval_script(&Source {
             name: "velyr:performance".into(),
             text: PERFORMANCE_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_performance`] (the clock origin is now), for an isolate whose
+/// [`PERFORMANCE_JS`] already ran.
+pub fn install_performance_slots(isolate: &mut impl Isolate) {
+    isolate.set_slot(PerfClock {
+        origin: Instant::now(),
+        time_origin_ms: round_to_resolution(wall_clock_micros()),
+    });
 }
 
 fn wall_clock_micros() -> u128 {

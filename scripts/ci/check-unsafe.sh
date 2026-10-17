@@ -8,15 +8,18 @@ allowlist="$root/unsafe-allowlist.txt"
 [ -f "$allowlist" ] || { echo "error: $allowlist not found" >&2; exit 2; }
 
 status=0
-for manifest in "$root"/crates/*/Cargo.toml; do
-  crate="$(basename "$(dirname "$manifest")")"
+# Workspace crates plus vendored upstream crates (crates/<crate>/vendor/<pkg>, root vendor/<pkg>).
+for manifest in "$root"/crates/*/Cargo.toml "$root"/crates/*/vendor/*/Cargo.toml "$root"/vendor/*/Cargo.toml; do
+  [ -f "$manifest" ] || continue
+  crate_dir="$(dirname "$manifest")"
+  crate="$(basename "$crate_dir")"
   grep -qxF "$crate" <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$allowlist") && continue
   if ! awk '
     /^[[:space:]]*\[/ { in_lints = ($0 ~ /^[[:space:]]*\[lints\][[:space:]]*(#.*)?$/); next }
     in_lints && /^[[:space:]]*workspace[[:space:]]*=[[:space:]]*true[[:space:]]*(#.*)?$/ { found = 1 }
     END { exit !found }
   ' "$manifest"; then
-    echo "error: crates/$crate must set [lints] workspace = true (or be added to unsafe-allowlist.txt)" >&2
+    echo "error: ${crate_dir#"$root"/} must set [lints] workspace = true (or be added to unsafe-allowlist.txt)" >&2
     status=1
   fi
 done

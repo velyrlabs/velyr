@@ -40,7 +40,8 @@ pub use port::worker_host_functions;
 use port::{WorkerPort, request_exit};
 use report::ErrorReport;
 pub use web_api::{
-    SpawnFn, SpawnRequest, WorkerHost, WorkerScope, install_web_api, web_api_host_functions,
+    MESSAGING_JS, SpawnFn, SpawnRequest, WORKER_JS, WorkerHost, WorkerScope, install_web_api,
+    install_web_api_slots, start_web_api, web_api_host_functions,
 };
 
 /// Isolate ids handed to worker op contexts; 0 is the host's main isolate.

@@ -16,13 +16,14 @@ confidence-threshold = 0.8
 allow = [
   "MIT",
   "Apache-2.0",
-  "BSD-2-Clause",
   "BSD-3-Clause",
   "ISC",
   "Unicode-3.0",
   "Zlib",
   "MPL-2.0", # dependency use only; never copy MPL code into velyr crates
   "CC0-1.0",
+  "BSL-1.0", # dragonbox_ecma via v8 (VELYR-210)
+  "CDLA-Permissive-2.0", # webpki-roots / webpki-root-certs data (VELYR-210)
 ]
 exceptions = []
 

@@ -224,3 +224,42 @@ fn unknown_node_specifiers_name_the_missing_builtin_instead_of_blaming_the_link(
     );
     assert!(!err.message().contains("not linked"), "{}", err.message());
 }
+
+fn facade_inodes(dir: &std::path::Path) -> Vec<(std::path::PathBuf, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .map(|p| {
+            let ino = std::fs::metadata(&p).unwrap().ino();
+            (p, ino)
+        })
+        .collect();
+    entries.sort();
+    entries
+}
+
+#[test]
+fn unchanged_facades_are_not_rewritten_on_second_start() {
+    let facades = tempfile::tempdir().unwrap();
+    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
+    let first = facade_inodes(facades.path());
+    assert_eq!(first.len(), BUILTINS.len());
+
+    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
+    // A rewrite goes through write + rename, which always yields a new inode.
+    assert_eq!(facade_inodes(facades.path()), first);
+}
+
+#[test]
+fn tampered_facade_is_rewritten_on_next_start() {
+    let facades = tempfile::tempdir().unwrap();
+    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
+    let before = facade_inodes(facades.path());
+    let victim = &before[0].0;
+    let expected = std::fs::read_to_string(victim).unwrap();
+    std::fs::write(victim, "export default 'evil';\n").unwrap();
+
+    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
+    assert_eq!(std::fs::read_to_string(victim).unwrap(), expected);
+}

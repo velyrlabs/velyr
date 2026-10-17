@@ -4,7 +4,9 @@
   const parseMultipartOp = global.op_multipart_parse;
   delete global.op_multipart_parse;
   // Parsed bodies keep file bytes untouched, so text fields are decoded without BOM stripping.
-  const rawDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
+  // Created on first use: the constructor calls a host function, and this script is snapshotted.
+  let rawDecoderInstance;
+  const rawDecoder = () => (rawDecoderInstance ??=new TextDecoder("utf-8", { ignoreBOM: true }));
   const formEntries = new WeakMap();
 
   const usv = (value) => String(value).toWellFormed();
@@ -139,13 +141,13 @@
     const type = essence.trim().toLowerCase();
     const form = new FormData();
     if (type === "application/x-www-form-urlencoded") {
-      for (const [name, value] of new URLSearchParams(rawDecoder.decode(bytes))) form.append(name, value);
+      for (const [name, value] of new URLSearchParams(rawDecoder().decode(bytes))) form.append(name, value);
       return form;
     }
     const boundary = type === "multipart/form-data" ? boundaryOf(params) : "";
     if (boundary === "") throw new TypeError("The body is not multipart/form-data with a boundary or urlencoded");
     for (const [name, filename, fileType, data] of parseMultipartOp(bytes, boundary)) {
-      form.append(name, filename === null ? rawDecoder.decode(data) : new File([data], filename, { type: fileType ?? "" }));
+      form.append(name, filename === null ? rawDecoder().decode(data) : new File([data], filename, { type: fileType ?? "" }));
     }
     return form;
   }

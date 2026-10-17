@@ -5,4 +5,4 @@ mod flate;
 mod install;
 
 pub use flate::flate_host_functions;
-pub use install::{STREAMS_JS, install_web_streams};
+pub use install::{STREAMS_JS, install_web_streams, install_web_streams_slots};

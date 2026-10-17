@@ -71,6 +71,18 @@ pub fn facade_source(builtin: &Builtin) -> String {
     code
 }
 
+/// Atomically (write + rename) replaces `dir/file` unless it already holds exactly `source`.
+/// Content is always compared: the directory is trusted via `ImportLocal`, so no hash/marker shortcut.
+fn write_if_changed(dir: &Path, file: &str, source: &str) -> io::Result<()> {
+    let target = dir.join(file);
+    if fs::read(&target).is_ok_and(|current| current == source.as_bytes()) {
+        return Ok(());
+    }
+    let staging = dir.join(format!(".{file}.{}", std::process::id()));
+    fs::write(&staging, source)?;
+    fs::rename(&staging, &target)
+}
+
 /// Resolves `node:x` and bare `x` builtins to facade modules; everything else goes to `inner`.
 #[derive(Clone)]
 pub struct NodeBuiltinResolver {
@@ -79,21 +91,14 @@ pub struct NodeBuiltinResolver {
 }
 
 impl NodeBuiltinResolver {
-    /// Writes the facade files into `dir` (created if needed; existing facades are overwritten).
+    /// Writes the facade files into `dir` (created if needed; a facade is rewritten only when missing or its content differs).
     /// The host must grant `ImportLocal` on [`facade_dir`](Self::facade_dir) and nothing wider,
     /// and `dir` must not be writable by other users.
     pub fn new(inner: Arc<dyn ModuleResolver + Send + Sync>, dir: &Path) -> io::Result<Self> {
         fs::create_dir_all(dir)?;
         let dir = fs::canonicalize(dir)?;
         for builtin in BUILTINS {
-            let target = dir.join(facade_file(builtin.name));
-            let staging = dir.join(format!(
-                ".{}.{}",
-                facade_file(builtin.name),
-                std::process::id()
-            ));
-            fs::write(&staging, facade_source(builtin))?;
-            fs::rename(&staging, &target)?;
+            write_if_changed(&dir, &facade_file(builtin.name), &facade_source(builtin))?;
         }
         Ok(Self { inner, dir })
     }

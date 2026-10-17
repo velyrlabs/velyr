@@ -16,11 +16,11 @@
 mod analysis;
 mod format;
 mod fscache;
+mod native;
 mod ops;
 mod resolve;
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -36,6 +36,17 @@ use ops::CommonJsState;
 pub use format::Format as ModuleFormat;
 pub use fscache::clear_fs_caches;
 
+/// Where `require(request)` from the file `from` lands, with the same rules as the runtime's
+/// `require` (`velyr compile` uses it to find the files a CommonJS module needs).
+pub fn resolve_require(request: &str, from: &Path) -> Result<std::path::PathBuf> {
+    resolve::resolve(request, from, &conditions())
+}
+
+/// Whether the file at `path` loads as ES module, CommonJS or JSON.
+pub fn detect_format(path: &Path) -> ModuleFormat {
+    detect(path, || fscache::read_to_string(path).ok())
+}
+
 /// Bootstrap script: installs `require` machinery behind `Symbol.for("velyr.commonjs")`.
 pub const COMMONJS_JS: &str = include_str!("commonjs.js");
 
@@ -44,7 +55,7 @@ pub const REQUIRE_CONDITIONS: [&str; 4] = ["velyr", "require", "node", "default"
 
 /// The CommonJS ops with the capability each declares, for the registry audit.
 pub fn commonjs_ops() -> Vec<(HostFunctionDef, CapabilityKind)> {
-    ops::OPS.to_vec()
+    ops::OPS.iter().chain(&native::OPS).copied().collect()
 }
 
 pub fn commonjs_host_functions() -> Vec<HostFunctionDef> {
@@ -56,16 +67,21 @@ pub fn install_commonjs(
     isolate: &mut impl Isolate,
     permissions: Arc<CapabilitySet>,
 ) -> std::result::Result<(), JsException> {
-    isolate.set_slot(CommonJsState {
-        permissions,
-        conditions: conditions(),
-    });
+    install_commonjs_slots(isolate, permissions);
     isolate
         .eval_script(&Source {
             name: "velyr:commonjs".into(),
             text: COMMONJS_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_commonjs`], for an isolate whose [`COMMONJS_JS`] already ran.
+pub fn install_commonjs_slots(isolate: &mut impl Isolate, permissions: Arc<CapabilitySet>) {
+    isolate.set_slot(CommonJsState {
+        permissions,
+        conditions: conditions(),
+    });
 }
 
 const MAX_REEXPORT_DEPTH: usize = 8;
@@ -99,7 +115,7 @@ impl CommonJsTransform {
             {
                 continue;
             }
-            let Ok(text) = fs::read_to_string(&target) else {
+            let Ok(text) = fscache::read_to_string(&target) else {
                 continue;
             };
             if detect(&target, || Some(text.clone())) == Format::CommonJs {

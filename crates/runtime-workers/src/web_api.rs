@@ -21,8 +21,10 @@ use crate::port::{port, request_exit, transfer_list};
 use crate::report::ErrorReport;
 use crate::{ParentContext, WorkerHandle};
 
-const MESSAGING_JS: &str = include_str!("../js/messaging.js");
-const WORKER_JS: &str = include_str!("../js/worker.js");
+/// Bootstrap script; its completion value is the toolkit [`start_web_api`] takes.
+pub const MESSAGING_JS: &str = include_str!("../js/messaging.js");
+/// Bootstrap script; its completion value is the `install(toolkit)` [`start_web_api`] calls.
+pub const WORKER_JS: &str = include_str!("../js/worker.js");
 const SCOPE_JS: &str = include_str!("../js/worker_scope.js");
 
 /// Upper bound for waiting on a terminated worker thread.
@@ -152,19 +154,38 @@ pub fn install_web_api(
     host: Option<WorkerHost>,
     scope: Option<WorkerScope<'_>>,
 ) -> Result<(), JsException> {
-    isolate.set_slot(Group(
-        scope.as_ref().map_or_else(new_group, |scope| scope.group),
-    ));
+    install_web_api_slots(isolate, host, scope.as_ref());
+    let toolkit = eval(isolate, "velyr:messaging", MESSAGING_JS)?;
+    let install = eval(isolate, "velyr:worker", WORKER_JS)?;
+    start_web_api(isolate, &toolkit, &install, scope)
+}
+
+/// The Rust half of [`install_web_api`], for an isolate whose [`MESSAGING_JS`] and [`WORKER_JS`]
+/// already ran (startup snapshot); follow it with [`start_web_api`].
+pub fn install_web_api_slots(
+    isolate: &mut impl Isolate,
+    host: Option<WorkerHost>,
+    scope: Option<&WorkerScope<'_>>,
+) {
+    isolate.set_slot(Group(scope.map_or_else(new_group, |scope| scope.group)));
     isolate.set_slot(Ports::default());
     isolate.set_slot(Workers::default());
     isolate.set_slot(Host(host));
-    let toolkit = eval(isolate, "velyr:messaging", MESSAGING_JS)?;
-    let install = eval(isolate, "velyr:worker", WORKER_JS)?;
-    isolate.call(&install, &Value::Undefined, std::slice::from_ref(&toolkit))?;
+}
+
+/// Defines the globals from the completion values of [`MESSAGING_JS`] (`toolkit`) and
+/// [`WORKER_JS`] (`install`), plus the worker global scope when `scope` is set.
+pub fn start_web_api(
+    isolate: &mut impl Isolate,
+    toolkit: &Value,
+    install: &Value,
+    scope: Option<WorkerScope<'_>>,
+) -> Result<(), JsException> {
+    isolate.call(install, &Value::Undefined, std::slice::from_ref(toolkit))?;
     if let Some(scope) = scope {
         let install = eval(isolate, "velyr:worker-scope", SCOPE_JS)?;
         let name = Value::String(JsString::from(scope.name));
-        isolate.call(&install, &Value::Undefined, &[toolkit, name])?;
+        isolate.call(&install, &Value::Undefined, &[toolkit.clone(), name])?;
     }
     Ok(())
 }

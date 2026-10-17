@@ -137,7 +137,10 @@ pub(crate) const EXTRA_FACTORIES: &[(&str, &str)] = &[
     ),
     ("v8", include_str!("../js/v8.js")),
     ("console", include_str!("../js/console.js")),
-    ("internal/readline", include_str!("../js/readline_interface.js")),
+    (
+        "internal/readline",
+        include_str!("../js/readline_interface.js"),
+    ),
     ("readline", include_str!("../js/readline.js")),
     (
         "readline/promises",

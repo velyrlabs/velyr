@@ -34,13 +34,19 @@ pub fn timer_host_functions() -> Vec<HostFunctionDef> {
 /// Wires `handle` into `isolate`, runs [`TIMERS_JS`] and hands its dispatcher to the loop.
 /// Call from the `install` hook of `run_file`, after the `timer_host_functions` are registered.
 pub fn install_timers(isolate: &mut impl Isolate, handle: TimerHandle) -> Result<(), JsException> {
-    isolate.set_slot(TimerSlot(handle.clone()));
+    install_timer_slots(isolate, handle.clone());
     let dispatcher = isolate.eval_script(&Source {
         name: "velyr:timers".into(),
         text: TIMERS_JS.into(),
     })?;
     handle.set_dispatcher(dispatcher);
     Ok(())
+}
+
+/// The Rust half of [`install_timers`], for an isolate whose [`TIMERS_JS`] already ran (startup
+/// snapshot): the caller hands that script's completion value to `handle.set_dispatcher`.
+pub fn install_timer_slots(isolate: &mut impl Isolate, handle: TimerHandle) {
+    isolate.set_slot(TimerSlot(handle));
 }
 
 fn handle(ctx: &mut dyn CallContext) -> Result<TimerHandle, HostError> {

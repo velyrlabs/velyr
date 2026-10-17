@@ -28,7 +28,7 @@
     if (/;\s*base64$/i.test(mime)) {
       mime = mime.replace(/;\s*base64$/i, "");
       try {
-        bytes = Uint8Array.from(atob(decoder.decode(bytes).replace(/[\t\n\f\r ]/g, "")), (c) => c.charCodeAt(0));
+        bytes = Uint8Array.from(atob((decoder ??= new TextDecoder()).decode(bytes).replace(/[\t\n\f\r ]/g, "")), (c) => c.charCodeAt(0));
       } catch {
         throw new TypeError("Invalid base64 in data: URL");
       }

@@ -65,11 +65,16 @@ pub fn install_net_with_resolver(
     isolate: &mut impl Isolate,
     resolver: Resolver,
 ) -> Result<(), JsException> {
-    isolate.set_slot(NetState { resolver });
+    install_net_slots(isolate, resolver);
     isolate
         .eval_script(&Source {
             name: "velyr:net".into(),
             text: NET_JS.into(),
         })
         .map(drop)
+}
+
+/// The Rust half of [`install_net_with_resolver`], for an isolate whose [`NET_JS`] already ran.
+pub fn install_net_slots(isolate: &mut impl Isolate, resolver: Resolver) {
+    isolate.set_slot(NetState { resolver });
 }
