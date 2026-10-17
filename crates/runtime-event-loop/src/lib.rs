@@ -9,10 +9,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use tokio::sync::{Notify, mpsc};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
-use velyr_engine_api::{GcReason, Isolate, JsString, ResolverId, TerminationHandle, Value};
+use velyr_engine_api::{
+    GcReason, Isolate, JsString, PlatformWaker, ResolverId, TerminationHandle, Value,
+};
 use velyr_runtime_errors::VelyrError;
 
 mod due_timers;
@@ -32,7 +34,8 @@ const LAG_SAMPLES: usize = 1024;
 /// footprint by 11% (1 worker) and 15% (4 workers) for under 2% CPU per request (VELYR-215).
 const IDLE_GC_DELAY: Duration = Duration::from_secs(1);
 const IDLE_GC_MIN_GROWTH: usize = 4 << 20;
-/// Polling period while the engine has background work outstanding (async wasm compiles).
+/// Polling period while the engine has background work outstanding (async wasm compiles) and
+/// registered no [`PlatformWaker`] on the loop's thread.
 const PLATFORM_POLL: Duration = Duration::from_millis(1);
 
 /// `Send` payload of a finished host operation.
@@ -170,6 +173,8 @@ pub struct EventLoop<I: Isolate> {
     immediates: ImmediateHandle,
     heap_after_idle_gc: usize,
     platform_busy: bool,
+    /// Signalled by engine threads that queued platform work; `None` keeps the polling.
+    platform_wake: Option<Arc<Notify>>,
 }
 
 impl<I: Isolate> EventLoop<I> {
@@ -195,6 +200,7 @@ impl<I: Isolate> EventLoop<I> {
             host_timers,
             heap_after_idle_gc: 0,
             platform_busy: false,
+            platform_wake: PlatformWaker::current().map(install_wake),
         }
     }
 
@@ -337,21 +343,23 @@ impl<I: Isolate> EventLoop<I> {
                 tokio::task::yield_now().await;
                 continue;
             }
-            if self.live_ops() == 0 && !self.timers.has_ref() && !self.platform_busy {
+            if self.live_ops() == 0 && !self.timers.has_ref() && !self.platform_pending() {
                 return;
             }
             let max = self.max_completions_per_tick;
             let mut wake = self.timers.next_deadline();
-            if self.platform_busy {
+            if self.platform_busy && self.platform_wake.is_none() {
                 // Engine background threads cannot wake the loop: poll while their work lasts.
                 let poll = Instant::now() + PLATFORM_POLL;
                 wake = Some(wake.map_or(poll, |at| at.min(poll)));
             }
             let mut idle_gc_due = true;
+            let platform_wake = self.platform_wake.clone();
             let timer_fired = loop {
                 tokio::select! {
                     _ = self.shutdown.cancelled() => return,
                     _ = self.rx.recv_many(&mut self.batch, max) => break false,
+                    () = notified(platform_wake.as_deref()) => break false,
                     _ = sleep_until_deadline(wake) => break true,
                     () = tokio::time::sleep(IDLE_GC_DELAY), if idle_gc_due => {
                         idle_gc_due = false;
@@ -361,6 +369,16 @@ impl<I: Isolate> EventLoop<I> {
             };
             due = wake.filter(|_| timer_fired).unwrap_or_else(Instant::now);
         }
+    }
+
+    /// Re-asks a waking engine before the loop exits: the tick's JS may have started platform
+    /// work (an async wasm compile) after `run_platform_tasks` ran. Polling engines keep the
+    /// tick-start answer so their pump cadence does not change.
+    fn platform_pending(&mut self) -> bool {
+        if !self.platform_busy && self.platform_wake.is_some() {
+            self.platform_busy = self.isolate.run_platform_tasks();
+        }
+        self.platform_busy
     }
 
     /// Gives the heap a burst left behind back to the OS (VELYR-215). Skipped until the heap
@@ -449,6 +467,21 @@ impl<I: Isolate> EventLoop<I> {
             CompletionValue::String(s) => Value::String(JsString::from(s.as_str())),
             CompletionValue::Bytes(b) => self.isolate.create_array_buffer(&b),
         }
+    }
+}
+
+/// Routes the engine's wake-ups to a `Notify`, which keeps one that arrives mid-tick.
+fn install_wake(waker: PlatformWaker) -> Arc<Notify> {
+    let notify = Arc::new(Notify::new());
+    let signal = Arc::clone(&notify);
+    waker.set_wake_fn(move || signal.notify_one());
+    notify
+}
+
+async fn notified(notify: Option<&Notify>) {
+    match notify {
+        Some(notify) => notify.notified().await,
+        None => std::future::pending().await,
     }
 }
 

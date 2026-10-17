@@ -53,7 +53,10 @@ pub fn create_snapshot(
     scripts: &[Source],
 ) -> Result<Vec<u8>, EngineError> {
     V8Engine::init_platform();
+    // Declared before `isolate` so it drops after it: forgets the tasks V8 posted for it.
+    let _platform_queue;
     let mut isolate = v8::Isolate::snapshot_creator(Some(external_references()), None);
+    _platform_queue = crate::platform::QueueGuard(crate::platform::key(&isolate));
     let ran = {
         v8::scope!(let scope, &mut isolate);
         let context = v8::Context::new(scope, Default::default());

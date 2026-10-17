@@ -8,6 +8,7 @@ mod heap;
 mod host;
 mod inspector;
 mod modules;
+mod platform;
 mod serialize;
 mod shared;
 mod snapshot;
@@ -16,12 +17,12 @@ mod stack_trace;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Once, OnceLock};
+use std::sync::{Arc, Once};
 
 use velyr_engine_api::{
     CodeCacheStats, Engine, EngineError, EngineFeatures, GcReason, Handle, HeapStats,
     HostFunctionDef, Isolate, IsolateOptions, JsException, MicrotaskProgress, ModuleResolveHook,
-    PromiseState, ResolverId, SerializedValue, Source, TerminationHandle, Value,
+    PlatformWaker, PromiseState, ResolverId, SerializedValue, Source, TerminationHandle, Value,
 };
 use velyr_runtime_errors::VelyrError;
 
@@ -34,8 +35,6 @@ pub use inspector::{InspectorEvent, InspectorOptions};
 pub use snapshot::{SNAPSHOT_RESULTS_KEY, create_snapshot};
 
 static PLATFORM_INIT: Once = Once::new();
-/// Kept to pump each isolate's foreground task queue (`V8Isolate::run_platform_tasks`).
-static PLATFORM: OnceLock<v8::SharedRef<v8::Platform>> = OnceLock::new();
 
 /// Caps the young generation at 16 MB per semi-space (V8 defaults to 64 MB): -10% peak
 /// footprint with one worker and -17% with four on the large-app bench, same CPU per request
@@ -94,9 +93,8 @@ impl V8Engine {
     pub fn init_platform() {
         PLATFORM_INIT.call_once(|| {
             v8::V8::set_flags_from_string(V8_FLAGS);
-            let platform = v8::new_default_platform(0, false).make_shared();
-            let _ = PLATFORM.set(platform.clone());
-            v8::V8::initialize_platform(platform);
+            let platform = v8::new_custom_platform(0, false, false, platform::WakePlatform);
+            v8::V8::initialize_platform(platform.make_shared());
             v8::V8::initialize();
         });
     }
@@ -125,6 +123,10 @@ impl Engine for V8Engine {
             Some(blob) => snapshot::boot(params, blob),
             None => v8::Isolate::new(params),
         };
+        let platform_queue = platform::QueueGuard(platform::key(&isolate));
+        let waker = PlatformWaker::new();
+        waker.register_current();
+        platform::register(platform_queue.0, waker);
         let shared = Rc::new(Shared::default());
         if self.shared_memory {
             shared.slots.borrow_mut().insert(
@@ -174,7 +176,7 @@ impl Engine for V8Engine {
             inspector,
             isolate: RefCell::new(isolate),
             _heap_guard: heap_guard,
-            platform_busy: false,
+            platform_queue,
         })
     }
 
@@ -194,8 +196,8 @@ pub struct V8Isolate {
     isolate: RefCell<v8::OwnedIsolate>,
     // Declared after `isolate`: V8 may call the heap callback until the isolate is gone.
     _heap_guard: Option<Box<HeapGuard>>,
-    /// Background work (async wasm compiles) was pending at the last `run_platform_tasks`.
-    platform_busy: bool,
+    // Declared after `isolate`: drops the tasks V8 posted until the isolate was gone.
+    platform_queue: platform::QueueGuard,
 }
 
 impl V8Isolate {
@@ -435,22 +437,19 @@ impl Isolate for V8Isolate {
         self.isolate.get_mut().low_memory_notification();
     }
 
-    // Pumps only while background work is pending: pumping on every tick costs CPU (VELYR-215).
+    // Background work ends with a foreground task posted to the queue, which wakes the loop.
     fn run_platform_tasks(&mut self) -> bool {
         if let Some(inspector) = &self.inspector {
             inspector.pump();
         }
-        let isolate = self.isolate.get_mut();
-        let busy = isolate.has_pending_background_tasks();
-        // One more pump after the work ends: its last foreground task may still be queued.
-        let outstanding = busy || self.platform_busy;
-        self.platform_busy = busy;
-        if outstanding && let Some(platform) = PLATFORM.get() {
-            while v8::Platform::pump_message_loop(platform, isolate, false) {
-                self.shared.microtasks_dirty.set(true);
-            }
+        let key = self.platform_queue.0;
+        let ran = platform::run_due(key);
+        if ran {
+            self.shared.microtasks_dirty.set(true);
         }
-        outstanding
+        // `ran`: the loop owes the tasks' microtasks a checkpoint. Background state before the
+        // queue: work that ends right after still shows up as a due task.
+        ran || self.isolate.get_mut().has_pending_background_tasks() || platform::has_due(key)
     }
 
     fn termination_handle(&self) -> TerminationHandle {
