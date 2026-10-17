@@ -202,9 +202,7 @@ fn unescape(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> 
     let mut i = 0;
     while i < units.len() {
         let percent = units[i] == u16::from(b'%');
-        let wide = percent
-            .then(|| units.get(i + 1) == Some(&u16::from(b'u')))
-            .unwrap_or(false);
+        let wide = percent && units.get(i + 1) == Some(&u16::from(b'u'));
         let decoded = match (percent, wide) {
             (false, _) => None,
             (true, true) => hex_run(&units, i + 2, 4).map(|v| (v, 6)),
