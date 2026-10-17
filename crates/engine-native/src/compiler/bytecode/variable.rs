@@ -19,6 +19,7 @@ enum Slot {
     Register(Reg),
     Context { depth: u32, slot: u32 },
     Import { depth: u32, slot: u32 },
+    Lookup,
 }
 
 impl FunctionCompiler<'_> {
@@ -26,6 +27,9 @@ impl FunctionCompiler<'_> {
         let Some(symbol) = symbol else {
             return Ok(Slot::Global);
         };
+        if reference.is_some_and(|reference| self.analysis.is_dynamic_reference(reference)) {
+            return Ok(Slot::Lookup);
+        }
         if let Some(&register) = self.catch_bindings.get(&symbol) {
             return Ok(Slot::Register(register));
         }
@@ -49,6 +53,7 @@ impl FunctionCompiler<'_> {
                 depth: self.context_depth(self.analysis.scoping.root_scope_id())?,
                 slot,
             }),
+            Location::Lookup => Ok(Slot::Lookup),
         }
     }
 
@@ -183,6 +188,7 @@ impl FunctionCompiler<'_> {
                 self.e.emit(I::LdaModuleImport { depth, slot });
                 I::ThrowIfHole(self.e.string(name))
             }
+            Slot::Lookup => I::LdaLookup(self.e.string(name)),
         };
         self.e.emit(instruction);
     }
@@ -194,6 +200,9 @@ impl FunctionCompiler<'_> {
             Slot::Context { depth, slot } => I::StaContextSlot { depth, slot },
             // Import bindings are immutable.
             Slot::Import { .. } => I::ThrowConstAssignment(self.e.string(name)),
+            Slot::Lookup => {
+                return self.store_lookup(name);
+            }
         };
         self.e.emit(instruction);
     }
@@ -216,6 +225,10 @@ impl FunctionCompiler<'_> {
     pub fn load_identifier(&mut self, id: &IdentifierReference) -> JsResult<()> {
         let symbol = self.analysis.symbol_of(id.reference_id());
         let name = id.name.as_str();
+        if self.uses_lookup(id) {
+            self.load_lookup(id, false);
+            return Ok(());
+        }
         if symbol.is_none() {
             if let Some(owner) = self.arguments_owner(id) {
                 return self.load_arguments(owner);
@@ -246,6 +259,10 @@ impl FunctionCompiler<'_> {
 
     /// `typeof name`: a missing global is `undefined` instead of a ReferenceError.
     pub fn load_identifier_for_typeof(&mut self, id: &IdentifierReference) -> JsResult<()> {
+        if self.uses_lookup(id) {
+            self.load_lookup(id, true);
+            return Ok(());
+        }
         let symbol = self.analysis.symbol_of(id.reference_id());
         let name = id.name.as_str();
         let is_arguments_object = self.arguments_owner(id).is_some();
@@ -318,6 +335,10 @@ impl FunctionCompiler<'_> {
     pub fn store_identifier(&mut self, id: &IdentifierReference) -> JsResult<()> {
         let symbol = self.analysis.symbol_of(id.reference_id());
         let name = id.name.as_str();
+        if self.uses_lookup(id) {
+            self.store_lookup(name);
+            return Ok(());
+        }
         if symbol.is_none()
             && let Some((depth, binding)) = self.outer_binding(name)
         {

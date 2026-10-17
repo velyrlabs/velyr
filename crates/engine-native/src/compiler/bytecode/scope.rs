@@ -11,12 +11,12 @@ use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::GlobalDeclarations;
 
 mod annex_b;
+mod dynamic;
 mod eval;
 #[cfg(test)]
 mod tests;
 
 use super::outer::OuterScope;
-use super::unsupported;
 use crate::compiler::JsResult;
 #[allow(unused_imports)] // consumed by the Annex B emitter (L14)
 pub use annex_b::{AnnexBFunction, BlockBinding, VarTarget};
@@ -32,6 +32,8 @@ pub enum Location {
     Context { scope: ScopeId, slot: u32 },
     /// Module import: two slots of the module context, filled when the module is linked.
     Import { slot: u32 },
+    /// A `var` sloppy eval code adds to its caller's function: looked up by name.
+    Lookup,
 }
 
 /// Module context slot of `import.meta`.
@@ -74,6 +76,7 @@ pub struct ScopeAnalysis<'s> {
     annex_b: annex_b::AnnexB,
     /// Function, class and static block scopes containing a direct eval.
     eval_homes: HashMap<ScopeId, EvalHome>,
+    dynamic: dynamic::DynamicScopes,
     /// Outer chain entries handed to lazy stubs, one per context scope.
     pub(super) outer_cache: RefCell<HashMap<ScopeId, Rc<OuterScope>>>,
 }
@@ -150,11 +153,6 @@ impl<'s> ScopeAnalysis<'s> {
         mode: RootMode,
     ) -> JsResult<Self> {
         let module = mode == RootMode::Module;
-        for scope in scoping.scope_descendants_from_root() {
-            if scoping.scope_flags(scope).is_with() {
-                return Err(unsupported("with statement"));
-            }
-        }
         let mut analysis = Self {
             scoping,
             module,
@@ -171,10 +169,12 @@ impl<'s> ScopeAnalysis<'s> {
             mapped_arguments: HashSet::new(),
             annex_b: annex_b::AnnexB::empty(),
             eval_homes: HashMap::new(),
+            dynamic: dynamic::DynamicScopes::default(),
             outer_cache: RefCell::default(),
         };
         analysis.eval_homes = eval::eval_homes(scoping, nodes, &analysis.class_scopes);
         analysis.collect_arguments_users();
+        analysis.collect_dynamic_scopes(nodes);
         // Unreferenced parameters are only observable through `arguments`: no aliasing.
         let mut aliased = HashSet::new();
         for (&function, parameters) in simple_parameters {
@@ -194,7 +194,7 @@ impl<'s> ScopeAnalysis<'s> {
         }
         let mut captured: Vec<SymbolId> = scoping
             .symbol_ids()
-            .filter(|&symbol| aliased.contains(&symbol) || analysis.is_captured(symbol))
+            .filter(|&symbol| analysis.needs_slot(symbol, &aliased))
             .collect();
         captured.sort_by_key(|&symbol| scoping.symbol_span(symbol).start);
         for symbol in captured {
@@ -392,6 +392,7 @@ impl<'s> ScopeAnalysis<'s> {
                 Location::Import { slot }
             }
             Some(&slot) => Location::Context { scope, slot },
+            None if self.is_eval_injected(symbol) => Location::Lookup,
             None => Location::Local,
         }
     }

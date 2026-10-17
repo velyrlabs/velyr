@@ -92,7 +92,8 @@ impl Interpreter {
                 let name = self.constant_str(info, *name);
                 let for_typeof = matches!(instruction, I::LdaLookupForTypeof(_));
                 let reference = self.resolve_frame_binding(&name)?;
-                self.state.acc = self.read_reference(reference, &name, for_typeof)?;
+                self.state.acc =
+                    self.read_reference(reference, &name, for_typeof, info.code.is_strict)?;
             }
             I::LdaLookupCallee { name, receiver } => {
                 let name = self.constant_str(info, *name);
@@ -101,7 +102,8 @@ impl Interpreter {
                     Reference::Object { object, with: true } => object_value(object),
                     _ => Value::Undefined,
                 };
-                self.state.acc = self.read_reference(reference, &name, false)?;
+                self.state.acc =
+                    self.read_reference(reference, &name, false, info.code.is_strict)?;
                 self.set_reg(*receiver, this);
             }
             I::StaLookup { name, strict } => {
@@ -123,6 +125,23 @@ impl Interpreter {
                 };
                 self.state.acc = Value::Bool(deleted);
             }
+            I::ResolveLookup { name, base } => {
+                let name = self.constant_str(info, *name);
+                let reference = self.resolve_frame_binding(&name)?;
+                self.set_reg(*base, encode_reference(reference));
+            }
+            I::LdaLookupIn { name, base } => {
+                let name = self.constant_str(info, *name);
+                let reference = self.decode_reference(self.reg(*base).clone(), &name);
+                self.state.acc =
+                    self.read_reference(reference, &name, false, info.code.is_strict)?;
+            }
+            I::StaLookupIn { name, base, strict } => {
+                let name = self.constant_str(info, *name);
+                let reference = self.decode_reference(self.reg(*base).clone(), &name);
+                let value = self.state.acc.clone();
+                self.write_reference(reference, &name, value, *strict)?;
+            }
             I::DeclareEvalVar { name, function } => {
                 let name = self.constant_str(info, *name);
                 let context = self.top().context.clone();
@@ -131,6 +150,27 @@ impl Interpreter {
             _ => return Err(self.internal("not a lookup instruction")),
         }
         Ok(())
+    }
+
+    /// The `Reference` `encode_reference` put in a register.
+    fn decode_reference(&self, base: Value, name: &JsStr) -> Reference {
+        match base {
+            Value::Undefined => Reference::Global,
+            Value::Object(cell) => {
+                let context = self.realm.heap.get(Gc::<Context>::from_raw(cell));
+                match context.and_then(|context| slot_of(context, name)) {
+                    Some((slot, _)) => Reference::Slot {
+                        context: base,
+                        slot,
+                    },
+                    None => Reference::Object {
+                        object: ObjectRef::from_raw(cell),
+                        with: false,
+                    },
+                }
+            }
+            _ => Reference::Unresolvable,
+        }
     }
 
     fn resolve_frame_binding(&mut self, name: &JsStr) -> JsResult<Reference> {
@@ -197,6 +237,7 @@ impl Interpreter {
         reference: Reference,
         name: &JsStr,
         for_typeof: bool,
+        is_strict: bool,
     ) -> JsResult<Value> {
         match reference {
             Reference::Slot { context, slot } => {
@@ -207,8 +248,13 @@ impl Interpreter {
                 }
             }
             Reference::Object { object, .. } => {
+                // 9.1.1.2.6 GetBindingValue: the binding may be gone since it was resolved.
                 let key = self.string_key(name);
-                self.get(object, key, &object_value(object))
+                match self.has_property(object, key)? {
+                    true => self.get(object, key, &object_value(object)),
+                    false if is_strict => Err(self.not_defined(name)),
+                    false => Ok(Value::Undefined),
+                }
             }
             Reference::Global => self.load_global_name(name, for_typeof),
             Reference::Unresolvable if for_typeof => Ok(Value::Undefined),
@@ -241,7 +287,14 @@ impl Interpreter {
             Reference::Global => return self.store_global_name(name, value, is_strict),
             Reference::Unresolvable if is_strict => return Err(self.not_defined(name)),
             Reference::Unresolvable => self.state.intrinsics.global,
-            Reference::Object { object, .. } => object,
+            Reference::Object { object, .. } => {
+                // 9.1.1.2.5 SetMutableBinding steps 2-3.
+                let key = self.string_key(name);
+                if !self.has_property(object, key)? && is_strict {
+                    return Err(self.not_defined(name));
+                }
+                object
+            }
         };
         let key = self.string_key(name);
         let done = self.set(object, key, value, &object_value(object))?;
@@ -310,6 +363,17 @@ impl Interpreter {
             self.create_data_property(object, key, Value::Undefined)?;
         }
         Ok(())
+    }
+}
+
+/// A `Reference` as a register value: the context cell or binding object, `undefined` for
+/// the global environment, `null` when unresolvable.
+fn encode_reference(reference: Reference) -> Value {
+    match reference {
+        Reference::Slot { context, .. } => context,
+        Reference::Object { object, .. } => object_value(object),
+        Reference::Global => Value::Undefined,
+        Reference::Unresolvable => Value::Null,
     }
 }
 

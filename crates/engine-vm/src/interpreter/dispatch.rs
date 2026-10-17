@@ -199,6 +199,9 @@ impl Interpreter {
             | I::StaLookup { .. }
             | I::DeleteLookup(_)
             | I::LdaLookupCallee { .. }
+            | I::ResolveLookup { .. }
+            | I::LdaLookupIn { .. }
+            | I::StaLookupIn { .. }
             | I::DeclareEvalVar { .. } => self.step_lookup(info, instruction)?,
             I::Throw | I::ReThrow => return Err(Abrupt::Throw(acc.clone())),
             I::Call { callee, this, args } => {

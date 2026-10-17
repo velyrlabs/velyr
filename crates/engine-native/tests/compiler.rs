@@ -186,8 +186,8 @@ fn strict_functions_are_marked_and_reject_writes_to_their_name() {
 #[test]
 fn unsupported_constructs_are_explicit_syntax_errors() {
     // Inside a lazy body they throw on its first call instead (tests/lazy.rs).
-    let message = compile_error("with ({}) {}");
-    assert_eq!(message, "SyntaxError: unsupported: with statement");
+    let message = compile_error("{ using x = null; }");
+    assert_eq!(message, "SyntaxError: unsupported: using declaration");
 }
 
 #[test]

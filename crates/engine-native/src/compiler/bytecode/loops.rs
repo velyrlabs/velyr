@@ -83,7 +83,7 @@ impl FunctionCompiler<'_> {
             self.e.emit(I::Star(Reg(copies.first.0 + slot)));
         }
         self.e.emit(I::PopContext(saved));
-        self.e.emit(I::CreateContext(size));
+        self.create_context(scope, size);
         self.e.emit(I::PushContext(saved));
         for slot in 0..size {
             self.e.emit(I::Ldar(Reg(copies.first.0 + slot)));

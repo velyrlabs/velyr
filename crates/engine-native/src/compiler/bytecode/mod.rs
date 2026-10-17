@@ -10,6 +10,7 @@ mod assignment;
 mod call;
 mod class;
 mod control;
+mod dynamic;
 mod emitter;
 mod eval;
 mod expression;

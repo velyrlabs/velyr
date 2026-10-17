@@ -33,7 +33,7 @@ impl FunctionCompiler<'_> {
     pub fn bind_pattern(&mut self, pattern: &BindingPattern) -> JsResult<()> {
         let mark = self.e.mark();
         let result = match pattern {
-            BindingPattern::BindingIdentifier(id) => self.initialize_binding(id.symbol_id()),
+            BindingPattern::BindingIdentifier(id) => self.bind_identifier(id),
             BindingPattern::AssignmentPattern(p) => self
                 .default_value(&p.right, binding_name(&p.left))
                 .and_then(|()| self.bind_pattern(&p.left)),

@@ -63,11 +63,8 @@ fn home_of(
         ..EvalHome::default()
     };
     if class_scopes.contains(&scope) {
-        // shortcut: a class heritage or computed key counts as a field initializer, upgrade if Test262 shows it
-        return Some(EvalHome {
-            class_field: true,
-            ..method
-        });
+        // Field initializers get theirs from the compiler; heritage and keys see outside.
+        return None;
     }
     if flags.is_class_static_block() {
         return Some(method);

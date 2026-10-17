@@ -183,6 +183,7 @@ impl FunctionCompiler<'_> {
                 self.e.emit_at(m.span, I::GetKeyed { object });
                 Some(object)
             }
+            Expression::Identifier(id) if self.uses_lookup(id) => Some(self.callee_lookup(id)),
             other => {
                 self.expression(other)?;
                 None

@@ -29,6 +29,9 @@ pub struct EvalSite {
     strict: bool,
     var_scope_is_global: bool,
     home: Option<EvalHome>,
+    /// Names an eval `var` may not take: the site is in a parameter list, whose bindings
+    /// (with `arguments`) sit between the eval and its var scope.
+    parameters: Vec<String>,
 }
 
 impl EvalCode for EvalSite {
@@ -53,6 +56,15 @@ impl EvalSite {
             if self.home.is_some_and(|home| home.class_field) && reads_arguments(analysis) {
                 let message = "'arguments' is not allowed in class field initializer";
                 return Err(throw("SyntaxError", message));
+            }
+            if let Some(name) = analysis
+                .eval_injected_names()
+                .find(|name| self.parameters.iter().any(|p| p == name))
+            {
+                return Err(throw(
+                    "SyntaxError",
+                    format!("Identifier '{name}' has already been declared"),
+                ));
             }
             let script = Rc::new(Script::new("<eval>", &text));
             compile_eval_program(program, analysis, script, self.outer.clone())
@@ -119,6 +131,7 @@ fn compile_eval_program(
             .constant(Constant::GlobalDeclarations(Rc::new(declarations)));
         compiler.e.emit(I::DeclareGlobals(index));
     }
+    compiler.declare_eval_vars(program);
     let saved = compiler.enter_scope(scope);
     compiler.hoist_functions(&program.body)?;
     for statement in &program.body {
@@ -139,6 +152,7 @@ pub fn compile_indirect_eval(text: &str) -> JsResult<Rc<FunctionCode>> {
         strict: false,
         var_scope_is_global: true,
         home: None,
+        parameters: Vec::new(),
     };
     site.compile_eval(text).map(Rc::new)
 }
@@ -164,35 +178,45 @@ impl FunctionCompiler<'_> {
         Ok(())
     }
 
-    /// The analysis' home of `scope`, refined by this compiler's kind when it is its own
-    /// scope: a lazy body parses a method as a plain `function`.
+    /// The analysis' home of `scope`; for this compiler's own scope, the stub's (a lazy body
+    /// parses a method as a plain `function`) or a field initializer's (the class scope).
     pub(super) fn eval_home(&self, scope: ScopeId) -> Option<EvalHome> {
-        let home = self.analysis.eval_home(scope)?;
+        let home = self.analysis.eval_home(scope);
         if scope != self.scope {
-            return Some(home);
+            return home;
         }
-        let method = home.method
-            || matches!(
-                self.kind,
-                FunctionKind::Method
-                    | FunctionKind::Getter
-                    | FunctionKind::Setter
-                    | FunctionKind::ClassConstructor
-                    | FunctionKind::DerivedConstructor
-                    | FunctionKind::ClassField
-            );
-        Some(EvalHome {
-            method,
-            derived_constructor: home.derived_constructor
-                || self.kind == FunctionKind::DerivedConstructor,
-            class_field: home.class_field || self.kind == FunctionKind::ClassField,
-        })
+        if self.kind == FunctionKind::ClassField {
+            let flags = self.analysis.scoping.scope_flags(scope);
+            let field = EvalHome {
+                method: true,
+                derived_constructor: false,
+                class_field: true,
+            };
+            return flags.contains_direct_eval().then_some(field);
+        }
+        home.map(|home| self.own_home.unwrap_or(home))
+    }
+
+    /// The home a lazy stub created at `scope` keeps: its function's, or for an arrow the
+    /// one around it (a field initializer's class scope has no context to carry it).
+    pub(super) fn stub_home(&self, scope: ScopeId) -> Option<EvalHome> {
+        let mut ancestors = self.analysis.scoping.scope_ancestors(scope);
+        let local = ancestors.find_map(|ancestor| self.eval_home(ancestor));
+        local.or_else(|| self.inherited_home())
+    }
+
+    /// The home of the code around this parse.
+    fn inherited_home(&self) -> Option<EvalHome> {
+        self.own_home.or_else(|| self.outer_home())
     }
 
     fn eval_site(&self, scope: ScopeId) -> EvalSite {
         let analysis = self.analysis;
         let mut ancestors = analysis.scoping.scope_ancestors(scope);
         let local = ancestors.find_map(|ancestor| self.eval_home(ancestor));
+        // An arrow has a var scope of its own, unlike a home.
+        let mut ancestors = analysis.scoping.scope_ancestors(scope);
+        let in_function = ancestors.any(|a| analysis.scoping.scope_flags(a).is_function());
         let (home, var_scope_is_global) = match (local, analysis.mode) {
             (Some(home), _) => (Some(home), false),
             (
@@ -201,19 +225,17 @@ impl FunctionCompiler<'_> {
                     var_scope_is_global,
                     home,
                 },
-            ) => (home, var_scope_is_global),
-            (None, RootMode::Module) => (self.outer_home(), false),
-            (None, RootMode::Script) => {
-                // A lazy arrow's function is outside this parse, on its outer chain.
-                let home = self.outer_home();
-                (home, home.is_none() && self.outer_module().is_none())
-            }
+            ) => (home, var_scope_is_global && !in_function),
+            (None, RootMode::Module) => (self.inherited_home(), false),
+            // A lazy arrow's function is outside this parse.
+            (None, RootMode::Script) => (self.inherited_home(), !in_function),
         };
         EvalSite {
             outer: self.outer_chain(),
             strict: analysis.is_strict(scope),
             var_scope_is_global,
             home,
+            parameters: self.parameter_names(),
         }
     }
 }

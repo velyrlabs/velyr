@@ -165,7 +165,9 @@ impl ScopeAnalysis<'_> {
         } else {
             self.scoping.get_bindings(var_scope).get(name).copied()
         };
-        let var = match (var_scope == self.root && !self.module, var_symbol) {
+        // B.3.2.3: sloppy eval code in a function writes its caller's var scope.
+        let is_global = var_scope == self.root && !self.module && !self.is_eval_in_function();
+        let var = match (is_global, var_symbol) {
             (true, _) => VarTarget::Global(name.into()),
             (false, Some(var_symbol)) => VarTarget::Symbol(var_symbol),
             (false, None) => return None,

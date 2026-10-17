@@ -13,6 +13,7 @@ use super::emitter::{Emitter, Header};
 use super::function::{Body, FunctionCompiler, FunctionSource};
 use super::generators::coroutine_kind;
 use super::outer::OuterScope;
+use super::scope::EvalHome;
 use super::unsupported;
 use crate::compiler::{JsResult, throw};
 
@@ -28,6 +29,7 @@ struct LazyFunction {
     outer: Option<Rc<OuterScope>>,
     module: bool,
     coroutine: Option<CoroutineKind>,
+    home: Option<EvalHome>,
 }
 
 impl FunctionCompiler<'_> {
@@ -64,6 +66,7 @@ impl FunctionCompiler<'_> {
             outer: self.outer_chain(),
             module: self.analysis.module,
             coroutine: source.coroutine,
+            home: self.stub_home(source.scope),
         }));
         stub
     }
@@ -152,6 +155,7 @@ impl LazyFunction {
             let mut compiler =
                 FunctionCompiler::new(analysis, source.scope, stub.kind, script.clone());
             compiler.outer = self.outer.clone();
+            compiler.own_home = self.home;
             compiler.e.shift = shift;
             let mut code = compiler.compile_function(&source, "")?;
             code.name = stub.name.clone();

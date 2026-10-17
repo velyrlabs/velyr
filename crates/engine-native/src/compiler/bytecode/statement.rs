@@ -64,7 +64,7 @@ impl FunctionCompiler<'_> {
                 None => Ok(()),
             },
             Statement::ClassDeclaration(class) => self.class(class, ""),
-            Statement::WithStatement(_) => Err(unsupported("with statement")),
+            Statement::WithStatement(s) => self.with_statement(s),
             Statement::DoWhileStatement(_)
             | Statement::ForInStatement(_)
             | Statement::ForOfStatement(_)
@@ -179,12 +179,19 @@ impl FunctionCompiler<'_> {
             return Err(unsupported("using declaration"));
         }
         for declarator in &declaration.declarations {
+            let with_place = match &declarator.init {
+                Some(_) => self.var_in_with_place(&declarator.id),
+                None => None,
+            };
             match &declarator.init {
                 Some(init) => self.expression_named(init, binding_name(&declarator.id))?,
                 None if declaration.kind == VariableDeclarationKind::Var => continue,
                 None => self.e.emit(I::LdaUndefined),
             }
-            self.bind_pattern(&declarator.id)?;
+            match with_place {
+                Some(place) => self.store_place(&place)?,
+                None => self.bind_pattern(&declarator.id)?,
+            }
         }
         Ok(())
     }

@@ -14,6 +14,11 @@ use crate::compiler::JsResult;
 /// An evaluated reference: object and key are already in registers.
 pub enum Place<'b, 'a> {
     Binding(&'b IdentifierReference<'a>),
+    /// A name resolved at run time into `base` (see `ResolveLookup`).
+    Lookup {
+        name: ConstIndex,
+        base: Reg,
+    },
     Named {
         object: Reg,
         name: ConstIndex,
@@ -49,6 +54,9 @@ impl FunctionCompiler<'_> {
             return Ok(Place::Super { base, key });
         }
         match target {
+            SimpleAssignmentTarget::AssignmentTargetIdentifier(id) if self.uses_lookup(id) => {
+                Ok(self.resolve_lookup(&id.name))
+            }
             SimpleAssignmentTarget::AssignmentTargetIdentifier(id) => Ok(Place::Binding(id)),
             SimpleAssignmentTarget::StaticMemberExpression(member) => {
                 let object = self.object_register(&member.object)?;
@@ -92,6 +100,7 @@ impl FunctionCompiler<'_> {
     pub fn load_place(&mut self, place: &Place) -> JsResult<()> {
         match *place {
             Place::Binding(id) => return self.load_identifier(id),
+            Place::Lookup { name, base } => self.e.emit(I::LdaLookupIn { name, base }),
             Place::Named { object, name } => self.e.emit(I::GetNamed {
                 object,
                 name,
@@ -113,6 +122,10 @@ impl FunctionCompiler<'_> {
     pub fn store_place(&mut self, place: &Place) -> JsResult<()> {
         match *place {
             Place::Binding(id) => return self.store_identifier(id),
+            Place::Lookup { name, base } => {
+                let strict = self.is_strict;
+                self.e.emit(I::StaLookupIn { name, base, strict });
+            }
             Place::Named { object, name } => self.e.emit(I::SetNamed {
                 object,
                 name,
@@ -194,7 +207,9 @@ impl FunctionCompiler<'_> {
             Expression::Identifier(id) => {
                 let is_unresolved = self.analysis.symbol_of(id.reference_id()).is_none()
                     && self.outer_binding(&id.name).is_none();
-                if self.arguments_owner(id).is_some() {
+                if self.uses_lookup(id) {
+                    self.delete_lookup(id);
+                } else if self.arguments_owner(id).is_some() {
                     self.e.emit(I::LdaFalse);
                 } else if is_unresolved && !self.is_strict {
                     let index = self.e.string(&id.name);

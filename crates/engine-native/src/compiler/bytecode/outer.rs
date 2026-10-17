@@ -19,6 +19,8 @@ pub struct OuterScope {
     module: bool,
     /// Set when this is the context of a function (or class) containing a direct eval.
     home: Option<EvalHome>,
+    /// A `with` object or eval-injected `var`s may shadow names found further out.
+    dynamic: bool,
     parent: Option<Rc<OuterScope>>,
 }
 
@@ -55,8 +57,10 @@ impl ScopeAnalysis<'_> {
         before: Option<u32>,
         home: Option<EvalHome>,
     ) -> Rc<OuterScope> {
+        // A class scope's home depends on the compiler (field initializers have one).
         if before.is_none()
             && let Some(cached) = self.outer_cache.borrow().get(&scope)
+            && cached.home == home
         {
             return cached.clone();
         }
@@ -110,6 +114,7 @@ impl ScopeAnalysis<'_> {
             arguments: self.arguments_slot(scope),
             module: self.module && scope == self.scoping.root_scope_id(),
             home,
+            dynamic: self.is_with_scope(scope) || self.is_eval_var_scope(scope),
             parent,
         });
         if before.is_none() {
@@ -144,15 +149,28 @@ impl FunctionCompiler<'_> {
         None
     }
 
-    /// A name this parse left unresolved, looked up outside a lazy body, with its depth.
-    pub fn outer_reference(&self, name: &str) -> Option<(u32, OuterRef)> {
+    /// A name this parse left unresolved, looked up outside a lazy body, with its depth;
+    /// `None` inside when a dynamic context comes first.
+    fn outer_search(&self, name: &str) -> Option<(u32, Option<OuterRef>)> {
         self.outer_find(|scope| {
             let binding = scope.bindings.iter().find(|b| &*b.name == name);
             let arguments = scope.arguments.filter(|_| name == "arguments");
-            binding
+            let found = binding
                 .map(|b| OuterRef::Binding(b.found))
-                .or(arguments.map(OuterRef::Arguments))
+                .or(arguments.map(OuterRef::Arguments));
+            found.map(Some).or(scope.dynamic.then_some(None))
         })
+    }
+
+    /// A name this parse left unresolved, found statically outside a lazy body.
+    pub fn outer_reference(&self, name: &str) -> Option<(u32, OuterRef)> {
+        let (depth, found) = self.outer_search(name)?;
+        Some((depth, found?))
+    }
+
+    /// Whether an unresolved name must be looked up by name (see `OuterScope::dynamic`).
+    pub fn outer_is_dynamic(&self, name: &str) -> bool {
+        matches!(self.outer_search(name), Some((_, None)))
     }
 
     /// Only a binding: eager code compiles writes and deletes of a bare `arguments` as

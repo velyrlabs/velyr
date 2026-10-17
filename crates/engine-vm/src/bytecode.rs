@@ -113,6 +113,21 @@ pub enum Instruction {
         name: ConstIndex,
         receiver: Reg,
     },
+    /// `base` = the resolved binding of a name (an encoded `Reference`), read and written by
+    /// `LdaLookupIn` and `StaLookupIn`: an assignment target resolves before its value.
+    ResolveLookup {
+        name: ConstIndex,
+        base: Reg,
+    },
+    LdaLookupIn {
+        name: ConstIndex,
+        base: Reg,
+    },
+    StaLookupIn {
+        name: ConstIndex,
+        base: Reg,
+        strict: bool,
+    },
     /// EvalDeclarationInstantiation of one `var` (or function) name in the nearest var scope.
     DeclareEvalVar {
         name: ConstIndex,

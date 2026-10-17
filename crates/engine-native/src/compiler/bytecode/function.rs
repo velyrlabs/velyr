@@ -20,7 +20,7 @@ use super::emitter::{Emitter, Header, Label};
 use super::generators::Coroutine;
 use super::outer::OuterScope;
 use super::scope::{
-    BlockBinding, Location, ScopeAnalysis, bound_identifiers, is_lexical, is_simple,
+    BlockBinding, EvalHome, Location, ScopeAnalysis, bound_identifiers, is_lexical, is_simple,
 };
 use crate::compiler::JsResult;
 
@@ -61,6 +61,8 @@ pub struct FunctionCompiler<'s> {
     /// B.3.4: a `catch (e)` parameter Oxc merged with a `var e` of its body, bound to its
     /// own register while that body compiles.
     pub catch_bindings: HashMap<SymbolId, Reg>,
+    /// Eval home of a lazy body's own function, from its stub (this parse lacks its parent).
+    pub own_home: Option<EvalHome>,
 }
 
 pub(super) enum Body<'b, 'a> {
@@ -135,6 +137,7 @@ impl<'s> FunctionCompiler<'s> {
             parameters_end: None,
             annex_b_registers: HashMap::new(),
             catch_bindings: HashMap::new(),
+            own_home: None,
         }
     }
 
@@ -365,12 +368,7 @@ impl<'s> FunctionCompiler<'s> {
     fn bind_self_name(&mut self, name: Option<&BindingIdentifier>) -> JsResult<()> {
         let Some(id) = name else { return Ok(()) };
         let symbol = id.symbol_id();
-        if self
-            .analysis
-            .scoping
-            .get_resolved_reference_ids(symbol)
-            .is_empty()
-        {
+        if !self.analysis.is_named(symbol) {
             return Ok(());
         }
         self.e.emit(I::LdaCurrentClosure);
@@ -442,9 +440,9 @@ impl<'s> FunctionCompiler<'s> {
     /// registers in the TDZ. Returns the register holding the outer context.
     pub fn enter_scope(&mut self, scope: ScopeId) -> Option<Reg> {
         let size = self.analysis.context_size(scope);
-        let saved = (size > 0).then(|| {
+        let saved = (size > 0 || self.analysis.is_eval_var_scope(scope)).then(|| {
             let saved = self.e.alloc();
-            self.e.emit(I::CreateContext(size));
+            self.create_context(scope, size);
             self.e.emit(I::PushContext(saved));
             self.contexts.push(scope);
             self.control.push(Control::Context(saved));
