@@ -127,6 +127,7 @@ fn import_options_are_validated_and_attributes_rejected() {
             outcome({ with: 1 }),
             outcome({ with: { type: 1 } }),
             outcome({ with: { type: 'json' } }),
+            outcome({ with: { type: 'css' } }),
         ]);
         log.push(...results);";
     let log = log_of(&[("main.js", main)]);
@@ -134,8 +135,20 @@ fn import_options_are_validated_and_attributes_rejected() {
     assert!(results[0].starts_with("TypeError: "), "{log}");
     assert!(results[1].starts_with("TypeError: "), "{log}");
     assert!(results[2].starts_with("TypeError: "), "{log}");
+    assert!(results[3].starts_with("Error: VELYR_UNSUPPORTED"), "{log}");
     assert!(
-        results[3].starts_with("SyntaxError: ") && results[3].contains("type"),
+        results[4].starts_with("SyntaxError: ") && results[4].contains("type"),
+        "{log}"
+    );
+}
+
+#[test]
+fn json_import_attribute_is_accepted() {
+    let main = "log.push(await import('x', { with: { type: 'json' } }).then(() => 'loaded', e => e.message));";
+    let log = log_of(&[("main.js", main)]);
+    // Past the options check, the import reaches the host; this test host serves no dynamic import.
+    assert!(
+        log.starts_with("VELYR_UNSUPPORTED: dynamic import()"),
         "{log}"
     );
 }

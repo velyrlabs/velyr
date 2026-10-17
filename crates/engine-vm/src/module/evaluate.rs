@@ -164,8 +164,8 @@ impl Interpreter {
         hook(self, &Value::Undefined, &args).map(drop)
     }
 
-    /// EvaluateImportCall: `options.with` must map keys to strings, and no import attribute
-    /// is supported (this host loads JavaScript modules only).
+    /// EvaluateImportCall: `options.with` must map keys to strings; only `type: "json"` is
+    /// supported as an import attribute.
     fn check_import_options(&mut self, options: &Value) -> JsResult<()> {
         if matches!(options, Value::Undefined) {
             return Ok(());
@@ -189,7 +189,11 @@ impl Interpreter {
                 let message = "Import attribute values must be strings";
                 return Err(self.error(ErrorKind::Type, message));
             };
-            unsupported.get_or_insert((key, value));
+            let is_json_type = matches!(&key, Value::String(k) if k.to_string_lossy() == "type")
+                && value.to_string_lossy() == "json";
+            if !is_json_type {
+                unsupported.get_or_insert((key, value));
+            }
         }
         let Some((Value::String(key), value)) = unsupported else {
             return Ok(());
