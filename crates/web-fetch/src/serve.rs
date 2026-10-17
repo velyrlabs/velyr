@@ -27,7 +27,11 @@ use velyr_runtime_resources::{QuotaClass, Resource, ResourceId};
 
 use crate::ops::{op_context, string_arg, type_error};
 
+mod head;
+
 const LISTEN_BACKLOG: u32 = 1024;
+/// Most requests `accept` parks per wakeup, so one `take` serves a burst.
+const PARK_MAX: usize = 32;
 /// How long `shutdown` waits for requests in flight when the caller gives no `graceMs`.
 const DEFAULT_GRACE_MS: u64 = 10_000;
 
@@ -349,8 +353,9 @@ fn op_serve_listen(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
     ))
 }
 
-/// `op_serve_accept(id) -> Promise<true | null>`: waits for one request and parks it; `null`
-/// once the server stopped and every connection finished. Pair with `op_serve_take`.
+/// `op_serve_accept(id) -> Promise<true | null>`: waits for one request and parks it, plus any
+/// already queued (up to `PARK_MAX`); `null` once the server stopped and every connection
+/// finished. Pair with `op_serve_take`.
 fn op_serve_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let _span = tracing::debug_span!("velyr.ops.serve_accept").entered();
     let server = server_arg(ctx, args, "op_serve_accept")?;
@@ -360,7 +365,12 @@ fn op_serve_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
             () = token.cancelled() => Ok(CompletionValue::Null),
             next = requests.recv() => match next {
                 Some(incoming) => {
-                    server.parked.lock().expect("parked queue").push_back(incoming);
+                    let mut parked = server.parked.lock().expect("parked queue");
+                    parked.push_back(incoming);
+                    while parked.len() < PARK_MAX {
+                        let Ok(more) = requests.try_recv() else { break };
+                        parked.push_back(more);
+                    }
                     Ok(CompletionValue::Bool(true))
                 }
                 None => Ok(CompletionValue::Null),
@@ -369,22 +379,28 @@ fn op_serve_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
     })
 }
 
-/// `op_serve_take(serverId) -> string`: adopts the oldest parked request as a resource (a
-/// `requests` unit, apart from the `sockets` unit the connection holds; over quota the client
-/// gets a 503 and `id` is `null`). JSON
-/// `{id, method, uri, version, headers, remote}`.
+/// `op_serve_take(serverId) -> Array`: adopts every parked request as a resource (a `requests`
+/// unit, apart from the `sockets` unit the connection holds) and returns one head per request,
+/// laid out as documented in `head.rs`. Over quota the client gets a 503 and the head is `[null]`.
 fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let server = server_arg(ctx, args, "op_serve_take")?;
+    let batch: Vec<Incoming> = server.parked.lock().expect("parked queue").drain(..).collect();
+    if batch.is_empty() {
+        return Err(VelyrError::new(ErrorCode::InvalidData, "no request is waiting").into());
+    }
+    let mut heads = Vec::with_capacity(batch.len());
+    for incoming in batch {
+        heads.push(adopt(ctx, incoming)?);
+    }
+    Ok(ctx.create_array(&heads))
+}
+
+fn adopt(ctx: &mut dyn CallContext, incoming: Incoming) -> Result<Value, HostError> {
     let Incoming {
         request,
         reply,
         disconnected,
-    } = server
-        .parked
-        .lock()
-        .expect("parked queue")
-        .pop_front()
-        .ok_or_else(|| VelyrError::new(ErrorCode::InvalidData, "no request is waiting"))?;
+    } = incoming;
     let HttpRequestParts {
         remote_addr,
         method,
@@ -422,23 +438,24 @@ fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
                 body: BodyReceiver::empty(),
                 upgrade: None,
             }));
-            return Ok(json_value(ctx, serde_json::json!({ "id": null })));
+            return Ok(head::to_value(ctx, &[head::Slot::Null]));
         }
     };
     *req.reply.lock().expect("reply slot") = Some(reply);
     #[cfg(feature = "telemetry")]
-    let span_id_json = req.span_id;
+    let span_id = req.span_id;
     #[cfg(not(feature = "telemetry"))]
-    let span_id_json: Option<u64> = None;
-    let remote = remote_addr
-        .map(|addr| serde_json::json!({"hostname": addr.ip().to_string(), "port": addr.port()}));
-    Ok(json_value(
-        ctx,
-        serde_json::json!({
-            "id": id.to_js_number(), "method": method, "uri": uri, "version": version,
-            "headers": headers, "remote": remote, "spanId": span_id_json,
-        }),
-    ))
+    let span_id: Option<u64> = None;
+    let head = head::Head {
+        id: id.to_js_number(),
+        method: &method,
+        uri: &uri,
+        version: &version,
+        remote: remote_addr.map(|addr| (addr.ip().to_string(), addr.port())),
+        span_id,
+        headers: &headers,
+    };
+    Ok(head::to_value(ctx, &head.slots()))
 }
 
 /// `op_serve_read(id) -> Promise<ArrayBuffer | null>`: next piece of the request body; `null` at
@@ -460,9 +477,9 @@ fn op_serve_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
     })
 }
 
-/// `op_serve_respond(id, status, headersJson, body)`: `body` is `null`, bytes, a string (sent as
-/// UTF-8), or `true` for a body fed through `op_serve_write` / `op_serve_end`. A client that
-/// already left is an error.
+/// `op_serve_respond(id, status, headers, body)`: `headers` is `name\0value\0...` (see `head.rs`);
+/// `body` is `null`, bytes, a string (sent as UTF-8), or `true` for a body fed through
+/// `op_serve_write` / `op_serve_end`. A client that already left is an error.
 fn op_serve_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let _span = tracing::debug_span!("velyr.ops.serve_respond").entered();
     let req = req_arg(ctx, args, "op_serve_respond")?;
@@ -474,8 +491,7 @@ fn op_serve_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, 
         }
         _ => return Err(type_error("op_serve_respond", 1, "a status code (100-599)")),
     };
-    let headers = serde_json::from_str(&string_arg(args, 2, "op_serve_respond")?)
-        .map_err(|_| type_error("op_serve_respond", 2, "a JSON header list"))?;
+    let headers = head::parse_header_blob(&string_arg(args, 2, "op_serve_respond")?)?;
     let (body, out) = match args.get(3) {
         Some(Value::Bool(true)) => {
             let (tx, rx) = body_channel();

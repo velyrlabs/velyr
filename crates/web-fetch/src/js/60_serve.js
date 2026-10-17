@@ -12,6 +12,27 @@
   // Request -> id of its serve resource, for layers that take over the connection (WebSocket).
   const serveRequestIds = new WeakMap();
 
+  // One head of `serveOp.take`: [id, method, uri, version, remoteHost|null, remotePort|null, spanId|null,
+  // name0, value0, ...]; a request refused by the quota is [null]. Rebuilds the `info` object.
+  function decodeHead(a) {
+    const headers = [];
+    for (let i = 7; i < a.length; i += 2) headers.push([a[i], a[i + 1]]);
+    return {
+      id: a[0], method: a[1], uri: a[2], version: a[3], headers, spanId: a[6],
+      remote: a[4] === null ? null : { hostname: a[4], port: a[5] },
+    };
+  }
+
+  // Header pairs as one `name\0value\0...` string for `serveOp.respond`.
+  function encodeHeaders(pairs) {
+    let blob = "";
+    for (const [name, value] of pairs) {
+      if (name.includes("\0") || value.includes("\0")) throw new TypeError("Invalid character in a response header");
+      blob += `${name}\0${value}\0`;
+    }
+    return blob;
+  }
+
   function serveRequest(rid, info, base, signal) {
     const headers = new Headers();
     for (const [name, value] of info.headers) headersAppendRaw(headers, name, value);
@@ -89,7 +110,7 @@
     if (!(response instanceof Response)) throw new TypeError("The handler must return a Response");
     if (response.status < 200 && response.status !== 101) throw new TypeError("The handler returned a Response that cannot be sent");
     const state = bodyStateOf(response);
-    const pairs = JSON.stringify(headerPairs(response.headers));
+    const pairs = encodeHeaders(headerPairs(response.headers));
     const empty = state === null || request.method === "HEAD" || NULL_BODY_STATUSES.includes(response.status);
     if (empty) return serveOp.respond(rid, response.status, pairs, null);
     if (state.unusable) throw new TypeError("The response body was already read");
@@ -139,10 +160,11 @@
     const inflight = new Set();
     try {
       while ((await serveOp.accept(id)) !== null) {
-        const info = JSON.parse(serveOp.take(id));
-        if (info.id === null) continue;
-        const running = serveDispatch(info, context).finally(() => inflight.delete(running));
-        inflight.add(running);
+        for (const head of serveOp.take(id)) {
+          if (head[0] === null) continue;
+          const running = serveDispatch(decodeHead(head), context).finally(() => inflight.delete(running));
+          inflight.add(running);
+        }
       }
     } finally {
       await Promise.all(inflight);

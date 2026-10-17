@@ -24,6 +24,9 @@ static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static SERIAL: Mutex<()> = Mutex::new(());
 static WRITES: AtomicUsize = AtomicUsize::new(0);
 static REAL_WRITE: OnceLock<HostFn> = OnceLock::new();
+static TAKES: AtomicUsize = AtomicUsize::new(0);
+static JSON_TAKES: AtomicUsize = AtomicUsize::new(0);
+static REAL_TAKE: OnceLock<HostFn> = OnceLock::new();
 static ENCODES: AtomicUsize = AtomicUsize::new(0);
 static REAL_ENCODE: OnceLock<HostFn> = OnceLock::new();
 
@@ -31,6 +34,16 @@ static REAL_ENCODE: OnceLock<HostFn> = OnceLock::new();
 fn counting_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     WRITES.fetch_add(1, Ordering::SeqCst);
     REAL_WRITE.get().expect("real op registered")(ctx, args)
+}
+
+/// `op_serve_take` that counts its calls and the ones that still answer with a JSON string.
+fn counting_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    TAKES.fetch_add(1, Ordering::SeqCst);
+    let head = REAL_TAKE.get().expect("real op registered")(ctx, args)?;
+    if matches!(head, Value::String(_)) {
+        JSON_TAKES.fetch_add(1, Ordering::SeqCst);
+    }
+    Ok(head)
 }
 
 /// `op_encoding_encode` that counts its calls (`TextEncoder.encode` in JS).
@@ -61,9 +74,15 @@ fn run(body: &str) -> (Vec<String>, usize) {
 
 /// [`run`] plus how many `op_encoding_encode` calls the script made.
 fn run_counting(body: &str) -> (Vec<String>, usize, usize) {
+    run_with_quotas(body, QuotaConfig::default())
+}
+
+fn run_with_quotas(body: &str, quotas: QuotaConfig) -> (Vec<String>, usize, usize) {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     LOG.lock().unwrap().clear();
     WRITES.store(0, Ordering::SeqCst);
+    TAKES.store(0, Ordering::SeqCst);
+    JSON_TAKES.store(0, Ordering::SeqCst);
     ENCODES.store(0, Ordering::SeqCst);
     let script = format!(
         "(async () => {{ {body} }})().catch((e) => record('FAIL ' + (e && e.name) + ' ' + (e && e.message)));"
@@ -90,8 +109,7 @@ fn run_counting(body: &str) -> (Vec<String>, usize, usize) {
             any_port,
         ))
         .build();
-    let quotas = QuotaConfig::default();
-    let mut functions = OpRegistry::builtin().host_functions().to_vec();
+        let mut functions = OpRegistry::builtin().host_functions().to_vec();
     functions.extend(timer_host_functions());
     functions.extend(url_host_functions());
     for def in encoding_host_functions() {
@@ -112,6 +130,12 @@ fn run_counting(body: &str) -> (Vec<String>, usize, usize) {
             REAL_WRITE.get_or_init(|| def.callback);
             functions.push(HostFunctionDef {
                 callback: counting_write,
+                ..def
+            });
+        } else if def.name == "op_serve_take" {
+            REAL_TAKE.get_or_init(|| def.callback);
+            functions.push(HostFunctionDef {
+                callback: counting_take,
                 ..def
             });
         } else {
@@ -255,4 +279,57 @@ fn chunks_that_arrive_later_are_not_held_back_or_reordered() {
     ));
     assert_eq!(log, ["abc"]);
     assert_eq!(writes, 3, "each chunk is its own flush");
+}
+
+#[test]
+fn head_fields_survive_the_array_path() {
+    let (log, _) = run(r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req, info) => {
+             const dup = req.headers.get("x-dup");
+             return new Response(`${req.method} ${new URL(req.url).pathname}${new URL(req.url).search} ${dup} ${info.remoteAddr.transport} ${info.remoteAddr.hostname} ${typeof info.remoteAddr.port}`, { headers: [["x-a", "1"], ["x-a", "2"]] });
+           });
+           try {
+             const res = await fetch(`http://127.0.0.1:${server.addr.port}/a%20b?q=%C3%BC`, { method: "PATCH", headers: [["x-dup", "one"], ["x-dup", "two"]], body: "x" });
+             record(await res.text());
+             record(res.headers.get("x-a"));
+           } finally { await server.shutdown(); }"#);
+    assert_eq!(log, ["PATCH /a%20b?q=%C3%BC one, two tcp 127.0.0.1 number", "1, 2"]);
+    assert_eq!(JSON_TAKES.load(Ordering::SeqCst), 0, "a head still crossed as JSON");
+}
+
+#[test]
+fn a_burst_is_taken_in_few_ops() {
+    let (log, _) = run(r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req) => new Response(new URL(req.url).pathname));
+           try {
+             const all = await Promise.all(Array.from({ length: 50 }, (_, i) =>
+               fetch(`http://127.0.0.1:${server.addr.port}/${i}`).then((r) => r.text())));
+             record(String(all.every((text, i) => text === `/${i}`)));
+           } finally { await server.shutdown(); }"#);
+    assert_eq!(log, ["true"]);
+    assert!(TAKES.load(Ordering::SeqCst) <= 50);
+}
+
+#[test]
+fn quota_refused_request_gets_503_and_serving_continues() {
+    let quotas = QuotaConfig {
+        requests: Some(1),
+        ..QuotaConfig::default()
+    };
+    let (log, _, _) = run_with_quotas(
+        r#"let release;
+           const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, async (req) => {
+             if (new URL(req.url).pathname === "/hold") await new Promise((r) => { release = r; });
+             return new Response("ok");
+           });
+           try {
+             const base = `http://127.0.0.1:${server.addr.port}`;
+             const held = fetch(`${base}/hold`);
+             await new Promise((r) => setTimeout(r, 200));
+             record(String((await fetch(`${base}/x`)).status));
+             release();
+             record(String((await held).status));
+             record(String((await fetch(`${base}/x`)).status));
+           } finally { await server.shutdown(); }"#,
+        quotas,
+    );
+    assert_eq!(log, ["503", "200", "200"]);
 }
