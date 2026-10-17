@@ -11,7 +11,6 @@ fn run(source: &str) -> String {
 }
 
 #[test]
-#[ignore = "enabled by N07"]
 fn uri_registered() {
     assert_eq!(run("typeof encodeURI"), "function");
 }
