@@ -3,7 +3,8 @@
 //! Two-phase connect: phase 1 (`check_connect_host`) judges the hostname before DNS; phase 2
 //! (`check_connect_addr`) revalidates each resolved IP. A grant by hostname never reaches a
 //! non-public IP unless an explicit IP/CIDR grant covers it or the origin is exactly `localhost`
-//! (loopback only). A bare `*` is a hostname grant, so it does not reach private literals either.
+//! (loopback only). A bare `*` is a hostname grant, so it does not reach private literals either;
+//! the CLI adds explicit loopback CIDR grants for `--allow-all` only.
 //!
 //! Known limits: embedded-IPv4 forms other than `::ffff:` (NAT64 `64:ff9b::/96`, 6to4) are only
 //! checked for the non-public test, not normalized for matching; IPv6 zone ids are rejected.
@@ -592,6 +593,26 @@ mod tests {
         let wildcard_only = connect(&[("*", ALL_PORTS)], &[]);
         assert!(!host_ok(&wildcard_only, "10.1.2.3", 1));
         assert!(!host_ok(&wildcard_only, "[::1]", 1));
+    }
+
+    #[test]
+    fn wildcard_with_loopback_grants_reaches_only_loopback() {
+        let set = connect(
+            &[
+                ("*", ALL_PORTS),
+                ("127.0.0.0/8", ALL_PORTS),
+                ("::1/128", ALL_PORTS),
+            ],
+            &[],
+        );
+        for ip in ["127.0.0.1", "127.9.9.9", "[::1]", "[::ffff:127.0.0.1]"] {
+            assert!(host_ok(&set, ip, 80), "{ip}");
+            assert!(addr_ok(&set, ip, &format!("{ip}:80")), "{ip}");
+        }
+        assert!(addr_ok(&set, "localhost", "127.0.0.1:80"));
+        for ip in ["10.0.0.1", "169.254.169.254", "100.64.0.1", "[fd00::1]"] {
+            assert!(!host_ok(&set, ip, 80), "{ip}");
+        }
     }
 
     #[test]

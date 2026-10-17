@@ -76,6 +76,18 @@ fn fetch_reads_json_from_a_local_server_with_a_grant() {
 }
 
 #[test]
+fn allow_all_fetches_a_loopback_literal_but_bare_allow_net_does_not() {
+    let port = serve(|_| json_response("{}"));
+    let script = format!(
+        "try {{ console.log((await fetch('http://127.0.0.1:{port}/')).status); }} catch (e) {{ console.log(e.code); }}"
+    );
+    run(&script, "-A").success().stdout("200\n");
+    run(&script, "--allow-net")
+        .success()
+        .stdout("VELYR_PERMISSION_DENIED\n");
+}
+
+#[test]
 fn fetch_without_a_grant_is_denied() {
     let port = serve(|_| json_response("{}"));
     run(

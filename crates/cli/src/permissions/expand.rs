@@ -32,6 +32,13 @@ pub enum Kind {
     Inspect,
 }
 
+/// `--allow-all` only: a bare `*` never reaches IP literals in non-public ranges, so loopback is granted explicitly.
+pub fn loopback_net_grants() -> Vec<Capability> {
+    ["127.0.0.0/8", "::1/128"]
+        .map(|cidr| Capability::NetConnect(HostPattern::new(cidr), ALL_PORTS))
+        .to_vec()
+}
+
 impl Kind {
     /// Kinds granted by `--allow-all`.
     pub const ALLOW_ALL: [Kind; 8] = [

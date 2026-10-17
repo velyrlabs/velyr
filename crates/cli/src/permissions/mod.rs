@@ -161,6 +161,7 @@ pub fn build(
         for kind in Kind::ALLOW_ALL {
             allow.extend(kind.capabilities(&[], cwd, false)?);
         }
+        allow.extend(expand::loopback_net_grants());
     }
     allow.extend(collect(effective.allow_scopes(), cwd, false)?);
     for cap in allow {
@@ -305,6 +306,42 @@ mod tests {
         assert!(allowed(&b, Request::ImportRemote("esm.sh")));
         assert!(!allowed(&b, Request::NativeLoad(&path(dir.path(), "x.so"))));
         assert!(!allowed(&b, Request::InspectorBind("127.0.0.1")));
+    }
+
+    #[test]
+    fn allow_all_reaches_loopback_but_not_private_ranges() {
+        let dir = cwd();
+        let b = built(flags(|p| p.allow_all = true), None, dir.path());
+        for host in [
+            "127.0.0.1",
+            "127.1.2.3",
+            "::1",
+            "[::1]",
+            "::ffff:127.0.0.1",
+            "localhost",
+        ] {
+            assert!(allowed(&b, Request::NetConnect(host, 80)), "{host}");
+        }
+        for host in [
+            "10.0.0.1",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "fd00::1",
+            "fe80::1",
+        ] {
+            assert!(!allowed(&b, Request::NetConnect(host, 80)), "{host}");
+        }
+    }
+
+    #[test]
+    fn bare_allow_net_and_no_flags_do_not_reach_loopback() {
+        let dir = cwd();
+        let bare = built(flags(|p| p.allow_net = Some(vec![])), None, dir.path());
+        assert!(!allowed(&bare, Request::NetConnect("127.0.0.1", 80)));
+        let none = built(flags(|_| {}), None, dir.path());
+        assert!(!allowed(&none, Request::NetConnect("127.0.0.1", 80)));
     }
 
     #[test]
