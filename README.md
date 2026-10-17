@@ -1,8 +1,24 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/brand/banner-dark.png">
-    <img src=".github/assets/brand/banner-light.png" alt="Velyr: the security-first JavaScript and TypeScript runtime, written in Rust" width="100%">
-  </picture>
+  <a href="https://velyr.dev">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/brand/banner-dark.png">
+      <img src=".github/assets/brand/banner-light.png" alt="Velyr" width="100%">
+    </picture>
+  </a>
+</p>
+
+<h3 align="center">The security-first JavaScript and TypeScript runtime, written in Rust.</h3>
+
+<p align="center">
+  <a href="https://velyr.dev">Website</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://velyr.dev/guide/features">Docs</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/velyrlabs/velyr/releases">Releases</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://velyr.dev/guide/roadmap">Roadmap</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/velyrlabs/velyr/discussions">Discussions</a>
 </p>
 
 <p align="center">
@@ -11,80 +27,36 @@
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="License: MIT OR Apache-2.0"></a>
 </p>
 
-> **Status: alpha (`v0.1.0-alpha.1`).** APIs, CLI flags and behavior may change
-> without notice. Velyr is not ready for production use. Node.js compatibility
-> is partial and experimental, and performance work is ongoing (see
-> [What works](#what-works-and-what-does-not-yet)).
+> [!WARNING]
+> Velyr is **alpha** software (`v0.1.0-alpha.1`). APIs and flags will change, and it
+> is not ready for production. See [what works today](#status).
 
-## Install
+## Why Velyr
 
-### Prebuilt binaries
+- **Nothing is allowed until you allow it.** Files, network, environment and
+  subprocesses are denied by default and granted per path, host or name.
+- **Web standards first, TypeScript included.** `fetch`, streams, Web Crypto and
+  WebSocket out of the box; `.ts` and `.tsx` run directly by type stripping.
+- **Releases you can verify.** Every binary ships with SHA-256 checksums, a
+  CycloneDX SBOM and a signed build provenance attestation.
 
-Binaries are published on [GitHub Releases](https://github.com/velyrlabs/velyr/releases)
-for Linux x64/arm64 (gnu and musl), macOS x64/arm64 and Windows x64, as
-`velyr-<target>.tar.gz` (`.zip` on Windows). Each release also ships
-`SHA256SUMS`, a CycloneDX SBOM and build provenance attestations.
-
-```sh
-# macOS on Apple silicon (use x86_64-unknown-linux-gnu for Linux x64)
-TARGET=aarch64-apple-darwin
-BASE=https://github.com/velyrlabs/velyr/releases/download/v0.1.0-alpha.1
-
-curl -fLO "$BASE/velyr-$TARGET.tar.gz"
-curl -fLO "$BASE/SHA256SUMS"
-
-# Verify the checksum (use `sha256sum` instead of `shasum -a 256` on Linux)
-grep "velyr-$TARGET.tar.gz" SHA256SUMS | shasum -a 256 -c -
-
-# Verify the build provenance attestation (requires the GitHub CLI)
-gh attestation verify "velyr-$TARGET.tar.gz" --repo velyrlabs/velyr
-
-tar -xzf "velyr-$TARGET.tar.gz"
-./velyr --version
-```
-
-Move the `velyr` binary somewhere on your `PATH`.
-
-### Build from source
-
-Requires a Rust toolchain (the version is pinned in `rust-toolchain.toml`).
-
-```sh
-git clone https://github.com/velyrlabs/velyr
-cd velyr
-cargo build --release -p velyr-cli
-./target/release/velyr --version
-```
-
-## Quick start
-
-Run a JavaScript file:
-
-```sh
-echo 'console.log("hello from velyr")' > hello.js
-velyr run hello.js
-```
-
-Run TypeScript. Types are stripped, not checked, so execution does not need
-`tsc`:
+## A quick look
 
 ```ts
-// hello.ts
-const greet = (name: string): string => `hello, ${name}`;
-console.log(greet("velyr"));
+// main.ts
+const res = await fetch("https://example.com");
+console.log(res.status);
 ```
 
-```sh
-velyr run hello.ts
+```console
+$ velyr run main.ts
+Uncaught VELYR_PERMISSION_DENIED: net-connect access denied
+
+$ velyr run --allow-net=example.com main.ts
+200
 ```
 
-Type check with the project's own TypeScript (`tsc --noEmit`):
-
-```sh
-velyr check
-```
-
-Serve a module that exports a `fetch` handler:
+Serve HTTP with a single export:
 
 ```ts
 // server.ts
@@ -95,92 +67,116 @@ export default {
 };
 ```
 
-```sh
-velyr serve --hostname 127.0.0.1 --port 8000 --allow-listen=127.0.0.1:8000 server.ts
-curl http://127.0.0.1:8000
+```console
+$ velyr serve --hostname 127.0.0.1 --port 8000 --allow-listen=127.0.0.1:8000 server.ts
+$ curl http://127.0.0.1:8000
+hello from velyr
 ```
 
-Other subcommands: `x` (run a `node_modules/.bin` binary), `test`, `bench`,
-`compat` (report Node API and package usage), `compile` (bundle into a single
-executable), `add`, `remove` and `install`. Run `velyr --help` for details.
+## Install
+
+Download a prebuilt binary from
+[GitHub Releases](https://github.com/velyrlabs/velyr/releases):
+
+| Platform | Archive |
+|----------|---------|
+| macOS (Apple silicon / Intel) | `velyr-aarch64-apple-darwin.tar.gz` / `velyr-x86_64-apple-darwin.tar.gz` |
+| Linux x64 (glibc / musl) | `velyr-x86_64-unknown-linux-gnu.tar.gz` / `velyr-x86_64-unknown-linux-musl.tar.gz` |
+| Linux arm64 (glibc / musl) | `velyr-aarch64-unknown-linux-gnu.tar.gz` / `velyr-aarch64-unknown-linux-musl.tar.gz` |
+| Windows x64 | `velyr-x86_64-pc-windows-msvc.zip` |
+
+```sh
+TARGET=aarch64-apple-darwin   # pick your platform from the table
+curl -fLO "https://github.com/velyrlabs/velyr/releases/download/v0.1.0-alpha.1/velyr-$TARGET.tar.gz"
+tar -xzf "velyr-$TARGET.tar.gz" && ./velyr --version
+```
+
+<details>
+<summary>Verify the download (checksum and provenance)</summary>
+
+```sh
+BASE=https://github.com/velyrlabs/velyr/releases/download/v0.1.0-alpha.1
+curl -fLO "$BASE/SHA256SUMS"
+grep "velyr-$TARGET.tar.gz" SHA256SUMS | shasum -a 256 -c -   # sha256sum -c on Linux
+gh attestation verify "velyr-$TARGET.tar.gz" --repo velyrlabs/velyr
+```
+
+</details>
+
+<details>
+<summary>Build from source</summary>
+
+Requires the Rust toolchain pinned in `rust-toolchain.toml`.
+
+```sh
+git clone https://github.com/velyrlabs/velyr && cd velyr
+cargo build --release -p velyr-cli
+./target/release/velyr --version
+```
+
+</details>
+
+## Usage
+
+| Command | What it does |
+|---------|--------------|
+| `velyr run <file>` | Run JavaScript or TypeScript |
+| `velyr serve <file>` | Serve a module that exports `fetch`, optionally on several workers (`--workers`) |
+| `velyr check` | Type check with the project's own `tsc` |
+| `velyr test` / `velyr bench` | Run tests and benchmarks |
+| `velyr add` / `remove` / `install` | Manage dependencies with a `velyr.lock` lockfile |
+| `velyr x <bin>` | Run a binary from `node_modules/.bin` |
+| `velyr compile <file>` | Bundle into a single executable |
+| `velyr compat` | Report which Node APIs and packages a project uses |
+
+Run `velyr --help` for every flag.
 
 ## Permissions
 
-Scripts start with no access to the filesystem, network, environment or
-system information. Grant only what a program needs:
-
 | Flag | Grants |
 |------|--------|
-| `--allow-read[=PATHS]` | Read files |
-| `--allow-write[=PATHS]` | Write files |
+| `--allow-read[=PATHS]` / `--allow-write[=PATHS]` | Filesystem access |
 | `--allow-net[=HOST[:PORT]]` | Outbound network |
-| `--allow-listen[=ADDR[:PORT]]` | Listen for inbound connections |
-| `--allow-env[=NAMES]` | Read environment variables |
-| `--allow-sys[=NAMES]` | System information APIs |
-| `-A`, `--allow-all` | Everything except native loading and the inspector |
+| `--allow-listen[=ADDR[:PORT]]` | Inbound connections |
+| `--allow-env[=NAMES]` | Environment variables |
+| `--allow-sys[=NAMES]` | System information |
+| `-A`, `--allow-all` | All of the above; reaches loopback but not private networks |
 
-Scopes are comma-separated and require `=`, for example
-`--allow-read=./data,./config`. Matching `--deny-*` flags exist, and deny wins
-over allow. Further flags (`--allow-run`, `--allow-native`, `--allow-import`,
-`--inspect`) are listed in `velyr run --help`.
+Every `--allow-*` has a matching `--deny-*`, and deny always wins. Permissions are
+an application boundary, not a sandbox for hostile code. Read the
+[permissions guide](https://velyr.dev/guide/permissions) and the
+[security model](docs/SECURITY.md).
 
-`-A` reaches loopback addresses but not private network ranges. Permissions
-are an application-level boundary, not a sandbox against hostile code; see
-[docs/SECURITY.md](docs/SECURITY.md) for known limitations.
+## Status
 
-## What works and what does not yet
+| Works today | Not there yet |
+|-------------|---------------|
+| ES modules and scripts on V8, with TypeScript and JSX | Node.js compatibility is partial; many npm packages will not run ([matrix](docs/COMPATIBILITY-MATRIX.md)) |
+| `fetch`, streams, Web Crypto, WebSocket | HTTP throughput is behind Node.js, Deno and Bun; no benchmark claims yet |
+| `serve` with multiple worker isolates | The Rust-native engine (`--engine native`) is experimental and not in prebuilt binaries |
+| Package management, `test`, `bench`, `compile` | No stability guarantees, no completed security audit, no 1.0 API |
 
-Works today:
+Track progress in the [roadmap](docs/ROADMAP.md).
 
-- ES modules and classic scripts on the default V8 engine, with TypeScript and
-  JSX by type stripping.
-- Web-standard APIs such as `fetch`, streams, Web Crypto and WebSocket, with
-  coverage tracked in the compatibility documents.
-- HTTP serving through `export default { fetch }`, with optional multiple
-  worker isolates (`--workers`).
-- Dependency management (`add`, `remove`, `install`) with a `velyr.lock`
-  lockfile, plus `test`, `bench` and `compile`.
+## Built on
 
-Not there yet:
+Velyr stands on [V8](https://v8.dev), [Tokio](https://tokio.rs),
+[Oxc](https://oxc.rs) and [Hyper](https://hyper.rs), and measures itself against
+[test262](https://github.com/tc39/test262) and
+[Web Platform Tests](https://web-platform-tests.org).
 
-- **Node.js compatibility is partial and experimental.** Many modules pass only
-  a small sample of behavior tests. See
-  [docs/COMPATIBILITY-MATRIX.md](docs/COMPATIBILITY-MATRIX.md) for per-module
-  status. Do not assume an arbitrary npm package works.
-- **Performance is not yet competitive** with Node.js, Deno or Bun on HTTP
-  throughput. No benchmark numbers are published for this release.
-- **The native engine is experimental.** An engine written in Rust can be
-  selected with `--engine native`, but only in builds with the `engine-native`
-  Cargo feature, so prebuilt binaries may not include it. V8 is the default.
-- Stability guarantees, a finished security audit and a 1.0 API are not
-  provided. See [docs/RELEASE-CRITERIA.md](docs/RELEASE-CRITERIA.md) and
-  [docs/ROADMAP.md](docs/ROADMAP.md).
+## Contributing
 
-## Project layout
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md);
+the project is run as described in [GOVERNANCE.md](GOVERNANCE.md) and follows the
+[Code of Conduct](CODE_OF_CONDUCT.md). The codebase is a Cargo workspace under
+[`crates/`](crates/), and design documents live in [`docs/`](docs/README.md).
 
-- [`crates/`](crates/): the runtime as a Cargo workspace (`cli`, `engine-*`,
-  `runtime-*`, `web-*`, `io-*`, `compat-*`, `tooling-*`, `qa-*`).
-- [`docs/`](docs/): product requirements, technical design, specifications,
-  security model, compatibility and performance plans.
-- `compat/`, `benches/`, `fuzz/`, `tests/`: compatibility results, benchmarks,
-  fuzz targets and tests.
-
-## Documentation
-
-Start at [docs/README.md](docs/README.md), which lists the PRD, TDD, SPEC,
-roadmap, architecture decision records and the security and compatibility
-documents.
-
-## Security
-
-See [docs/SECURITY.md](docs/SECURITY.md) for the security program and known
-limitations. Report vulnerabilities privately through GitHub private
-vulnerability reporting on the
-[velyrlabs/velyr](https://github.com/velyrlabs/velyr/security) repository
-(Security tab, "Report a vulnerability"). Please do not open public issues for
-security problems.
+Found a vulnerability? Please report it privately through
+[GitHub security advisories](https://github.com/velyrlabs/velyr/security/advisories/new),
+not in a public issue. See [SECURITY.md](SECURITY.md).
 
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
-[MIT license](LICENSE-MIT) at your option.
+[MIT license](LICENSE-MIT), at your option.
