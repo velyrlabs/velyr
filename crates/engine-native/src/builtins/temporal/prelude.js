@@ -9,12 +9,31 @@
   delete global.__temporal_op;
   const { defineProperty } = Object;
   const slots = new WeakMap();
-  const op = (cls, method, ...args) =>
-    rawOp(cls, method, ...args.map((arg) => (arg === undefined ? '' : String(arg))));
+  const opText = (arg) => {
+    if (typeof arg === 'symbol') throw new TypeError('Cannot convert a Symbol to a string');
+    return arg === undefined ? '' : `${arg}`;
+  };
+  const op = (cls, method, ...args) => rawOp(cls, method, ...args.map(opText));
+  const calendarId = (value) => {
+    if (typeof value !== 'string') throw new TypeError('calendar must be a string');
+    return op('Calendar', 'id', value);
+  };
+  const timeZoneId = (value) => {
+    if (typeof value !== 'string') throw new TypeError('timeZone must be a string');
+    return op('TimeZone', 'id', value);
+  };
 
   const define = (target, methods) => {
     for (const name of Reflect.ownKeys(methods)) {
       defineProperty(target, name, { value: methods[name], writable: true, configurable: true });
+    }
+  };
+  // Like `define`, with explicit spec `length`s (default parameters hide them); `methods` must
+  // use method syntax so the functions are not constructors.
+  const defineMethods = (target, methods, lengths = {}) => {
+    define(target, methods);
+    for (const name of Object.keys(lengths)) {
+      defineProperty(methods[name], 'length', { value: lengths[name], configurable: true });
     }
   };
   const getters = (target, table) => {
@@ -52,12 +71,15 @@
 
   const optionsOf = (options) => {
     if (options === undefined) return {};
-    if (typeof options !== 'object' || options === null) throw new TypeError('options must be an object');
+    if ((typeof options !== 'object' && typeof options !== 'function') || options === null) {
+      throw new TypeError('options must be an object');
+    }
     return options;
   };
+  // ToString of an option value; a Symbol throws TypeError.
   const optionText = (options, name) => {
     const value = options[name];
-    return value === undefined ? undefined : String(value);
+    return value === undefined ? undefined : `${value}`;
   };
   const overflowOf = (options) => {
     const overflow = optionText(optionsOf(options), 'overflow');
@@ -66,25 +88,33 @@
     }
     return overflow;
   };
-  const diffArgs = (options) => {
+  // Reads in spec order, one Get each; returns [largestUnit, smallestUnit, roundingMode,
+  // roundingIncrement], the order of the native op. `withLargest` false skips largestUnit.
+  const diffArgs = (options, withLargest = true) => {
     const o = optionsOf(options);
-    return ['largestUnit', 'smallestUnit', 'roundingMode', 'roundingIncrement'].map((n) => optionText(o, n));
+    const largest = withLargest ? optionText(o, 'largestUnit') : undefined;
+    const increment = optionText(o, 'roundingIncrement');
+    const mode = optionText(o, 'roundingMode');
+    return [largest, optionText(o, 'smallestUnit'), mode, increment];
   };
-  // `roundTo` is a unit string or an options object.
-  const roundArgs = (roundTo) => {
+  // `roundTo` is a unit string or an options object. Duration.round needs `withLargest`;
+  // the other classes pass false (their round does not read largestUnit).
+  const roundArgs = (roundTo, withLargest = true) => {
     if (roundTo === undefined) throw new TypeError('roundTo is required');
     const options = typeof roundTo === 'string' ? { smallestUnit: roundTo } : optionsOf(roundTo);
-    if (options.smallestUnit === undefined && options.largestUnit === undefined) {
-      throw new RangeError('smallestUnit or largestUnit is required');
+    const args = diffArgs(options, withLargest);
+    if (args[1] === undefined && args[0] === undefined) {
+      throw new RangeError(withLargest ? 'smallestUnit or largestUnit is required' : 'smallestUnit is required');
     }
-    return diffArgs(options);
+    return args;
   };
-  // fractionalSecondDigits, smallestUnit, roundingMode.
+  // fractionalSecondDigits, smallestUnit, roundingMode; read in spec order.
   const stringArgs = (options) => {
     const o = optionsOf(options);
     let digits = o.fractionalSecondDigits;
     if (digits !== undefined && digits !== 'auto') digits = toInt(digits, 'fractionalSecondDigits', 0, 9);
-    return [digits, optionText(o, 'smallestUnit'), optionText(o, 'roundingMode')];
+    const mode = optionText(o, 'roundingMode');
+    return [digits, optionText(o, 'smallestUnit'), mode];
   };
   const calendarSuffix = (str, options) => {
     const name = optionText(optionsOf(options), 'calendarName');
@@ -93,18 +123,22 @@
     return str;
   };
 
-  // Reads `names` from a property bag; undefined properties are skipped.
+  // Reads `names` from a property bag in the given order (callers pass spec order), one Get
+  // each; undefined properties are skipped.
   const readBag = (bag, names) => {
     const out = {};
     for (const name of names) {
-      if (bag[name] !== undefined) out[name] = bag[name];
+      const value = bag[name];
+      if (value !== undefined) out[name] = value;
     }
     return out;
   };
   const monthFromCode = (code) => {
-    const match = /^M(\d\d)$/.exec(String(code));
-    if (match === null || match[1] === '00') throw new RangeError(`Invalid month code ${code}`);
-    return Number(match[1]);
+    const text = `${code}`;
+    const digits = text.slice(1);
+    const valid = text.length === 3 && text[0] === 'M' && [...digits].every((c) => c >= '0' && c <= '9');
+    if (!valid || digits === '00') throw new RangeError(`Invalid month code ${text}`);
+    return Number(digits);
   };
 
   const Temporal = global.Temporal;
@@ -115,7 +149,7 @@
     const proto = Class.prototype;
     tag(proto, `Temporal.${cls}`);
     const same = (a, b) => op(cls, 'compare', a, b) === '0';
-    define(proto, {
+    defineMethods(proto, {
       add(duration, options) {
         return fromStr(op(cls, 'add', strOf(this, cls), durationStr(duration), overflowOf(options)));
       },
@@ -144,12 +178,12 @@
       valueOf() {
         throw new TypeError(`Temporal.${cls} cannot be converted to a primitive; use compare()`);
       },
-    });
-    define(Class, {
+    }, { add: 1, subtract: 1, until: 1, since: 1, equals: 1, toJSON: 0, toLocaleString: 0, valueOf: 0 });
+    defineMethods(Class, {
       compare(a, b) {
         return Number(op(cls, 'compare', strOf(Class.from(a), cls), strOf(Class.from(b), cls)));
       },
-    });
+    }, { compare: 2 });
   };
 
   // ---- Duration ----
@@ -268,7 +302,7 @@
 
   defineProperty(global, '__temporal_shared', {
     value: {
-      op, slots, define, getters, tag, wrap, slotOf, strOf, fieldsOf, toInt, toIntOr, optionsOf,
+      op, slots, define, defineMethods, calendarId, timeZoneId, getters, tag, wrap, slotOf, strOf, fieldsOf, toInt, toIntOr, optionsOf,
       optionText, overflowOf, diffArgs, roundArgs, stringArgs, calendarSuffix, readBag,
       monthFromCode, Temporal, installCommon, durationStr, wrapDuration,
     },

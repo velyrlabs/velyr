@@ -173,8 +173,20 @@ macro_rules! time_fields {
 }
 use {date_fields, time_fields};
 
+/// Canonical id of a calendar (`"ISO8601"` -> `"iso8601"`) or a RangeError.
+fn calendar_id(a: Args) -> Res {
+    Calendar::try_from_utf8(arg(a, 0).as_bytes()).map(|c| c.identifier().to_owned())
+}
+
+/// Canonical id of a time zone or offset string, or a RangeError.
+fn timezone_id(a: Args) -> Res {
+    time_zone(a, 0)?.identifier()
+}
+
 fn run(class: &str, method: &str, a: Args) -> Res {
     match class {
+        "Calendar" => calendar_id(a),
+        "TimeZone" => timezone_id(a),
         "PlainDate" => plain_date::run(method, a),
         "PlainTime" => plain_time::run(method, a),
         "PlainDateTime" => plain_date_time::run(method, a),
