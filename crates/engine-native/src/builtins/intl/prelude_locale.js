@@ -10,7 +10,7 @@
   const FIELD = { base: 0, language: 1, script: 2, region: 3, variants: 4, ca: 5, co: 6, hc: 7,
     kf: 8, kn: 9, nu: 10, fw: 11, rg: 12, sd: 13 };
   const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-  const RTL_SCRIPTS = ['Adlm', 'Arab', 'Armi', 'Avst', 'Chrs', 'Cprt', 'Elym', 'Hatr', 'Hebr', 'Hung',
+  const RTL_SCRIPTS = ['Adlm', 'Arab', 'Aran', 'Armi', 'Avst', 'Chrs', 'Cprt', 'Elym', 'Hatr', 'Hebr', 'Hung',
     'Khar', 'Lydi', 'Mand', 'Mani', 'Mend', 'Merc', 'Mero', 'Narb', 'Nbat', 'Nkoo', 'Orkh', 'Ougr',
     'Palm', 'Phli', 'Phlp', 'Phnx', 'Prti', 'Rohg', 'Samr', 'Sarb', 'Sogd', 'Sogo', 'Syrc', 'Thaa',
     'Wara', 'Yezi'];
@@ -75,7 +75,10 @@
     const numeric = getOption(options, 'numeric', Boolean);
     const numberingSystem = typeOption(options, 'numberingSystem');
     let firstDay = nonEmpty(options, 'firstDayOfWeek');
-    if (firstDay !== undefined) firstDay = weekday(firstDay);
+    if (firstDay !== undefined) {
+      firstDay = weekday(firstDay);
+      if (!/^[a-z0-9]{3,8}(-[a-z0-9]{3,8})*$/i.test(firstDay)) throw new RangeError('Incorrect locale information provided: firstDayOfWeek');
+    }
     const canonical = ops.locale_canonical(text, language ?? '', script ?? '', region ?? '',
       variants ?? '', calendar ?? '', collation ?? '', hourCycle ?? '', caseFirst ?? '',
       numeric === undefined ? '' : String(numeric), numberingSystem ?? '', firstDay ?? '');
@@ -127,18 +130,18 @@
   };
   const collations = (r) => {
     const explicit = field(r, 'co');
-    if (explicit === 'true') return [];
+    if (explicit === 'true') return [''];
     if (explicit !== undefined) return [explicit];
     return [...(COLLATIONS[r.parts[FIELD.language]] ?? []), 'emoji', 'eor'].sort();
   };
   const numberingSystems = (r) => {
     const explicit = field(r, 'nu');
-    if (explicit === 'true') return [];
+    if (explicit === 'true') return [''];
     return [explicit ?? NUMBERING[r.parts[FIELD.language]] ?? 'latn'];
   };
   const textInfo = (r) => {
-    const script = field(r, 'script') ?? parts(ops.locale_expand(r.parts[FIELD.base], 'max'))[FIELD.script];
-    const unknown = script === undefined || NO_DIRECTION.includes(script) || (script >= 'Qaaa' && script <= 'Qabx');
+    const script = field(r, 'script') || parts(ops.locale_expand(r.parts[FIELD.base], 'max'))[FIELD.script] || undefined;
+    const unknown = script === undefined || !ops.locale_script_known(script) || NO_DIRECTION.includes(script) || (script >= 'Qaaa' && script <= 'Qabx');
     const direction = unknown ? undefined : RTL_SCRIPTS.includes(script) ? 'rtl' : 'ltr';
     return { direction };
   };

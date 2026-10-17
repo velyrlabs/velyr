@@ -219,3 +219,105 @@ fn shape_and_errors() {
         ],
     );
 }
+
+#[test]
+fn long_language_subtags() {
+    expect_strings(&[
+        ("new Intl.Locale('abcdefgh').toString()", "abcdefgh"),
+        ("new Intl.Locale('ABCDEFGH-us').toString()", "abcdefgh-US"),
+        ("new Intl.Locale('posix').language", "posix"),
+        ("new Intl.Locale('abcdefgh-US').region", "US"),
+        (
+            "new Intl.Locale('abcdefgh').maximize().toString()",
+            "abcdefgh",
+        ),
+        (
+            "new Intl.Locale('en', { language: 'abcdefgh' }).toString()",
+            "abcdefgh",
+        ),
+        (
+            "new Intl.Locale('abcdefgh', { language: 'en' }).toString()",
+            "en",
+        ),
+        (
+            "String(new Intl.Locale('abcdefgh').maximize().script)",
+            "undefined",
+        ),
+        (
+            "String(new Intl.Locale('abcdefgh').getTextInfo().direction)",
+            "undefined",
+        ),
+        (
+            "new Intl.Locale('abcdefgh').getCollations().join()",
+            "emoji,eor",
+        ),
+        (
+            "new Intl.Locale('abcdefgh').getNumberingSystems().join()",
+            "latn",
+        ),
+    ]);
+}
+
+#[test]
+fn likely_subtags_of_und() {
+    expect_strings(&[
+        ("new Intl.Locale('und').maximize().toString()", "en-Latn-US"),
+        ("new Intl.Locale('und').minimize().toString()", "en"),
+        (
+            "String(new Intl.Locale('und').getTextInfo().direction)",
+            "ltr",
+        ),
+        (
+            "String(new Intl.Locale('und-Aaaa').getTextInfo().direction)",
+            "undefined",
+        ),
+        (
+            "String(new Intl.Locale('qfz').getTextInfo().direction)",
+            "undefined",
+        ),
+        (
+            "String(new Intl.Locale('und-True').getTextInfo().direction)",
+            "undefined",
+        ),
+        ("new Intl.Locale('zh-Hans').getTextInfo().direction", "ltr"),
+        ("new Intl.Locale('ja-Jpan').getTextInfo().direction", "ltr"),
+        (
+            "new Intl.Locale('und-150').maximize().toString()",
+            "en-Latn-150",
+        ),
+        ("new Intl.Locale('und-150').minimize().toString()", "en-150"),
+        (
+            "new Intl.Locale('en', { firstDayOfWeek: 'yung-fong' }).firstDayOfWeek",
+            "yung-fong",
+        ),
+        ("new Intl.Locale('ur-Aran').getTextInfo().direction", "rtl"),
+    ]);
+}
+
+#[test]
+fn canonicalization_edge_cases() {
+    expect_strings(&[
+        ("new Intl.Locale('en-u-kb-yes').toString()", "en-u-kb"),
+        (
+            "new Intl.Locale('und-Armn-SU', { language: 'ru' }).toString()",
+            "ru-Armn-AM",
+        ),
+        (
+            "new Intl.Locale('cel-gaulish', { language: 'fr', script: 'Cyrl', region: 'FR', numberingSystem: 'latn' }).toString()",
+            "fr-Cyrl-FR-u-nu-latn",
+        ),
+        ("new Intl.Locale('und-u-co').getCollations().join('|')", ""),
+        (
+            "new Intl.Locale('und-u-nu').getNumberingSystems().length + ''",
+            "1",
+        ),
+    ]);
+    expect_throws(
+        "RangeError",
+        &[
+            "new Intl.Locale('en', { firstDayOfWeek: 'mo' })",
+            "new Intl.Locale('en', { firstDayOfWeek: 'm' })",
+            "new Intl.Locale('en', { firstDayOfWeek: '' })",
+        ],
+    );
+}

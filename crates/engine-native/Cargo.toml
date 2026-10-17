@@ -22,6 +22,7 @@ icu_datetime = "2.1"
 icu_decimal = "2.1"
 icu_locale = "2.1"
 icu_plurals = "2.1"
+icu_properties = "2.1"
 icu_segmenter = "2.3"
 fixed_decimal = { version = "0.7", features = ["ryu"] }
 writeable = "0.6"

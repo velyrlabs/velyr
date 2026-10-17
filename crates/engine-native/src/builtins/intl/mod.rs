@@ -85,30 +85,43 @@ fn split_long_language(tag: &str) -> Option<(&str, &str)> {
     long.then_some((language, rest))
 }
 
-fn canonicalize(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
-    let tag = string_arg(args, 0);
-    let long = split_long_language(&tag);
+/// Parses `tag`, swapping a 5-8 letter language for the stand-in; the lowercased real
+/// language comes back so `restore_long_language` can put it back into the output.
+pub(crate) fn parse_tag(tag: &str) -> Option<(Locale, Option<String>)> {
+    let long = split_long_language(tag);
     let parsable = match long {
         Some((_, "")) => LONG_LANGUAGE_STAND_IN.to_string(),
         Some((_, rest)) => format!("{LONG_LANGUAGE_STAND_IN}-{rest}"),
         None => tag.to_string(),
     };
-    let Ok(mut locale) = Locale::try_from_str(&parsable) else {
+    let locale = Locale::try_from_str(&parsable).ok()?;
+    Some((
+        locale,
+        long.map(|(language, _)| language.to_ascii_lowercase()),
+    ))
+}
+
+/// Replaces the leading stand-in of `text` (from a locale or id) with `long`.
+pub(crate) fn restore_long_language(text: String, long: Option<&str>) -> String {
+    match long {
+        Some(language) => format!("{language}{}", &text[LONG_LANGUAGE_STAND_IN.len()..]),
+        None => text,
+    }
+}
+
+fn canonicalize(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
+    let tag = string_arg(args, 0);
+    let Some((mut locale, long)) = parse_tag(&tag) else {
         return Err(range_error(
             vm,
             &format!("Incorrect locale information provided: {tag}"),
         ));
     };
     LocaleCanonicalizer::new_extended().canonicalize(&mut locale);
-    let canonical = locale.to_string();
-    Ok(Value::str(&match long {
-        Some((language, _)) => format!(
-            "{}{}",
-            language.to_ascii_lowercase(),
-            &canonical[LONG_LANGUAGE_STAND_IN.len()..]
-        ),
-        None => canonical,
-    }))
+    Ok(Value::str(&restore_long_language(
+        locale.to_string(),
+        long.as_deref(),
+    )))
 }
 
 /// Whether `tag` (no extensions) is offered; see the `intl-all-locales` feature.
