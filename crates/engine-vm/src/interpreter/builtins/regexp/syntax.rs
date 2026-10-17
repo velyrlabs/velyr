@@ -129,6 +129,7 @@ impl Matcher {
 pub(crate) struct RegExpCache {
     matchers: HashMap<(Vec<u16>, Vec<u16>), Rc<Matcher>>,
     last_text: Option<(JsStr, Rc<[u16]>)>,
+    pub(super) legacy: super::legacy::LegacyStatics,
 }
 
 impl RegExpCache {

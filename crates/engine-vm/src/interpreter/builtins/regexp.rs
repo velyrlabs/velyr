@@ -1,13 +1,13 @@
 //! The `RegExp` constructor and prototype (ECMA-262 §22.2), matching with `regress`. The
 //! symbol methods behind the String methods live in `symbols`, parsing in `syntax`.
 
+mod legacy;
 mod symbols;
 mod syntax;
 
+use regress::Match;
 use std::ops::Range;
 use std::rc::Rc;
-
-use regress::Match;
 
 use super::array::species_getter;
 use super::slots::Slot;
@@ -25,6 +25,8 @@ pub(crate) struct RegExpData {
     flags: JsStr,
     parsed: Flags,
     matcher: Rc<Matcher>,
+    /// `[[LegacyFeaturesEnabled]]`.
+    legacy: bool,
 }
 
 /// Flag accessors of `RegExp.prototype`, in the order `flags` reads them.
@@ -44,6 +46,7 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     let constructor = vm.constructor("RegExp", 2, regexp_constructor, proto)?;
     vm.set_intrinsic(Intrinsic::RegExpConstructor, constructor);
     vm.method(constructor, "escape", 1, regexp_escape)?;
+    legacy::install(vm, constructor)?;
     let species = ObjectKey::Symbol(SYMBOL_SPECIES);
     vm.accessor(
         constructor,
@@ -96,7 +99,7 @@ impl Interpreter {
     pub(crate) fn regexp_create(&mut self, pattern: &Value, flags: &Value) -> JsResult<ObjectRef> {
         let constructor = object_value(self.intrinsic(Intrinsic::RegExpConstructor));
         let object = self.regexp_alloc(&constructor)?;
-        self.regexp_initialize(object, pattern, flags)
+        self.regexp_initialize(object, pattern, flags, true)
     }
 
     /// RegExpAlloc: the prototype from `new_target` and a non-configurable `lastIndex`.
@@ -115,6 +118,7 @@ impl Interpreter {
         object: ObjectRef,
         pattern: &Value,
         flags: &Value,
+        legacy: bool,
     ) -> JsResult<ObjectRef> {
         let source = self.string_or_empty(pattern)?;
         let flag_text = self.string_or_empty(flags)?;
@@ -136,6 +140,7 @@ impl Interpreter {
             flags: flag_text,
             parsed,
             matcher,
+            legacy,
         };
         self.set_slot(object, Slot::RegExp(Rc::new(data)));
         self.set_last_index(object, 0.0)?;
@@ -206,6 +211,13 @@ impl Interpreter {
         if tracks_index {
             self.set_last_index(object, found.end() as f64)?;
         }
+        legacy::record(
+            &mut self.state.regexps.legacy,
+            &found,
+            text,
+            &units,
+            data.legacy,
+        );
         self.match_array(&found, text, &units, flags.has_indices)
     }
 
@@ -346,12 +358,20 @@ fn regexp_constructor(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResu
     vm.keep(&source);
     vm.keep(&flags);
     let object = vm.regexp_alloc(&new_target)?;
-    Ok(object_value(vm.regexp_initialize(object, &source, &flags)?))
+    let legacy = same_value(
+        &new_target,
+        &object_value(vm.intrinsic(Intrinsic::RegExpConstructor)),
+    );
+    Ok(object_value(
+        vm.regexp_initialize(object, &source, &flags, legacy)?,
+    ))
 }
 
-/// Annex B `RegExp.prototype.compile(pattern, flags)`; the legacy-realm gate belongs to N20.
+/// Annex B `RegExp.prototype.compile`; non-legacy (subclass) receivers throw.
 fn regexp_compile(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
-    this_regexp(vm, this, "compile")?;
+    if !this_regexp(vm, this, "compile")?.legacy {
+        return vm.throw_type("RegExp.prototype.compile called on an incompatible receiver");
+    }
     let object = vm.as_object(this).expect("RegExp values are objects");
     let (pattern, flags) = (arg(args, 0), arg(args, 1));
     let (source, flags) = match vm.value_slot(&pattern) {
@@ -368,7 +388,9 @@ fn regexp_compile(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResul
     };
     vm.keep(&source);
     vm.keep(&flags);
-    Ok(object_value(vm.regexp_initialize(object, &source, &flags)?))
+    Ok(object_value(
+        vm.regexp_initialize(object, &source, &flags, true)?,
+    ))
 }
 
 fn regexp_escape(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {
