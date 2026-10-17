@@ -13,6 +13,13 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     vm.constructor("WeakMap", 0, weak_map_constructor, proto)?;
     vm.method(proto, "delete", 1, weak_map_delete)?;
     vm.method(proto, "get", 1, weak_map_get)?;
+    vm.method(proto, "getOrInsert", 2, weak_map_get_or_insert)?;
+    vm.method(
+        proto,
+        "getOrInsertComputed",
+        2,
+        weak_map_get_or_insert_computed,
+    )?;
     vm.method(proto, "has", 1, weak_map_has)?;
     vm.method(proto, "set", 2, weak_map_set)?;
     vm.define_to_string_tag(proto, "WeakMap")?;
@@ -138,6 +145,44 @@ fn weak_map_get(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<
     };
     let value = table.borrow().get(&key).cloned();
     Ok(value.unwrap_or(Value::Undefined))
+}
+
+fn weak_map_get_or_insert(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
+    let table = this_table(vm, this, true, "getOrInsert")?;
+    let key = require_weak_map_key(vm, &arg(args, 0))?;
+    if let Some(existing) = table.borrow().get(&key) {
+        return Ok(existing.clone());
+    }
+    let value = arg(args, 1);
+    table.borrow_mut().insert(key, value.clone());
+    Ok(value)
+}
+
+fn weak_map_get_or_insert_computed(
+    vm: &mut Interpreter,
+    this: &Value,
+    args: &[Value],
+) -> JsResult<Value> {
+    let table = this_table(vm, this, true, "getOrInsertComputed")?;
+    let key_value = arg(args, 0);
+    let key = require_weak_map_key(vm, &key_value)?;
+    let callback = arg(args, 1);
+    if !vm.is_callable(&callback) {
+        return vm.throw_type("WeakMap.prototype.getOrInsertComputed callback is not a function");
+    }
+    if let Some(existing) = table.borrow().get(&key) {
+        return Ok(existing.clone());
+    }
+    let value = vm.call_value(&callback, &Value::Undefined, &[key_value])?;
+    table.borrow_mut().insert(key, value.clone());
+    Ok(value)
+}
+
+fn require_weak_map_key(vm: &mut Interpreter, key: &Value) -> JsResult<WeakKey> {
+    match weak_key(vm, key) {
+        Some(key) => Ok(key),
+        None => vm.throw_type("Invalid value used as weak map key"),
+    }
 }
 
 fn has(vm: &mut Interpreter, this: &Value, args: &[Value], map: bool) -> JsResult<Value> {

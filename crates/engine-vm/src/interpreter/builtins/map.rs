@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::array::species_getter;
-use super::collections::OrderedTable;
+use super::collections::{OrderedTable, canonical_key};
 use super::slots::{IterationKind, Slot};
 use super::symbol::{SYMBOL_ITERATOR, SYMBOL_SPECIES};
 use super::{Interpreter, Intrinsic, JsResult, arg, object_value};
@@ -27,6 +27,8 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     vm.method(proto, "entries", 0, map_entries)?;
     vm.method(proto, "forEach", 1, map_for_each)?;
     vm.method(proto, "get", 1, map_get)?;
+    vm.method(proto, "getOrInsert", 2, map_get_or_insert)?;
+    vm.method(proto, "getOrInsertComputed", 2, map_get_or_insert_computed)?;
     vm.method(proto, "has", 1, map_has)?;
     vm.method(proto, "keys", 0, map_keys)?;
     vm.method(proto, "set", 2, map_set)?;
@@ -119,6 +121,36 @@ fn map_get(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value
     let table = this_map(vm, this, "get")?;
     let value = table.borrow().get(&arg(args, 0)).cloned();
     Ok(value.unwrap_or(Value::Undefined))
+}
+
+fn map_get_or_insert(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
+    let table = this_map(vm, this, "getOrInsert")?;
+    let key = arg(args, 0);
+    if let Some(existing) = table.borrow().get(&key) {
+        return Ok(existing.clone());
+    }
+    let value = arg(args, 1);
+    table.borrow_mut().set(key, value.clone());
+    Ok(value)
+}
+
+fn map_get_or_insert_computed(
+    vm: &mut Interpreter,
+    this: &Value,
+    args: &[Value],
+) -> JsResult<Value> {
+    let table = this_map(vm, this, "getOrInsertComputed")?;
+    let callback = arg(args, 1);
+    if !vm.is_callable(&callback) {
+        return vm.throw_type("Map.prototype.getOrInsertComputed callback is not a function");
+    }
+    let key = canonical_key(&arg(args, 0));
+    if let Some(existing) = table.borrow().get(&key) {
+        return Ok(existing.clone());
+    }
+    let value = vm.call_value(&callback, &Value::Undefined, &[key.clone()])?;
+    table.borrow_mut().set(key, value.clone());
+    Ok(value)
 }
 
 fn map_has(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
