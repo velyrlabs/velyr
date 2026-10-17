@@ -52,6 +52,7 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
         species_getter,
         None,
     )?;
+    vm.method(proto, "compile", 2, regexp_compile)?;
     vm.method(proto, "exec", 1, regexp_exec)?;
     vm.method(proto, "test", 1, regexp_test)?;
     vm.method(proto, "toString", 0, regexp_to_string)?;
@@ -345,6 +346,28 @@ fn regexp_constructor(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResu
     vm.keep(&source);
     vm.keep(&flags);
     let object = vm.regexp_alloc(&new_target)?;
+    Ok(object_value(vm.regexp_initialize(object, &source, &flags)?))
+}
+
+/// Annex B `RegExp.prototype.compile(pattern, flags)`; the legacy-realm gate belongs to N20.
+fn regexp_compile(vm: &mut Interpreter, this: &Value, args: &[Value]) -> JsResult<Value> {
+    this_regexp(vm, this, "compile")?;
+    let object = vm.as_object(this).expect("RegExp values are objects");
+    let (pattern, flags) = (arg(args, 0), arg(args, 1));
+    let (source, flags) = match vm.value_slot(&pattern) {
+        Some(Slot::RegExp(data)) => {
+            if !matches!(flags, Value::Undefined) {
+                return vm.throw_type("RegExp.prototype.compile: flags must be undefined");
+            }
+            (
+                Value::String(data.source.clone()),
+                Value::String(data.flags.clone()),
+            )
+        }
+        _ => (pattern, flags),
+    };
+    vm.keep(&source);
+    vm.keep(&flags);
     Ok(object_value(vm.regexp_initialize(object, &source, &flags)?))
 }
 
