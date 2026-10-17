@@ -146,6 +146,7 @@ jobs:
           else
             tag="$REF_NAME"
             flags="--generate-notes"
+            case "$REF_NAME" in *-*) flags="$flags --prerelease" ;; esac
           fi
           if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
             gh release upload "$tag" release/* --repo "$REPO" --clobber
