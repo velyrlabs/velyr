@@ -50,6 +50,7 @@ pub struct V8Engine {
     snapshot_ops: Arc<[HostFunctionDef]>,
     inspector: Option<inspector::PendingInspector>,
     shared_memory: bool,
+    disallow_codegen: bool,
 }
 
 impl V8Engine {
@@ -64,8 +65,7 @@ impl V8Engine {
         Self {
             snapshot: Some(blob),
             snapshot_ops: host_functions.into(),
-            inspector: None,
-            shared_memory: false,
+            ..Self::default()
         }
     }
 
@@ -73,6 +73,13 @@ impl V8Engine {
     /// isolates, which then share one writable memory. Without it they are a `DataCloneError`.
     pub fn with_shared_memory(mut self) -> Self {
         self.shared_memory = true;
+        self
+    }
+
+    /// Opt-in (default off, so `eval` and `new Function` work): code generation from strings
+    /// throws an `EvalError` in every context this engine creates.
+    pub fn disallow_code_generation_from_strings(mut self) -> Self {
+        self.disallow_codegen = true;
         self
     }
 
@@ -135,6 +142,9 @@ impl Engine for V8Engine {
         let context = {
             v8::scope!(let scope, &mut isolate);
             let context = v8::Context::new(scope, Default::default());
+            if self.disallow_codegen {
+                context.set_allow_generation_from_strings(false);
+            }
             let relinked = match self.snapshot {
                 Some(_) => {
                     let scope = &mut v8::ContextScope::new(scope, context);
