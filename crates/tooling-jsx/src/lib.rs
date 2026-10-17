@@ -15,7 +15,7 @@ use oxc_span::SourceType;
 use oxc_transformer::{JsxOptions, JsxRuntime, TransformOptions, Transformer};
 use serde_json::{Map, Value, json};
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
+use velyr_runtime_modules::{MediaType, ModuleId, Result, SourceTransform, Transformed};
 use velyr_tooling_tsconfig::{CompilerOptions, TsconfigLoader};
 use velyr_tooling_typescript::{transform_options, warn_once};
 
@@ -210,6 +210,11 @@ fn failure(specifier: &str, source: &str, message: &str, offset: Option<usize>) 
 impl SourceTransform for JsxTransform {
     fn handles(&self, media_type: MediaType) -> bool {
         matches!(media_type, MediaType::Tsx | MediaType::JavaScript)
+    }
+
+    /// Plain `.js` passes through `transform` unchanged; only `.tsx` and `.jsx` are rewritten.
+    fn applies(&self, id: &ModuleId, _text: &str) -> bool {
+        id.as_str().ends_with(".tsx") || id.as_str().ends_with(".jsx")
     }
 
     fn transform(

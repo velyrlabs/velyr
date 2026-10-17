@@ -128,3 +128,34 @@ fn media_types_follow_the_extension() {
         assert_eq!(MediaType::from_path(Path::new(file)), expected, "{file}");
     }
 }
+
+/// `applies` false for everything: the host must neither call `transform` nor re-hash.
+#[derive(Default)]
+struct Idle(Mutex<usize>);
+
+impl SourceTransform for Idle {
+    fn applies(&self, _: &ModuleId, _: &str) -> bool {
+        false
+    }
+    fn transform(&self, _: &str, source: &str, _: MediaType) -> Result<Transformed> {
+        *self.0.lock().unwrap() += 1;
+        Ok(Transformed {
+            code: source.to_owned(),
+            source_map: None,
+        })
+    }
+}
+
+#[tokio::test]
+async fn untransformed_esm_is_hashed_once() {
+    let (_d, root, ctx) = setup(&[("a.js", "export const a = 1;")]);
+    let idle = Arc::new(Idle::default());
+    let host = ModuleHost::new(Arc::new(FsLoader)).with_transform(idle.clone());
+    let source = host.load(&resolve(&root, "a.js"), &ctx).await.unwrap();
+    assert_eq!(*idle.0.lock().unwrap(), 0);
+    assert_eq!(source.text, "export const a = 1;");
+    assert_eq!(
+        source.hash,
+        velyr_runtime_modules::ModuleSource::new(source.text.clone()).hash
+    );
+}

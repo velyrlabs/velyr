@@ -166,7 +166,7 @@ impl ModuleHost {
     ) -> Result<ModuleSource> {
         let path = module.path.clone();
         let media_type = MediaType::from_path(&path);
-        if !transform.handles(media_type) {
+        if !transform.handles(media_type) || !transform.applies(&module.id, &source.text) {
             return Ok(source);
         }
         let done = tokio::task::spawn_blocking(move || {

@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use crate::Result;
+use crate::{ModuleId, Result};
 
 /// What a module's file extension says it contains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -45,6 +45,13 @@ pub trait SourceTransform: Send + Sync {
     /// Whether `media_type` needs this transform; the host skips the blocking-thread hop for the
     /// rest. Defaults to every media type.
     fn handles(&self, _media_type: MediaType) -> bool {
+        true
+    }
+
+    /// Whether this transform would change the module with this `text`. The host skips the
+    /// blocking-thread hop, the copy and the second hash when no transform applies. Only asked
+    /// for media types [`Self::handles`] accepts; defaults to `true`.
+    fn applies(&self, _id: &ModuleId, _text: &str) -> bool {
         true
     }
 

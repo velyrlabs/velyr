@@ -25,7 +25,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use velyr_engine_api::{HostFunctionDef, Isolate, JsException, Source};
-use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed, authorize_path};
+use velyr_runtime_modules::{
+    MediaType, ModuleId, Result, SourceTransform, Transformed, authorize_path, is_embedded,
+};
 use velyr_runtime_ops::CapabilityKind;
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -153,6 +155,14 @@ fn facade(path: &Path, names: &BTreeSet<String>) -> String {
 }
 
 impl SourceTransform for CommonJsTransform {
+    fn applies(&self, id: &ModuleId, text: &str) -> bool {
+        let Some(path) = id.to_path().filter(|path| !is_embedded(path)) else {
+            return false;
+        };
+        MediaType::from_path(&path) == MediaType::JavaScript
+            && detect(&path, || Some(text)) != Format::Esm
+    }
+
     fn transform(
         &self,
         specifier: &str,

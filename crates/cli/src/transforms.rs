@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
+use velyr_runtime_modules::{MediaType, ModuleId, Result, SourceTransform, Transformed};
 use velyr_runtime_permissions::CapabilitySet;
 
 /// The module host's transform: TypeScript is stripped first, then CommonJS and JSON files get
@@ -48,6 +48,15 @@ struct Chain(Vec<Arc<dyn SourceTransform>>);
 impl SourceTransform for Chain {
     fn handles(&self, media_type: MediaType) -> bool {
         self.0.iter().any(|step| step.handles(media_type))
+    }
+
+    fn applies(&self, id: &ModuleId, text: &str) -> bool {
+        let media_type = id
+            .to_path()
+            .map_or(MediaType::JavaScript, |p| MediaType::from_path(&p));
+        self.0
+            .iter()
+            .any(|step| step.handles(media_type) && step.applies(id, text))
     }
 
     fn transform(
