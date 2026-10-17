@@ -260,7 +260,9 @@ impl Interpreter {
         let base = self.reg(object).clone();
         let value = self.state.acc.clone();
         if is_private(key) {
-            return self.private_set(&base, key, value);
+            self.private_set(&base, key, value.clone())?;
+            self.state.acc = value;
+            return Ok(());
         }
         let is_strict = self.top().info.code.is_strict;
         let Some(o) = self.as_object(&base) else {

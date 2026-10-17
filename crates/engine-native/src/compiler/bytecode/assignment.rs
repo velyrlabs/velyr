@@ -55,6 +55,12 @@ impl FunctionCompiler<'_> {
                 let object = self.object_register(&member.object)?;
                 self.expression(&member.expression)?;
                 if convert_key {
+                    // RequireObjectCoercible(base) precedes ToPropertyKey(key).
+                    let raw = self.e.alloc();
+                    self.e.emit(I::Star(raw));
+                    self.e.emit(I::Ldar(object));
+                    self.e.emit(I::CheckObjectCoercible);
+                    self.e.emit(I::Ldar(raw));
                     self.e.emit(I::ToPropertyKey);
                 }
                 let key = self.e.alloc();

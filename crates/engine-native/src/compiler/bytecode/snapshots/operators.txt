@@ -44,87 +44,91 @@
   42: LdaGlobal(c5)
   43: Star(r1)
   44: LdaGlobal(c3)
-  45: ToPropertyKey
-  46: Star(r2)
-  47: Ldar(r2)
-  48: GetKeyed { object: r1 }
-  49: JumpIfNotNullish(@52)
-  50: LdaSmi(3)
-  51: SetKeyed { object: r1, key: r2 }
-  52: Star(r0)
-  53: LdaGlobalInsideTypeof(c7)
-  54: TypeOf
-  55: Star(r0)
-  56: LdaGlobal(c0)
-  57: Star(r1)
-  58: GetNamed { object: r1, name: c1, cache: 4 }
-  59: TypeOf
-  60: Star(r0)
-  61: LdaGlobal(c5)
-  62: Star(r1)
-  63: LdaConstant(c6)
-  64: DeleteProperty { object: r1 }
-  65: Star(r0)
-  66: LdaGlobal(c5)
-  67: Star(r1)
-  68: LdaGlobal(c3)
-  69: DeleteProperty { object: r1 }
-  70: Star(r0)
-  71: LdaGlobal(c3)
-  72: Star(r1)
-  73: LdaGlobal(c5)
-  74: TestIn(r1)
-  75: Star(r0)
-  76: LdaGlobal(c5)
-  77: Star(r1)
-  78: LdaGlobal(c8)
-  79: TestInstanceOf(r1)
-  80: Star(r0)
-  81: LdaSmi(1)
-  82: LdaSmi(2)
-  83: Star(r0)
-  84: LdaGlobal(c2)
-  85: JumpIfFalse(@88)
-  86: LdaSmi(1)
-  87: Jump(@89)
-  88: LdaSmi(2)
-  89: Star(r0)
-  90: LdaGlobal(c5)
-  91: Star(r1)
-  92: GetNamed { object: r1, name: c9, cache: 5 }
-  93: ToNumeric
-  94: Star(r2)
-  95: Inc
-  96: SetNamed { object: r1, name: c9, cache: 6 }
-  97: Ldar(r2)
-  98: Star(r0)
-  99: LdaGlobal(c4)
- 100: Dec
- 101: StaGlobal(c4)
+  45: Star(r2)
+  46: Ldar(r1)
+  47: CheckObjectCoercible
+  48: Ldar(r2)
+  49: ToPropertyKey
+  50: Star(r3)
+  51: Ldar(r3)
+  52: GetKeyed { object: r1 }
+  53: JumpIfNotNullish(@56)
+  54: LdaSmi(3)
+  55: SetKeyed { object: r1, key: r3 }
+  56: Star(r0)
+  57: LdaGlobalInsideTypeof(c7)
+  58: TypeOf
+  59: Star(r0)
+  60: LdaGlobal(c0)
+  61: Star(r1)
+  62: GetNamed { object: r1, name: c1, cache: 4 }
+  63: TypeOf
+  64: Star(r0)
+  65: LdaGlobal(c5)
+  66: Star(r1)
+  67: LdaConstant(c6)
+  68: DeleteProperty { object: r1 }
+  69: Star(r0)
+  70: LdaGlobal(c5)
+  71: Star(r1)
+  72: LdaGlobal(c3)
+  73: DeleteProperty { object: r1 }
+  74: Star(r0)
+  75: LdaGlobal(c3)
+  76: Star(r1)
+  77: LdaGlobal(c5)
+  78: TestIn(r1)
+  79: Star(r0)
+  80: LdaGlobal(c5)
+  81: Star(r1)
+  82: LdaGlobal(c8)
+  83: TestInstanceOf(r1)
+  84: Star(r0)
+  85: LdaSmi(1)
+  86: LdaSmi(2)
+  87: Star(r0)
+  88: LdaGlobal(c2)
+  89: JumpIfFalse(@92)
+  90: LdaSmi(1)
+  91: Jump(@93)
+  92: LdaSmi(2)
+  93: Star(r0)
+  94: LdaGlobal(c5)
+  95: Star(r1)
+  96: GetNamed { object: r1, name: c9, cache: 5 }
+  97: ToNumeric
+  98: Star(r2)
+  99: Inc
+ 100: SetNamed { object: r1, name: c9, cache: 6 }
+ 101: Ldar(r2)
  102: Star(r0)
  103: LdaGlobal(c4)
- 104: Negate
- 105: Star(r0)
- 106: LdaGlobal(c4)
- 107: ToNumber
- 108: Star(r0)
- 109: LdaGlobal(c4)
- 110: LogicalNot
- 111: Star(r0)
- 112: LdaGlobal(c4)
- 113: BitNot
- 114: Star(r0)
- 115: LdaSmi(0)
- 116: LdaUndefined
- 117: Star(r0)
- 118: LdaGlobal(c4)
- 119: Star(r1)
- 120: LdaSmi(1)
- 121: Sub(r1)
- 122: StaGlobal(c4)
- 123: Star(r0)
- 124: Ldar(r0)
- 125: Return
+ 104: Dec
+ 105: StaGlobal(c4)
+ 106: Star(r0)
+ 107: LdaGlobal(c4)
+ 108: Negate
+ 109: Star(r0)
+ 110: LdaGlobal(c4)
+ 111: ToNumber
+ 112: Star(r0)
+ 113: LdaGlobal(c4)
+ 114: LogicalNot
+ 115: Star(r0)
+ 116: LdaGlobal(c4)
+ 117: BitNot
+ 118: Star(r0)
+ 119: LdaSmi(0)
+ 120: LdaUndefined
+ 121: Star(r0)
+ 122: LdaGlobal(c4)
+ 123: Star(r1)
+ 124: LdaSmi(1)
+ 125: Sub(r1)
+ 126: StaGlobal(c4)
+ 127: Star(r0)
+ 128: Ldar(r0)
+ 129: Return
 c0: "a"
 c1: "b"
 c2: "c"
