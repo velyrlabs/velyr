@@ -110,6 +110,6 @@ fn placeholders_register() {
     assert_eq!(iso.pending_lazy_globals(), ["Intl", "Temporal"]);
     assert_eq!(
         eval(&mut iso, "typeof Intl.Locale + typeof Temporal.PlainYearMonth"),
-        "undefinedundefined"
+        "functionfunction"
     );
 }
