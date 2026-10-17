@@ -20,7 +20,9 @@ fn expect_true(cases: &[&str]) {
 }
 
 fn throws(kind: &str, body: &str) -> String {
-    format!("(() => {{ try {{ {body}; }} catch (e) {{ return e instanceof {kind}; }} return false; }})()")
+    format!(
+        "(() => {{ try {{ {body}; }} catch (e) {{ return e instanceof {kind}; }} return false; }})()"
+    )
 }
 
 #[test]
@@ -41,11 +43,23 @@ fn locale_list_rejects_invalid_elements() {
 #[test]
 fn locale_list_reads_length_with_to_length() {
     expect_true(&[
-        &throws("RangeError", "Intl.getCanonicalLocales({ get length() { throw new RangeError(); } })"),
-        &throws("EvalError", "Intl.getCanonicalLocales({ length: { valueOf() { throw new EvalError(); } } })"),
-        &throws("TypeError", "Intl.getCanonicalLocales({ length: Symbol() })"),
+        &throws(
+            "RangeError",
+            "Intl.getCanonicalLocales({ get length() { throw new RangeError(); } })",
+        ),
+        &throws(
+            "EvalError",
+            "Intl.getCanonicalLocales({ length: { valueOf() { throw new EvalError(); } } })",
+        ),
+        &throws(
+            "TypeError",
+            "Intl.getCanonicalLocales({ length: Symbol() })",
+        ),
         &throws("TypeError", "Intl.getCanonicalLocales({ length: 1n })"),
-        &throws("EvalError", "new Intl.DisplayNames({ get length() { throw new EvalError(); } })"),
+        &throws(
+            "EvalError",
+            "new Intl.DisplayNames({ get length() { throw new EvalError(); } })",
+        ),
         "Intl.getCanonicalLocales({ length: '1', 0: 'en' }).join() === 'en'",
         "Intl.getCanonicalLocales({ length: -3, 0: 'en' }).length === 0",
     ]);
@@ -94,9 +108,18 @@ fn get_option_uses_to_string() {
 fn supported_locales_of_options() {
     expect_true(&[
         &throws("TypeError", "Intl.ListFormat.supportedLocalesOf([], null)"),
-        &throws("RangeError", "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: 'x' })"),
-        &throws("EvalError", "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: { toString() { throw new EvalError(); } } })"),
-        &throws("TypeError", "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: Symbol() })"),
+        &throws(
+            "RangeError",
+            "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: 'x' })",
+        ),
+        &throws(
+            "EvalError",
+            "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: { toString() { throw new EvalError(); } } })",
+        ),
+        &throws(
+            "TypeError",
+            "Intl.ListFormat.supportedLocalesOf('en', { localeMatcher: Symbol() })",
+        ),
         "Intl.ListFormat.supportedLocalesOf(['en', 'pt'], { localeMatcher: 'lookup' }).join() === 'en,pt'",
         "Intl.ListFormat.supportedLocalesOf(['en', 'zxx']).join() === 'en'",
     ]);
