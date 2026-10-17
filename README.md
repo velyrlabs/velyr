@@ -5,6 +5,12 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://github.com/velyrlabs/velyr/actions/workflows/ci.yml"><img src="https://github.com/velyrlabs/velyr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/velyrlabs/velyr/releases"><img src="https://img.shields.io/github/v/release/velyrlabs/velyr?include_prereleases&label=release" alt="Latest release"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="License: MIT OR Apache-2.0"></a>
+</p>
+
 > **Status: alpha (`v0.1.0-alpha.1`).** APIs, CLI flags and behavior may change
 > without notice. Velyr is not ready for production use. Node.js compatibility
 > is partial and experimental, and performance work is ongoing (see
