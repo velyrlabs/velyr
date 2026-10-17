@@ -120,6 +120,12 @@ fn serialize_property(
         Value::Number(n) if n.is_finite() => crate::number_to_string(*n).encode_utf16().collect(),
         Value::Number(_) => "null".encode_utf16().collect(),
         Value::BigInt(_) => return vm.throw_type("Do not know how to serialize a BigInt"),
+        Value::Object(_) if matches!(vm.value_slot(&value), Some(Slot::RawJson)) => {
+            let object = vm.as_object(&value).expect("checked object");
+            let key = vm.realm.key_str("rawJSON");
+            let raw = vm.get_key(object, key)?;
+            vm.coerce_string(&raw)?.to_utf16()
+        }
         Value::Object(_) if !vm.is_callable(&value) => {
             let object = vm.as_object(&value).expect("checked object");
             match vm.is_array(&value)? {

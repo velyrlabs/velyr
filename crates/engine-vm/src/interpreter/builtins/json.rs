@@ -1,10 +1,12 @@
 //! The `JSON` namespace object (ECMA-262 §25.5): `JSON.parse` (with reviver) lives here,
 //! `JSON.stringify` in the `stringify` submodule.
 
+mod source;
 mod stringify;
 
 use super::{Interpreter, JsResult, arg, object_value};
 use crate::{JsStr, ObjectKey, ObjectRef, Value};
+use source::SourceNode;
 
 pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     let json = vm.new_object()?;
@@ -12,6 +14,8 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     vm.define_method(global, "JSON", object_value(json))?;
     vm.method(json, "parse", 2, json_parse)?;
     vm.method(json, "stringify", 3, stringify::json_stringify)?;
+    vm.method(json, "rawJSON", 1, source::raw_json)?;
+    vm.method(json, "isRawJSON", 1, source::is_raw_json)?;
     vm.define_to_string_tag(json, "JSON")
 }
 
@@ -31,9 +35,12 @@ pub(super) fn enumerable_keys(vm: &mut Interpreter, object: ObjectRef) -> JsResu
 
 fn json_parse(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {
     let text = vm.coerce_string(&arg(args, 0))?.to_utf16();
+    let reviver = arg(args, 1);
     let mut parser = Parser {
         units: &text,
         position: 0,
+        track: vm.is_callable(&reviver),
+        node: None,
     };
     parser.skip_whitespace();
     let value = parser.value(vm)?;
@@ -41,14 +48,14 @@ fn json_parse(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value
     if parser.position < text.len() {
         return parser.error(vm);
     }
-    let reviver = arg(args, 1);
     if !vm.is_callable(&reviver) {
         return Ok(value);
     }
+    let node = parser.node.take();
     let root = vm.new_object()?;
     let empty = vm.string_key(&JsStr::from_str(""));
     vm.create_data_or_throw(root, empty, value)?;
-    internalize(vm, root, empty, &reviver)
+    internalize(vm, root, empty, &reviver, node.as_ref())
 }
 
 /// InternalizeJSONProperty.
@@ -57,9 +64,11 @@ fn internalize(
     holder: ObjectRef,
     name: ObjectKey,
     reviver: &Value,
+    node: Option<&SourceNode>,
 ) -> JsResult<Value> {
     let value = vm.get_key(holder, name)?;
     vm.keep(&value);
+    let node = SourceNode::matching(node, &value);
     if let Some(object) = vm.as_object(&value) {
         let keys = match vm.is_array(&value)? {
             true => {
@@ -75,7 +84,8 @@ fn internalize(
             false => enumerable_keys(vm, object)?,
         };
         for key in keys {
-            let element = internalize(vm, object, key, reviver)?;
+            let child = node.and_then(|node| node.child(key));
+            let element = internalize(vm, object, key, reviver, child)?;
             if matches!(element, Value::Undefined) {
                 vm.delete_key(object, key)?;
             } else {
@@ -85,12 +95,22 @@ fn internalize(
         }
     }
     let name = vm.key_to_value(name);
-    vm.call_value(reviver, &object_value(holder), &[name, value])
+    let context = vm.new_object()?;
+    if let Some(source) = node.and_then(SourceNode::source) {
+        let key = vm.realm.key_str("source");
+        vm.create_data_or_throw(context, key, Value::String(source.clone()))?;
+    }
+    let context = object_value(context);
+    vm.call_value(reviver, &object_value(holder), &[name, value, context])
 }
 
 struct Parser<'a> {
     units: &'a [u16],
     position: usize,
+    /// Build `node` for each parsed value (only when a reviver will read it).
+    track: bool,
+    /// Source node of the value parsed last.
+    node: Option<SourceNode>,
 }
 
 impl Parser<'_> {
@@ -128,6 +148,19 @@ impl Parser<'_> {
     }
 
     fn value(&mut self, vm: &mut Interpreter) -> JsResult<Value> {
+        let start = self.position;
+        let value = self.parse_value(vm)?;
+        if self.track && !matches!(self.units[start], 0x7B | 0x5B) {
+            let source = JsStr::from_utf16(self.units[start..self.position].to_vec());
+            self.node = Some(SourceNode::Primitive {
+                value: value.clone(),
+                source,
+            });
+        }
+        Ok(value)
+    }
+
+    fn parse_value(&mut self, vm: &mut Interpreter) -> JsResult<Value> {
         match self.peek() {
             Some(b'{') => self.object(vm),
             Some(b'[') => self.array(vm),
@@ -244,9 +277,11 @@ impl Parser<'_> {
             return Ok(object_value(array));
         }
         let mut index = 0;
+        let mut items = Vec::new();
         loop {
             self.skip_whitespace();
             let element = self.value(vm)?;
+            items.extend(self.node.take());
             vm.create_data_property(array, ObjectKey::Index(index), element)?;
             index += 1;
             self.skip_whitespace();
@@ -254,11 +289,29 @@ impl Parser<'_> {
                 Some(b',') => self.position += 1,
                 Some(b']') => {
                     self.position += 1;
-                    return Ok(object_value(array));
+                    let value = object_value(array);
+                    if self.track {
+                        self.node = Some(SourceNode::Array {
+                            value: value.clone(),
+                            items,
+                        });
+                    }
+                    return Ok(value);
                 }
                 _ => return self.error(vm),
             }
         }
+    }
+
+    fn finish_object(&mut self, object: ObjectRef, members: Vec<(ObjectKey, SourceNode)>) -> Value {
+        let value = object_value(object);
+        if self.track {
+            self.node = Some(SourceNode::Object {
+                value: value.clone(),
+                members,
+            });
+        }
+        value
     }
 
     fn object(&mut self, vm: &mut Interpreter) -> JsResult<Value> {
@@ -267,8 +320,9 @@ impl Parser<'_> {
         self.skip_whitespace();
         if self.peek() == Some(b'}') {
             self.position += 1;
-            return Ok(object_value(object));
+            return Ok(self.finish_object(object, Vec::new()));
         }
+        let mut members = Vec::new();
         loop {
             self.skip_whitespace();
             if self.peek() != Some(b'"') {
@@ -283,13 +337,17 @@ impl Parser<'_> {
             self.skip_whitespace();
             let value = self.value(vm)?;
             let key = vm.string_key(&name);
+            if let Some(node) = self.node.take() {
+                members.retain(|(k, _)| *k != key);
+                members.push((key, node));
+            }
             vm.create_data_property(object, key, value)?;
             self.skip_whitespace();
             match self.peek() {
                 Some(b',') => self.position += 1,
                 Some(b'}') => {
                     self.position += 1;
-                    return Ok(object_value(object));
+                    return Ok(self.finish_object(object, members));
                 }
                 _ => return self.error(vm),
             }

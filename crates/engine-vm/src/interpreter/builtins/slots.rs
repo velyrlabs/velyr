@@ -72,6 +72,8 @@ pub(crate) struct LazyInit {
 pub(crate) enum Slot {
     /// Shell of a lazy namespace (see `Interpreter::define_lazy_namespace`).
     Lazy(Rc<LazyInit>),
+    /// `[[IsRawJSON]]` (see `JSON.rawJSON`).
+    RawJson,
     Boolean(bool),
     Number(f64),
     /// `[[DateValue]]`.
