@@ -347,7 +347,7 @@ async fn interval_reschedules_after_each_callback_until_cleared() {
 fn clearing_a_running_interval_prevents_its_reschedule() {
     let mut timers = crate::timers::Timers::default();
     let now = Instant::now();
-    let id = timers.add(TimerId(1), now, 10 * MS, true, n(1));
+    let id = timers.add(TimerId(1), now, 10 * MS, true, n(1), None);
     let entry = timers.begin_run(id).unwrap();
     timers.clear(id);
     assert_eq!(timers.end_run(now, entry), Some(n(1)));

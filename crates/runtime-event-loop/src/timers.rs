@@ -2,7 +2,7 @@
 
 use std::any::Any;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -40,6 +40,11 @@ pub(crate) struct Timers {
     running_level: u32,
     running: Option<TimerId>,
     running_cleared: bool,
+    /// Queue entries with `refd` set, so `has_ref` does not scan the queue.
+    refd_count: usize,
+    /// Ids taken out of the queue by `begin_batch` and not yet handed back by `end_batch`.
+    batch: HashSet<TimerId>,
+    batch_cleared: HashSet<TimerId>,
 }
 
 impl Timers {
@@ -50,12 +55,13 @@ impl Timers {
         delay: Duration,
         repeat: bool,
         callback: Value,
+        level: Option<u32>,
     ) -> TimerId {
         let entry = TimerEntry {
             id,
             callback,
             repeat: repeat.then_some(delay),
-            level: self.running_level + 1,
+            level: level.unwrap_or(self.running_level + 1),
             refd: true,
         };
         self.insert(now, delay, entry);
@@ -70,7 +76,15 @@ impl Timers {
         };
         let deadline = now + delay;
         self.deadlines.insert(entry.id, deadline);
+        self.refd_count += usize::from(entry.refd);
         self.queue.insert((deadline, entry.id), entry);
+    }
+
+    fn remove(&mut self, id: TimerId) -> Option<TimerEntry> {
+        let deadline = self.deadlines.remove(&id)?;
+        let entry = self.queue.remove(&(deadline, id))?;
+        self.refd_count -= usize::from(entry.refd);
+        Some(entry)
     }
 
     /// Removes the timer; returns its callback so the caller can release it.
@@ -78,21 +92,42 @@ impl Timers {
         if self.running == Some(id) {
             self.running_cleared = true;
         }
-        let deadline = self.deadlines.remove(&id)?;
-        self.queue.remove(&(deadline, id)).map(|e| e.callback)
+        if self.batch.contains(&id) {
+            self.batch_cleared.insert(id);
+        }
+        self.remove(id).map(|e| e.callback)
     }
 
     pub fn set_ref(&mut self, id: TimerId, refd: bool) {
         let Some(deadline) = self.deadlines.get(&id) else {
             return;
         };
-        if let Some(entry) = self.queue.get_mut(&(*deadline, id)) {
+        let Some(entry) = self.queue.get_mut(&(*deadline, id)) else {
+            return;
+        };
+        if entry.refd != refd {
             entry.refd = refd;
+            if refd {
+                self.refd_count += 1;
+            } else {
+                self.refd_count -= 1;
+            }
         }
     }
 
     pub fn has_ref(&self) -> bool {
-        self.queue.values().any(|e| e.refd)
+        debug_assert_eq!(
+            self.refd_count,
+            self.queue.values().filter(|e| e.refd).count()
+        );
+        self.refd_count > 0
+    }
+
+    /// `Some(true)` when `id` is queued and has no callback of its own (a host timer).
+    pub fn is_host_timer(&self, id: TimerId) -> Option<bool> {
+        let deadline = self.deadlines.get(&id)?;
+        let entry = self.queue.get(&(*deadline, id))?;
+        Some(matches!(entry.callback, Value::Undefined))
     }
 
     pub fn next_deadline(&self) -> Option<Instant> {
@@ -109,8 +144,7 @@ impl Timers {
 
     /// Takes a due timer out of the queue and marks it as running.
     pub fn begin_run(&mut self, id: TimerId) -> Option<TimerEntry> {
-        let deadline = self.deadlines.remove(&id)?;
-        let entry = self.queue.remove(&(deadline, id))?;
+        let entry = self.remove(id)?;
         self.running_level = entry.level;
         self.running = Some(id);
         self.running_cleared = false;
@@ -129,6 +163,29 @@ impl Timers {
         self.insert(now, delay, entry);
         None
     }
+
+    /// Takes the queued `ids` out of the queue for one grouped dispatch; ids gone are skipped.
+    pub fn begin_batch(&mut self, ids: &[TimerId]) -> Vec<TimerEntry> {
+        self.batch_cleared.clear();
+        self.batch.extend(ids);
+        ids.iter().filter_map(|id| self.remove(*id)).collect()
+    }
+
+    /// Ends a batch: intervals not cleared meanwhile are rescheduled one nesting level deeper.
+    pub fn end_batch(&mut self, now: Instant, entries: Vec<TimerEntry>) {
+        self.batch.clear();
+        for mut entry in entries {
+            let Some(delay) = entry
+                .repeat
+                .filter(|_| !self.batch_cleared.contains(&entry.id))
+            else {
+                continue;
+            };
+            entry.level += 1;
+            self.insert(now, delay, entry);
+        }
+        self.batch_cleared.clear();
+    }
 }
 
 pub(crate) enum TimerCommand {
@@ -137,6 +194,8 @@ pub(crate) enum TimerCommand {
         at: Instant,
         delay: Duration,
         repeat: bool,
+        /// Nesting level for a timer created inside a batched callback; `None` uses the running one.
+        level: Option<u32>,
     },
     Clear(TimerId),
     SetRef(TimerId, bool),
@@ -172,11 +231,22 @@ pub struct TimerHandle(pub(crate) Rc<RefCell<HostTimers>>);
 impl TimerHandle {
     /// Schedules without consulting the quota (host code and tests).
     pub fn set(&self, delay: Duration, repeat: bool) -> TimerId {
-        self.push_set(delay, repeat)
+        self.push_set(delay, repeat, None)
     }
 
     /// Like [`set`](Self::set), but reserves the quota first; the lease lives as long as the timer.
     pub fn try_set(&self, delay: Duration, repeat: bool) -> Result<TimerId, VelyrError> {
+        self.try_set_nested(delay, repeat, None)
+    }
+
+    /// [`try_set`](Self::try_set) for a caller running inside a batched dispatch: `level` is
+    /// the timer's own nesting level, which the loop cannot know from a single running timer.
+    pub fn try_set_nested(
+        &self,
+        delay: Duration,
+        repeat: bool,
+        level: Option<u32>,
+    ) -> Result<TimerId, VelyrError> {
         let lease = self
             .0
             .borrow()
@@ -184,7 +254,7 @@ impl TimerHandle {
             .as_ref()
             .map(|reserve| reserve())
             .transpose()?;
-        let id = self.push_set(delay, repeat);
+        let id = self.push_set(delay, repeat, level);
         if let Some(lease) = lease {
             self.0.borrow_mut().leases.insert(id, lease);
         }
@@ -196,7 +266,7 @@ impl TimerHandle {
         self.0.borrow_mut().quota = Some(quota);
     }
 
-    fn push_set(&self, delay: Duration, repeat: bool) -> TimerId {
+    fn push_set(&self, delay: Duration, repeat: bool, level: Option<u32>) -> TimerId {
         let mut shared = self.0.borrow_mut();
         let id = shared.alloc_id();
         shared.commands.push(TimerCommand::Set {
@@ -204,6 +274,7 @@ impl TimerHandle {
             at: Instant::now(),
             delay,
             repeat,
+            level,
         });
         id
     }
@@ -227,5 +298,57 @@ impl TimerHandle {
     /// The function the loop calls with `Number(id)` when a timer made through this handle fires.
     pub fn set_dispatcher(&self, dispatcher: Value) {
         self.0.borrow_mut().dispatcher = Some(dispatcher);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MS: Duration = Duration::from_millis(1);
+
+    fn add(timers: &mut Timers, id: u64, repeat: bool) {
+        timers.add(
+            TimerId(id),
+            Instant::now(),
+            MS,
+            repeat,
+            Value::Undefined,
+            None,
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn has_ref_tracks_set_ref_without_scanning() {
+        let mut timers = Timers::default();
+        for id in 1..=10_001 {
+            add(&mut timers, id, true);
+        }
+        for id in 1..=10_000 {
+            timers.set_ref(TimerId(id), false);
+        }
+        assert!(timers.has_ref());
+        timers.set_ref(TimerId(10_001), false);
+        assert!(!timers.has_ref());
+        timers.set_ref(TimerId(7), true);
+        assert!(timers.has_ref());
+        timers.clear(TimerId(7));
+        assert!(!timers.has_ref());
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn batch_clear_of_running_interval_does_not_reschedule() {
+        let mut timers = Timers::default();
+        add(&mut timers, 1, true);
+        add(&mut timers, 2, true);
+        let entries = timers.begin_batch(&[TimerId(1), TimerId(2)]);
+        assert_eq!(entries.len(), 2);
+        assert!(!timers.has_ref());
+        timers.clear(TimerId(1));
+        timers.end_batch(Instant::now(), entries);
+        assert!(timers.next_deadline().is_some());
+        assert_eq!(timers.due(Instant::now() + MS * 10), vec![TimerId(2)]);
+        let rescheduled = timers.begin_batch(&[TimerId(2)]);
+        assert_eq!(rescheduled[0].level, 2);
     }
 }

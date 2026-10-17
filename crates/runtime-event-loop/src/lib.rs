@@ -15,6 +15,7 @@ use tokio_util::sync::CancellationToken;
 use velyr_engine_api::{GcReason, Isolate, JsString, ResolverId, TerminationHandle, Value};
 use velyr_runtime_errors::VelyrError;
 
+mod due_timers;
 mod handles;
 mod immediate;
 mod timers;
@@ -219,7 +220,7 @@ impl<I: Isolate> EventLoop<I> {
     /// Schedules `callback` (called with `this = undefined`) after `delay`; repeats if `repeat`.
     pub fn set_timer(&mut self, delay: Duration, repeat: bool, callback: Value) -> TimerId {
         let id = self.host_timers.0.borrow_mut().alloc_id();
-        self.timers.add(id, Instant::now(), delay, repeat, callback)
+        self.timers.add(id, Instant::now(), delay, repeat, callback, None)
     }
 
     /// Handle for host functions to schedule timers from JS (see [`TimerHandle`]).
@@ -392,42 +393,6 @@ impl<I: Isolate> EventLoop<I> {
         }
     }
 
-    fn run_due_timers(&mut self) {
-        for id in self.timers.due(Instant::now()) {
-            let Some(entry) = self.timers.begin_run(id) else {
-                continue;
-            };
-            if entry.repeat.is_none() {
-                // Spent once it starts: its callback may schedule a replacement at the limit.
-                self.host_timers.0.borrow_mut().leases.remove(&id);
-            }
-            let (func, args) = self.call_target(&entry);
-            if let Err(err) = self.isolate.call(&func, &Value::Undefined, &args) {
-                tracing::warn!(message = %err.message, "timer callback threw");
-            }
-            // Before `end_run`: timers set by the callback inherit its nesting level, and a
-            // `clear` of the running interval must stop the reschedule.
-            self.apply_host_timer_commands();
-            if let Some(callback) = self.timers.end_run(Instant::now(), entry) {
-                self.host_timers.0.borrow_mut().leases.remove(&id);
-                self.release(&callback);
-            }
-            self.isolate.perform_microtask_checkpoint();
-            self.apply_host_timer_commands();
-        }
-    }
-
-    /// Host timers have no callback of their own (`Undefined`): they go through the dispatcher.
-    fn call_target(&self, entry: &timers::TimerEntry) -> (Value, Vec<Value>) {
-        let dispatcher = self.host_timers.0.borrow().dispatcher.clone();
-        match (&entry.callback, dispatcher) {
-            (Value::Undefined, Some(dispatcher)) => {
-                (dispatcher, vec![Value::Number(entry.id.0 as f64)])
-            }
-            _ => (entry.callback.clone(), Vec::new()),
-        }
-    }
-
     fn apply_host_timer_commands(&mut self) {
         let commands = std::mem::take(&mut self.host_timers.0.borrow_mut().commands);
         for command in commands {
@@ -437,8 +402,9 @@ impl<I: Isolate> EventLoop<I> {
                     at,
                     delay,
                     repeat,
+                    level,
                 } => {
-                    self.timers.add(id, at, delay, repeat, Value::Undefined);
+                    self.timers.add(id, at, delay, repeat, Value::Undefined, level);
                 }
                 TimerCommand::Clear(id) => self.clear_timer(id),
                 TimerCommand::SetRef(id, refd) => self.set_ref(id, refd),

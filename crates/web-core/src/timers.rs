@@ -15,7 +15,7 @@ pub fn timer_host_functions() -> Vec<HostFunctionDef> {
     let mut defs = vec![
         HostFunctionDef {
             name: "op_timer_set",
-            arity: 2,
+            arity: 3,
             callback: op_timer_set,
         },
         HostFunctionDef {
@@ -68,11 +68,16 @@ fn timer_id(value: &Value) -> Result<TimerId, HostError> {
     }
 }
 
-/// `op_timer_set(delayMs, repeat) -> id`
+/// `op_timer_set(delayMs, repeat, level) -> id`; `level` is 0 outside a batched dispatch.
 fn op_timer_set(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
-    let [Value::Number(delay), Value::Bool(repeat)] = args else {
+    let [
+        Value::Number(delay),
+        Value::Bool(repeat),
+        Value::Number(level),
+    ] = args
+    else {
         return Err(HostError::TypeError(
-            "op_timer_set expects (delay: number, repeat: boolean)".into(),
+            "op_timer_set expects (delay: number, repeat: boolean, level: number)".into(),
         ));
     };
     if !delay.is_finite() || *delay < 0.0 {
@@ -81,7 +86,8 @@ fn op_timer_set(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
         ));
     }
     let delay = Duration::from_millis(*delay as u64);
-    let id = handle(ctx)?.try_set(delay, *repeat)?;
+    let level = (*level > 0.0).then_some(*level as u32);
+    let id = handle(ctx)?.try_set_nested(delay, *repeat, level)?;
     Ok(Value::Number(id.0 as f64))
 }
 

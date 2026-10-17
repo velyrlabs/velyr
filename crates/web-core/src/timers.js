@@ -11,13 +11,19 @@
   delete global.op_timer_set;
   delete global.op_timer_clear;
   delete global.op_timer_ref;
-  // op_microtask_checkpoint stays global: the Node layer captures and deletes it itself.
+  const checkpointOp = global.op_microtask_checkpoint;
+  delete global.op_microtask_checkpoint;
   const microtaskOp = global.op_queue_microtask;
   delete global.op_queue_microtask;
 
   const apply = Reflect.apply;
   const ASYNC_CONTEXT = Symbol.for("velyr.asyncContext");
+  const TICK = Symbol.for("velyr.tick");
   const timers = new Map();
+  // Nesting level of the batched callback being run (0 outside a batch), and batch counters.
+  let nesting = 0;
+  let batches = 0;
+  let fired = 0;
 
   function define(name, value) {
     Object.defineProperty(global, name, {
@@ -49,7 +55,8 @@
     // shortcut: string handlers (eval) are rejected; HTML allows them, nobody needs them here.
     requireCallback(callback);
     // ToInt32 like the HTML `long` conversion; negative and NaN delays mean 0.
-    const id = setOp(Math.max(0, delay | 0), repeat);
+    // Inside a batch the loop cannot know the running level, so the new timer's level goes along.
+    const id = setOp(Math.max(0, delay | 0), repeat, nesting === 0 ? 0 : nesting + 1);
     // The async context (AsyncLocalStorage's frame) at schedule time; see dispatch.
     const context = global[ASYNC_CONTEXT];
     timers.set(id, { callback, args, repeat, frame: context && context.current() });
@@ -93,10 +100,13 @@
         const key = id | 0;
         if (timers.has(key)) refOp(key, !!refd);
       },
+      stats() {
+        return { batches, fired };
+      },
     }),
   });
 
-  return function dispatch(id) {
+  function run(id) {
     const timer = timers.get(id);
     if (timer === undefined) return;
     if (!timer.repeat) timers.delete(id);
@@ -104,5 +114,52 @@
     const context = global[ASYNC_CONTEXT];
     if (context) context.run(timer.frame, timer.callback, global, timer.args);
     else apply(timer.callback, global, timer.args);
+  }
+
+  // What the loop does after each callback; between batched callbacks it is done here. The tick
+  // queue is published by the Node layer when it loads (absent: there are no ticks).
+  function drain() {
+    const tick = global[TICK];
+    if (typeof tick === "function") tick();
+    checkpointOp();
+  }
+
+  // dispatch(id0, level0, id1, level1, ...): every due host timer in one call. A throw does not
+  // cancel the rest; the first is rethrown at the end and the others are reported.
+  function runBatch(list) {
+    batches++;
+    let failed = false;
+    let failure;
+    const fail = (e) => {
+      if (failed) report(e);
+      else {
+        failed = true;
+        failure = e;
+      }
+    };
+    for (let i = 0; i < list.length; i += 2) {
+      const id = list[i];
+      // Cleared by an earlier callback of the batch.
+      if (!timers.has(id)) continue;
+      nesting = list[i + 1];
+      fired++;
+      try {
+        run(id);
+      } catch (e) {
+        fail(e);
+      }
+      try {
+        drain();
+      } catch (e) {
+        fail(e);
+      }
+    }
+    nesting = 0;
+    if (failed) throw failure;
+  }
+
+  return function dispatch(id) {
+    if (arguments.length > 1) runBatch(arguments);
+    else run(id);
   };
 })(globalThis);

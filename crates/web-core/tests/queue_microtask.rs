@@ -19,6 +19,12 @@ fn record(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     Ok(Value::Undefined)
 }
 
+// The timers bootstrap hides `op_microtask_checkpoint`, so the probe brings its own.
+fn checkpoint(ctx: &mut dyn CallContext, _: &[Value]) -> Result<Value, HostError> {
+    ctx.run_microtask_checkpoint();
+    Ok(Value::Undefined)
+}
+
 fn run(script: &str) -> Result<Vec<String>, RunError> {
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     LOG.lock().unwrap().clear();
@@ -33,6 +39,11 @@ fn run(script: &str) -> Result<Vec<String>, RunError> {
         name: "record",
         arity: 1,
         callback: record,
+    });
+    host_functions.push(HostFunctionDef {
+        name: "checkpoint",
+        arity: 0,
+        callback: checkpoint,
     });
     let config = RuntimeConfig {
         platform_init: Some(V8Engine::init_platform),
@@ -70,7 +81,7 @@ fn sync_then_microtask_then_timer() {
 #[test]
 fn checkpoint_op_inside_a_reaction_does_not_reenter() {
     let log = run(r#"
-        Promise.resolve().then(() => { record("a"); op_microtask_checkpoint(); record("b"); });
+        Promise.resolve().then(() => { record("a"); checkpoint(); record("b"); });
         queueMicrotask(() => record("c"));
     "#);
     assert_eq!(log.unwrap(), ["a", "b", "c"]);
