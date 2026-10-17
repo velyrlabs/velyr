@@ -21,16 +21,26 @@
     daysInMonth: 7, daysInYear: 8, monthsInYear: 9,
   };
   const DAYS_IN_WEEK = 7;
+  const ISO = 'iso8601'; // the only calendar with week numbers
 
-  // Getters over the `fields` csv: 12 date fields, then 6 time fields.
-  T.installDateGetters = (proto, cls) => {
+  // Getters over the `fields` csv: 12 date fields, 6 time fields, then era and eraYear (`eraAt`
+  // is the era's index; types without one report `undefined`).
+  T.installDateGetters = (proto, cls, eraAt) => {
+    const eraField = (self, offset) => {
+      const value = fieldsOf(self, cls)[eraAt + offset] || undefined;
+      return eraAt === undefined ? undefined : value;
+    };
     const table = {
       calendarId() { fieldsOf(this, cls); return slotCalendar(slotOf(this).str); },
-      era() { fieldsOf(this, cls); return undefined; },
-      eraYear() { fieldsOf(this, cls); return undefined; },
+      era() { return eraField(this, 0); },
+      eraYear() { const year = eraField(this, 1); return year === undefined ? undefined : Number(year); },
     };
     for (const [name, index] of Object.entries(DATE_GETTERS)) {
       table[name] = function () { return Number(fieldsOf(this, cls)[index]); };
+    }
+    for (const name of ['weekOfYear', 'yearOfWeek']) {
+      const read = table[name];
+      table[name] = function () { const w = read.call(this); return slotCalendar(slotOf(this).str) === ISO ? w : undefined; };
     }
     table.daysInWeek = function () { fieldsOf(this, cls); return DAYS_IN_WEEK; };
     table.inLeapYear = function () { return fieldsOf(this, cls)[10] === '1'; };
@@ -82,9 +92,18 @@
   };
   // The constructors take calendar ids only; everywhere else an ISO string is accepted too.
   const calendarOf = (value, allowText = true) => calendarId(value, allowText);
-  // shortcut: bag fields are read as ISO fields, so a non-iso `calendar` is refused until N46.
-  const bagCalendar = (value) => {
-    if (calendarOf(value) !== 'iso8601') throw new RangeError('Property bags with a non-iso8601 calendar are not supported yet');
+  // The calendar of a property bag, read (and validated) before any other field.
+  const bagCalendar = (bag) => { const value = bag.calendar; return value === undefined ? ISO : calendarOf(value); };
+  // Calendars with eras also read `era` and `eraYear` (alphabetical order keeps them after `day`).
+  const ERA_FREE_CALENDARS = [ISO, 'chinese', 'dangi'];
+  const withEras = (names, calendar) => (ERA_FREE_CALENDARS.includes(calendar)
+    ? names : names.flatMap((name) => (name === 'day' ? [name, 'era', 'eraYear'] : [name])));
+  const calendarFieldArgs = (given) => ['year', 'month', 'monthCode', 'day', 'era', 'eraYear'].map((name) => given[name]);
+  const dateTimeFieldArgs = (given) => [...calendarFieldArgs(given), ...TIME_NAMES.map((name) => given[name])];
+  const requireCalendarFields = (given) => {
+    const hasYear = given.year !== undefined || (given.era !== undefined && given.eraYear !== undefined);
+    const hasMonth = given.month !== undefined || given.monthCode !== undefined;
+    if (!hasYear || !hasMonth || given.day === undefined) throw new TypeError('year, month and day are required');
   };
   const MINIMUM = { day: 1, month: 1 };
   const readFields = (bag, names) => {
@@ -92,8 +111,7 @@
     for (const name of names) {
       const value = bag[name];
       if (value === undefined) continue;
-      if (name === 'calendar') bagCalendar(value);
-      else out[name] = name === 'monthCode' ? textField(value, name) : numericField(value, name, MINIMUM[name] ?? (TIME_NAMES.includes(name) ? 0 : undefined));
+      out[name] = name === 'monthCode' || name === 'era' ? textField(value, name) : numericField(value, name, MINIMUM[name] ?? (TIME_NAMES.includes(name) ? 0 : undefined));
     }
     return out;
   };
@@ -235,7 +253,12 @@
         overflowOf(options);
         return wrapDate(str);
       }
-      const given = readFields(item, ['calendar', ...DATE_NAMES]);
+      const calendar = bagCalendar(item);
+      const given = readFields(item, withEras(DATE_NAMES, calendar));
+      if (calendar !== ISO) {
+        requireCalendarFields(given);
+        return wrapDate(op('PlainDate', 'fromFields', calendar, ...calendarFieldArgs(given), overflowOf(options)));
+      }
       dateParts(given);
       return wrapDate(createDate(given, overflowOf(options)));
     }
@@ -243,8 +266,13 @@
     with(bag, options) {
       const base = fieldsOf(this, 'PlainDate');
       withObject(bag);
-      const given = readFields(bag, DATE_NAMES);
-      needSome(given, DATE_NAMES, 'with()');
+      const calendar = slotCalendar(strOf(this, 'PlainDate'));
+      const names = withEras(DATE_NAMES, calendar);
+      const given = readFields(bag, names);
+      needSome(given, names, 'with()');
+      if (calendar !== ISO) {
+        return wrapDate(op('PlainDate', 'withFields', strOf(this, 'PlainDate'), ...calendarFieldArgs(given), overflowOf(options)));
+      }
       return wrapDate(createDate(given, overflowOf(options), base));
     }
 
@@ -278,8 +306,8 @@
       return withCalendarName(str, calendarNameOf(options));
     }
   }
-  T.installDateGetters(PlainDate.prototype, 'PlainDate');
-  installCommon(PlainDate, 'PlainDate', wrapDate);
+  T.installDateGetters(PlainDate.prototype, 'PlainDate', 12);
+  installCommon(PlainDate, 'PlainDate', wrapDate, true);
   differenceMethods(PlainDate, 'PlainDate');
   setLengths([
     [PlainDate.from, 1], [PlainDate.prototype.with, 1], [PlainDate.prototype.withCalendar, 1],
@@ -375,7 +403,12 @@
         overflowOf(options);
         return wrapDateTime(str);
       }
-      const given = readFields(item, ['calendar', ...DATE_TIME_READ_ORDER]);
+      const calendar = bagCalendar(item);
+      const given = readFields(item, withEras(DATE_TIME_READ_ORDER, calendar));
+      if (calendar !== ISO) {
+        requireCalendarFields(given);
+        return wrapDateTime(op('PlainDateTime', 'fromFields', calendar, ...dateTimeFieldArgs(given), overflowOf(options)));
+      }
       const date = dateParts(given);
       const overflow = overflowOf(options);
       return wrapDateTime(op('PlainDateTime', 'create', ...resolveMonth(given, date), ...timeParts(given), overflow));
@@ -384,9 +417,14 @@
     with(bag, options) {
       const base = fieldsOf(this, 'PlainDateTime');
       withObject(bag);
-      const given = readFields(bag, DATE_TIME_READ_ORDER);
-      needSome(given, [...DATE_NAMES, ...TIME_NAMES], 'with()');
+      const calendar = slotCalendar(strOf(this, 'PlainDateTime'));
+      const names = withEras(DATE_TIME_READ_ORDER, calendar);
+      const given = readFields(bag, names);
+      needSome(given, [...withEras(DATE_NAMES, calendar), ...TIME_NAMES], 'with()');
       const overflow = overflowOf(options);
+      if (calendar !== ISO) {
+        return wrapDateTime(op('PlainDateTime', 'withFields', strOf(this, 'PlainDateTime'), ...dateTimeFieldArgs(given), overflow));
+      }
       const date = resolveMonth(given, dateParts(given, base));
       return wrapDateTime(op('PlainDateTime', 'create', ...date, ...timeParts(given, base.slice(12)), overflow));
     }
@@ -437,9 +475,9 @@
       return withCalendarName(op('PlainDateTime', 'toString', str, ...timeStringArgs(options)), name);
     }
   }
-  T.installDateGetters(PlainDateTime.prototype, 'PlainDateTime');
+  T.installDateGetters(PlainDateTime.prototype, 'PlainDateTime', 18);
   T.installTimeGetters(PlainDateTime.prototype, 'PlainDateTime', 12);
-  installCommon(PlainDateTime, 'PlainDateTime', wrapDateTime);
+  installCommon(PlainDateTime, 'PlainDateTime', wrapDateTime, true);
   differenceMethods(PlainDateTime, 'PlainDateTime');
   setLengths([
     [PlainDateTime.from, 1], [PlainDateTime.prototype.with, 1], [PlainDateTime.prototype.withPlainTime, 0],

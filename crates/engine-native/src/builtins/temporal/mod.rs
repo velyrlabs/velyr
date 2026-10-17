@@ -131,8 +131,17 @@ fn ordering(order: Ordering) -> Res {
 fn calendar(a: Args, i: usize) -> TemporalResult<Calendar> {
     match arg(a, i) {
         "" => Ok(Calendar::ISO),
-        id => Calendar::try_from_utf8(id.as_bytes()),
+        id => parse_calendar(id),
     }
+}
+
+/// `islamic` only exists as an `Intl.DateTimeFormat` fallback, never as a Temporal calendar
+/// (`temporal_rs` aliases it to `islamic-civil`).
+fn parse_calendar(id: &str) -> TemporalResult<Calendar> {
+    if id.eq_ignore_ascii_case("islamic") {
+        return Err(range("the islamic calendar is not supported"));
+    }
+    Calendar::try_from_utf8(id.as_bytes())
 }
 
 fn ensure_iso(calendar: &Calendar) -> TemporalResult<()> {
@@ -184,7 +193,18 @@ use {date_fields, time_fields};
 
 /// Canonical id of a calendar (`"ISO8601"` -> `"iso8601"`) or a RangeError.
 fn calendar_id(a: Args) -> Res {
-    Calendar::try_from_utf8(arg(a, 0).as_bytes()).map(|c| c.identifier().to_owned())
+    Ok(parse_calendar(arg(a, 0))?.identifier().to_owned())
+}
+
+/// The calendar annotation of a time-only string (`iso8601` without one).
+fn time_string_calendar(text: &str) -> Res {
+    match text
+        .split_once("u-ca=")
+        .and_then(|(_, rest)| rest.split(']').next())
+    {
+        Some(id) => calendar_id(&[id.to_owned()]),
+        None => Ok("iso8601".to_owned()),
+    }
 }
 
 /// Like `calendar_id`, but also accepts any ISO string and returns its calendar annotation
@@ -199,7 +219,9 @@ fn calendar_of_text(a: Args) -> Res {
     plain_date_time::parse(text)
         .map(|v| id(v.calendar()))
         .or_else(|_| plain_date::parse(text).map(|v| id(v.calendar())))
-        .or_else(|_| temporal_rs::PlainTime::from_utf8(bytes).map(|_| "iso8601".to_owned()))
+        .or_else(|_| {
+            temporal_rs::PlainTime::from_utf8(bytes).and_then(|_| time_string_calendar(text))
+        })
         .or_else(|_| temporal_rs::PlainYearMonth::from_utf8(bytes).map(|v| id(v.calendar())))
         .or_else(|_| temporal_rs::PlainMonthDay::from_utf8(bytes).map(|v| id(v.calendar())))
 }
