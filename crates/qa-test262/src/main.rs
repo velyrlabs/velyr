@@ -59,6 +59,9 @@ struct Args {
     /// Rewrite the engine's expectation manifest from this run.
     #[arg(long)]
     update_expectations: bool,
+    /// With --update-expectations, overwrite stale reasons (except `post-parity:` ones).
+    #[arg(long, requires = "update_expectations")]
+    refresh_reasons: bool,
     #[arg(long, default_value = "compat/vendor/test262")]
     root: PathBuf,
     #[arg(long, default_value = "compat/test262/expectations")]
@@ -135,7 +138,12 @@ fn run(args: Args) -> Result<ExitCode, String> {
 
     if args.update_expectations {
         fs::create_dir_all(&args.expectations_dir).map_err(|e| e.to_string())?;
-        let merged = report::merge_run(&previous, &run);
+        let mode = if args.refresh_reasons {
+            report::MergeMode::RefreshReasons
+        } else {
+            report::MergeMode::KeepReasons
+        };
+        let merged = report::merge_run(&previous, &run, mode);
         fs::write(&manifest, report::render_expectations(&merged)).map_err(|e| e.to_string())?;
         eprintln!("wrote {} ({} entries)", manifest.display(), merged.len());
         return Ok(ExitCode::SUCCESS);

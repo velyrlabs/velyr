@@ -96,10 +96,22 @@ pub fn render_expectations(expectations: &Expectations) -> String {
         .collect()
 }
 
+/// Whether a failing test that already has an entry keeps its reason or gets the fresh one.
+/// Reasons a human prefixed with `post-parity:` are never overwritten.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MergeMode {
+    KeepReasons,
+    RefreshReasons,
+}
+
 /// Folds a run into `previous`: tests that failed get an entry (an existing reason is
 /// kept), tests that passed lose theirs, skipped tests are recorded with their skip reason,
 /// and tests not run stay untouched.
-pub fn merge_run(previous: &Expectations, run: &[(String, Outcome)]) -> Expectations {
+pub fn merge_run(
+    previous: &Expectations,
+    run: &[(String, Outcome)],
+    mode: MergeMode,
+) -> Expectations {
     let mut merged = previous.clone();
     for (path, outcome) in run {
         match outcome {
@@ -109,11 +121,21 @@ pub fn merge_run(previous: &Expectations, run: &[(String, Outcome)]) -> Expectat
             Outcome::Pass => {
                 merged.remove(path);
             }
-            _ => {
-                merged
-                    .entry(path.clone())
-                    .or_insert_with(|| reason(outcome));
-            }
+            _ => match mode {
+                MergeMode::KeepReasons => {
+                    merged
+                        .entry(path.clone())
+                        .or_insert_with(|| reason(outcome));
+                }
+                MergeMode::RefreshReasons => {
+                    let human = previous
+                        .get(path)
+                        .is_some_and(|old| old.starts_with("post-parity:"));
+                    if !human {
+                        merged.insert(path.clone(), reason(outcome));
+                    }
+                }
+            },
         }
     }
     merged
@@ -214,12 +236,28 @@ mod tests {
             ("new-timeout.js".to_owned(), Outcome::Timeout),
             ("skipped.js".to_owned(), Outcome::Skip("s".into())),
         ];
-        let merged = merge_run(&previous, &run);
+        let merged = merge_run(&previous, &run, MergeMode::KeepReasons);
         assert_eq!(merged["old-fail.js"], "manual reason");
         assert!(!merged.contains_key("now-pass.js"));
         assert_eq!(merged["not-run.js"], "elsewhere");
         assert_eq!(merged["skipped.js"], "skip: s");
         assert_eq!(merged["new-fail.js"], "line one");
         assert_eq!(merged["new-timeout.js"], "timeout");
+    }
+
+    #[test]
+    fn refresh_reasons_overwrites_stale_reason_but_keeps_post_parity() {
+        let previous =
+            parse_expectations("a.js # SyntaxError: old\nb.js # post-parity: tail calls\n");
+        let run = vec![
+            (
+                "a.js".to_owned(),
+                Outcome::Fail("SyntaxError: unsupported: with statement".into()),
+            ),
+            ("b.js".to_owned(), Outcome::Fail("RangeError: stack".into())),
+        ];
+        let merged = merge_run(&previous, &run, MergeMode::RefreshReasons);
+        assert_eq!(merged["a.js"], reason(&run[0].1));
+        assert_eq!(merged["b.js"], "post-parity: tail calls");
     }
 }

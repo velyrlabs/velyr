@@ -4,12 +4,15 @@
 #   scripts/update-expectations.sh native                      # whole suite (about 3 minutes)
 #   scripts/update-expectations.sh native test/built-ins/Array # only these paths
 #
+#   scripts/update-expectations.sh native --refresh-reasons test/language  # also overwrite stale
+#                                      reasons (entries marked "post-parity:" are kept)
+#
 # Entries outside the given paths are kept as they are, so a partial run is safe. A passing
 # test leaves the manifest, a new failure is recorded with its reason. Commit the result in
 # the same PR as the change that moved the numbers (it is how an unexpected pass is accepted).
 set -euo pipefail
 
-usage() { echo "usage: $0 <v8|native> [test262 path ...]" >&2; exit 2; }
+usage() { echo "usage: $0 <v8|native> [--refresh-reasons] [test262 path ...]" >&2; exit 2; }
 
 [ $# -ge 1 ] || usage
 ENGINE="$1"
