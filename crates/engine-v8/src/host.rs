@@ -354,6 +354,20 @@ impl CallContext for HostContext<'_, '_, '_> {
         crate::script(self.scope, self.shared, source, true).map_err(exception_to_host)
     }
 
+    fn enqueue_microtask(&mut self, func: &Value) -> Result<bool, HostError> {
+        let value = to_v8(self.scope, &self.shared.handles.borrow(), func)
+            .map_err(|err| HostError::TypeError(err.message))?;
+        let func = v8::Local::<v8::Function>::try_from(value)
+            .map_err(|_| HostError::TypeError("microtask must be a function".into()))?;
+        self.scope.enqueue_microtask(func);
+        self.shared.microtasks_dirty.set(true);
+        Ok(true)
+    }
+
+    fn run_microtask_checkpoint(&mut self) {
+        self.scope.perform_microtask_checkpoint();
+    }
+
     fn request_gc(&mut self) -> Result<(), HostError> {
         self.scope.low_memory_notification();
         Ok(())

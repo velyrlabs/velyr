@@ -259,6 +259,14 @@ pub trait CallContext {
     fn eval_script(&mut self, _source: &Source) -> Result<Value, HostError> {
         Err(unsupported_hook("script evaluation"))
     }
+    /// Queues `func` (a function) on the engine's own microtask queue; a throw inside it is the
+    /// callback's problem, not a promise rejection. Returns `false` when the engine has no such
+    /// queue (the default), so the caller can fall back.
+    fn enqueue_microtask(&mut self, _func: &Value) -> Result<bool, HostError> {
+        Ok(false)
+    }
+    /// Drains the engine's microtask queue. A no-op when one is already draining.
+    fn run_microtask_checkpoint(&mut self) {}
     /// Asks the engine for a garbage collection (same intent as [`Isolate::request_gc`]).
     fn request_gc(&mut self) -> Result<(), HostError> {
         Err(unsupported_hook("garbage collection requests"))

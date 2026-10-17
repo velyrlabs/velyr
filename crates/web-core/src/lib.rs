@@ -4,6 +4,7 @@
 mod blob;
 mod encoding;
 mod events;
+mod microtask;
 mod performance;
 mod structured_clone;
 mod timers;

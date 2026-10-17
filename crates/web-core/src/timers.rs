@@ -12,7 +12,7 @@ pub const TIMERS_JS: &str = include_str!("timers.js");
 struct TimerSlot(TimerHandle);
 
 pub fn timer_host_functions() -> Vec<HostFunctionDef> {
-    vec![
+    let mut defs = vec![
         HostFunctionDef {
             name: "op_timer_set",
             arity: 2,
@@ -28,7 +28,9 @@ pub fn timer_host_functions() -> Vec<HostFunctionDef> {
             arity: 2,
             callback: op_timer_ref,
         },
-    ]
+    ];
+    defs.extend(crate::microtask::microtask_host_functions());
+    defs
 }
 
 /// Wires `handle` into `isolate`, runs [`TIMERS_JS`] and hands its dispatcher to the loop.

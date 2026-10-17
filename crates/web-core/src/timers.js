@@ -11,6 +11,9 @@
   delete global.op_timer_set;
   delete global.op_timer_clear;
   delete global.op_timer_ref;
+  // op_microtask_checkpoint stays global: the Node layer captures and deletes it itself.
+  const microtaskOp = global.op_queue_microtask;
+  delete global.op_queue_microtask;
 
   const apply = Reflect.apply;
   const ASYNC_CONTEXT = Symbol.for("velyr.asyncContext");
@@ -29,6 +32,17 @@
     if (typeof callback !== "function") {
       throw new TypeError("The callback provided must be a function");
     }
+  }
+
+  // A throw in a microtask is an uncaught exception, not a rejection and not a skipped microtask.
+  function report(e) {
+    if (typeof global.reportError === "function") global.reportError(e);
+    else setTimeout(() => { throw e; }, 0);
+  }
+
+  // The op returns false on engines without a microtask queue (engine-native): use a promise job.
+  function queueRun(run) {
+    if (!microtaskOp(run)) Promise.resolve().then(run);
   }
 
   function schedule(repeat, callback, delay, args) {
@@ -62,8 +76,12 @@
   });
   define("queueMicrotask", function queueMicrotask(callback) {
     requireCallback(callback);
-    Promise.resolve().then(() => {
-      callback();
+    queueRun(() => {
+      try {
+        callback();
+      } catch (e) {
+        report(e);
+      }
     });
   });
 
