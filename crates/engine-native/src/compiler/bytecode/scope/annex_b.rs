@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 use oxc_ast::AstKind;
 use oxc_ast::ast::{BindingPattern, Function};
-use oxc_semantic::{AstNodes, ScopeId, SymbolFlags, SymbolId};
+use oxc_semantic::{AstNodes, NodeId, ScopeId, SymbolFlags, SymbolId};
 
 use super::{Location, ScopeAnalysis, bound_identifiers};
 
@@ -39,6 +39,9 @@ pub(super) struct AnnexB {
     functions: HashMap<SymbolId, AnnexBFunction>,
     /// Simple `catch (e)` parameters by the scope of the catch clause.
     catch_parameters: HashMap<ScopeId, SymbolId>,
+    /// `if` clause functions whose name is a parameter or a lexical binding of the var scope:
+    /// `var name` would not be created (B.3.3.1), so the declaration has no effect outside.
+    skipped_clause_functions: HashSet<SymbolId>,
 }
 
 impl AnnexB {
@@ -46,6 +49,7 @@ impl AnnexB {
         Self {
             functions: HashMap::new(),
             catch_parameters: HashMap::new(),
+            skipped_clause_functions: HashSet::new(),
         }
     }
 }
@@ -68,6 +72,7 @@ impl ScopeAnalysis<'_> {
             match node.kind() {
                 AstKind::Function(function) => {
                     candidates.extend(block_function(self, function));
+                    self.collect_skipped_clause_function(nodes, node.id(), function);
                 }
                 AstKind::CatchClause(clause) => {
                     if let (Some(param), Some(scope)) = (&clause.param, clause.scope_id.get())
@@ -90,6 +95,39 @@ impl ScopeAnalysis<'_> {
                 self.annex_b.functions.insert(symbol, info);
             }
         }
+    }
+
+    /// B.3.3.1: an `if` clause function (given no scope of its own by Oxc) that shares its name
+    /// with a parameter or a let/const/class of the var scope.
+    fn collect_skipped_clause_function(
+        &mut self,
+        nodes: &AstNodes,
+        node: NodeId,
+        function: &Function,
+    ) {
+        let (Some(id), true) = (&function.id, function.is_declaration()) else {
+            return;
+        };
+        if !matches!(nodes.parent_kind(node), AstKind::IfStatement(_))
+            || function.r#async
+            || function.generator
+        {
+            return;
+        }
+        let symbol = id.symbol_id();
+        let scope = self.scoping.symbol_scope_id(symbol);
+        let flags = self.scoping.scope_flags(scope);
+        if flags.is_var()
+            && !flags.is_strict_mode()
+            && (super::is_lexical(self.flags(symbol))
+                || self.is_parameter_or_arguments(nodes, scope, self.name(symbol)))
+        {
+            self.annex_b.skipped_clause_functions.insert(symbol);
+        }
+    }
+
+    pub fn is_skipped_clause_function(&self, symbol: SymbolId) -> bool {
+        self.annex_b.skipped_clause_functions.contains(&symbol)
     }
 
     fn annex_b_entry(

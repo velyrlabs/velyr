@@ -418,7 +418,7 @@ impl ModuleResolveHook for FsHook {
         Ok(Source {
             name: path.to_string_lossy().into_owned(),
             text: if path.extension().is_some_and(|ext| ext == "json") {
-                json_module_source(&text)?
+                json_module_source(&text)
             } else {
                 text
             },
@@ -426,12 +426,11 @@ impl ModuleResolveHook for FsHook {
     }
 }
 
-/// A JSON module's default export is `ParseJSON(text)`; `JSON.parse` keeps `__proto__` as an own key.
-fn json_module_source(text: &str) -> Result<String, HostError> {
-    serde_json::from_str::<serde_json::Value>(text)
-        .map_err(|err| HostError::Velyr(VelyrError::not_found(format!("SyntaxError: {err}"))))?;
+/// A JSON module's default export is `ParseJSON(text)`; `JSON.parse` keeps `__proto__` as an own key
+/// and throws the SyntaxError for invalid text when the module is evaluated.
+fn json_module_source(text: &str) -> String {
     let literal = serde_json::to_string(text).expect("a string serializes");
-    Ok(format!("export default JSON.parse({literal});"))
+    format!("export default JSON.parse({literal});")
 }
 
 fn normalize(path: &Path) -> PathBuf {

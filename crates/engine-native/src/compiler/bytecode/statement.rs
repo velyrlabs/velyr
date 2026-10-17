@@ -129,7 +129,14 @@ impl FunctionCompiler<'_> {
     /// B.3.3: a function declaration clause behaves as if wrapped in a block (Oxc gives it no
     /// scope of its own), so it is created when the clause runs.
     fn if_clause(&mut self, clause: &Statement) -> JsResult<()> {
-        if matches!(clause, Statement::FunctionDeclaration(_)) {
+        if let Statement::FunctionDeclaration(function) = clause {
+            let skipped = function
+                .id
+                .as_ref()
+                .is_some_and(|id| self.analysis.is_skipped_clause_function(id.symbol_id()));
+            if skipped {
+                return Ok(());
+            }
             self.hoist_functions(std::slice::from_ref(clause))?;
         }
         self.statement(clause)

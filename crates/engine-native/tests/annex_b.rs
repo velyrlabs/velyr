@@ -85,3 +85,27 @@ fn captured_block_function_and_global_before_block() {
         [before, h(), g()].join()";
     assert_eq!(run(source), "undefined,6,undefined,7,7");
 }
+
+#[test]
+fn if_clause_function_skips_parameter() {
+    let source = "var after; (function(f) { if (true) function f() {} after = f; }(123)); after";
+    assert_eq!(run(source), "123");
+}
+
+#[test]
+fn if_clause_function_skips_default_parameter() {
+    let source = "var after; (function(f = 123) { if (true) function f() {} after = f; }()); after";
+    assert_eq!(run(source), "123");
+}
+
+#[test]
+fn if_clause_function_skips_early_error() {
+    let source = "var after; (function() { let f = 123; if (true) function f() {} after = f; }()); after";
+    assert_eq!(run(source), "123");
+}
+
+#[test]
+fn block_function_skips_parameter() {
+    let source = "var after; (function(f) { { function f() {} } after = f; }(123)); after";
+    assert_eq!(run(source), "123");
+}
