@@ -111,7 +111,7 @@ fn round_options_are_read_once_in_spec_order() {
     expect_strings(&[(
         "(() => { const log = []; const proxy = new Proxy({ smallestUnit: 'day' }, { get(t, k) { log.push(String(k)); return t[k]; } }); \
          Temporal.PlainDateTime.from('2024-01-01T10:00').round(proxy); return log.join(','); })()",
-        "largestUnit,roundingIncrement,roundingMode,smallestUnit",
+        "roundingIncrement,roundingMode,smallestUnit",
     )]);
 }
 
