@@ -20,7 +20,6 @@ use velyr_io_fs::sync_ops::{
     Access, FsError, PathMode, authorize_path, close_fd, deny_nested_in_tree, file_for_fd,
     insert_file, verify_unchanged,
 };
-use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::CompletionValue;
 use velyr_runtime_ops::op_async;
 

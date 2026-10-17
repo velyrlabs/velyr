@@ -59,7 +59,7 @@ fn op_telemetry_start(_ctx: &mut dyn CallContext, args: &[Value]) -> Result<Valu
         };
         let id = velyr_runtime_telemetry::user_span(&name, parent.and_then(lookup).as_ref())
             .and_then(register);
-        return Ok(id.map_or(Value::Null, |id| Value::Number(id as f64)));
+        Ok(id.map_or(Value::Null, |id| Value::Number(id as f64)))
     }
     #[cfg(not(feature = "telemetry"))]
     {
