@@ -424,3 +424,51 @@ fn a_child_dies_when_the_isolate_ends() {
     }
     assert!(!alive(needle), "the child outlived its isolate");
 }
+
+#[test]
+fn a_child_answers_each_request_without_stdin_being_closed() {
+    // The esbuild service protocol: write a request, wait for the reply, repeat; stdin stays open.
+    check(
+        &["cat"],
+        r#"
+        const child = cp.spawn('cat', [], { stdio: ['pipe', 'pipe', 'inherit'] });
+        const replies = [];
+        let waiting = null;
+        child.stdout.on('data', (chunk) => {
+            replies.push(chunk.toString());
+            if (waiting) { const resolve = waiting; waiting = null; resolve(); }
+        });
+        for (const request of ['one\n', 'two\n', 'three\n']) {
+            const reply = new Promise((resolve) => { waiting = resolve; });
+            child.stdin.write(request);
+            await reply;
+        }
+        eq(replies.join(''), 'one\ntwo\nthree\n', 'replies');
+        child.stdin.end();
+        const [code] = await once(child, 'close');
+        eq(code, 0, 'exit code');
+    "#,
+    );
+}
+
+#[test]
+fn a_child_echoing_a_large_request_does_not_deadlock_the_pipes() {
+    // A request bigger than both pipe buffers: the child echoes while it is still being fed.
+    check(
+        &["cat"],
+        r#"
+        const child = cp.spawn('cat', [], { stdio: ['pipe', 'pipe', 'inherit'] });
+        const size = 1024 * 1024;
+        let received = 0;
+        const echoed = new Promise((resolve) => {
+            child.stdout.on('data', (chunk) => { received += chunk.length; if (received >= size) resolve(); });
+        });
+        child.stdin.write(new Uint8Array(size).fill(97));
+        await echoed;
+        eq(received, size, 'echoed bytes');
+        child.stdin.end();
+        const [code] = await once(child, 'close');
+        eq(code, 0, 'exit code');
+    "#,
+    );
+}

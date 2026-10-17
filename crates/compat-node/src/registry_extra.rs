@@ -1,6 +1,29 @@
-//! `node:tty`, `node:diagnostics_channel` and `node:v8`: export lists and factory sources.
+//! `node:tty`, `node:diagnostics_channel`, `node:v8`, `node:readline` and `node:vm`: export lists and factory sources.
 
 pub(crate) const TTY_EXPORTS: &[&str] = &["ReadStream", "WriteStream", "isatty"];
+
+pub(crate) const READLINE_EXPORTS: &[&str] = &[
+    "Interface",
+    "clearLine",
+    "clearScreenDown",
+    "createInterface",
+    "cursorTo",
+    "emitKeypressEvents",
+    "moveCursor",
+    "promises",
+];
+
+pub(crate) const READLINE_PROMISES_EXPORTS: &[&str] = &["Interface", "createInterface"];
+
+pub(crate) const VM_EXPORTS: &[&str] = &[
+    "Script",
+    "compileFunction",
+    "createContext",
+    "isContext",
+    "runInContext",
+    "runInNewContext",
+    "runInThisContext",
+];
 
 pub(crate) const DC_EXPORTS: &[&str] = &[
     "Channel",
@@ -114,4 +137,11 @@ pub(crate) const EXTRA_FACTORIES: &[(&str, &str)] = &[
     ),
     ("v8", include_str!("../js/v8.js")),
     ("console", include_str!("../js/console.js")),
+    ("internal/readline", include_str!("../js/readline_interface.js")),
+    ("readline", include_str!("../js/readline.js")),
+    (
+        "readline/promises",
+        include_str!("../js/readline_promises.js"),
+    ),
+    ("vm", include_str!("../js/vm.js")),
 ];

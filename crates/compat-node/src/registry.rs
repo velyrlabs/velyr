@@ -111,6 +111,12 @@ impl ModuleResolver for NodeBuiltinResolver {
         ctx: &ResolveContext,
     ) -> Result<ResolvedModule> {
         let Some(name) = builtin_name(specifier) else {
+            // Node compat is linked here: an unknown `node:x` is a missing builtin, not a missing link.
+            if specifier.starts_with("node:") {
+                return Err(VelyrError::unsupported(format!(
+                    "builtin {specifier} is not supported yet"
+                )));
+            }
             return self.inner.resolve(specifier, referrer, ctx);
         };
         let path = self.dir.join(facade_file(name));

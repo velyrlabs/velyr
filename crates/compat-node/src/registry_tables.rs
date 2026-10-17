@@ -416,6 +416,12 @@ pub const BUILTINS: &[Builtin] = &[
     Builtin::new("diagnostics_channel", crate::registry_extra::DC_EXPORTS),
     Builtin::new("v8", crate::registry_extra::V8_EXPORTS),
     Builtin::new("console", crate::registry_extra::CONSOLE_EXPORTS),
+    Builtin::new("readline", crate::registry_extra::READLINE_EXPORTS),
+    Builtin::new(
+        "readline/promises",
+        crate::registry_extra::READLINE_PROMISES_EXPORTS,
+    ),
+    Builtin::new("vm", crate::registry_extra::VM_EXPORTS),
 ];
 
 /// Factories, in the `(module, exports, require)` shape the bootstrap wraps them in.

@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use velyr_compat_commonjs::{commonjs_host_functions, install_commonjs};
-use velyr_compat_node::{BUILTINS, NodeBuiltinResolver, install_compat_node};
+use velyr_compat_node::{BUILTINS, NodeBuiltinResolver, compat_node_host_functions, install_compat_node};
 use velyr_engine_api::{Engine, Isolate, IsolateOptions, Source, Value};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RuntimeConfig, run_module_file};
@@ -19,6 +19,14 @@ import EventEmitter, { once } from 'events';
 import assert, { strictEqual } from 'node:assert/strict';
 import { isPromise } from 'node:util/types';
 import posix from 'node:path/posix';
+import readline, { createInterface } from 'node:readline';
+import { createInterface as createPromiseInterface } from 'node:readline/promises';
+import vm, { runInThisContext } from 'node:vm';
+
+strictEqual(readline.createInterface, createInterface);
+strictEqual(typeof createPromiseInterface, 'function');
+strictEqual(runInThisContext('6 * 7'), 42);
+strictEqual(vm.runInThisContext, runInThisContext);
 
 strictEqual(join('a', 'b'), 'a/b');
 strictEqual(path.join, join);
@@ -156,6 +164,9 @@ fn commonjs_require_finds_builtins_with_and_without_the_prefix() {
     for def in commonjs_host_functions() {
         iso.register_host_function(def).unwrap();
     }
+    for def in compat_node_host_functions() {
+        iso.register_host_function(def).unwrap();
+    }
     install_commonjs(&mut iso, Arc::new(CapabilitySet::default())).unwrap();
     install_compat_node(&mut iso).unwrap();
     let out = eval_string(
@@ -176,6 +187,9 @@ fn facade_export_lists_match_the_modules() {
     let mut iso = V8Engine::new()
         .create_isolate(IsolateOptions::default())
         .unwrap();
+    for def in compat_node_host_functions() {
+        iso.register_host_function(def).unwrap();
+    }
     install_compat_node(&mut iso).unwrap();
     for builtin in BUILTINS {
         let actual = eval_string(
@@ -189,4 +203,24 @@ fn facade_export_lists_match_the_modules() {
         listed.sort_unstable();
         assert_eq!(actual, listed.join(","), "export list of {}", builtin.name);
     }
+}
+
+#[test]
+fn unknown_node_specifiers_name_the_missing_builtin_instead_of_blaming_the_link() {
+    use velyr_runtime_errors::ErrorCode;
+    use velyr_runtime_modules::{ModuleId, ModuleResolver, ResolveContext};
+
+    let facades = tempfile::tempdir().unwrap();
+    let resolver = NodeBuiltinResolver::new(Arc::new(FsResolver), &canonical(&facades)).unwrap();
+    let referrer = ModuleId::from_path(&canonical(&facades).join("main.mjs")).unwrap();
+    let err = resolver
+        .resolve("node:no_such_builtin", &referrer, &ResolveContext::default())
+        .unwrap_err();
+    assert_eq!(err.code(), ErrorCode::Unsupported);
+    assert!(
+        err.message().contains("builtin node:no_such_builtin is not supported yet"),
+        "{}",
+        err.message()
+    );
+    assert!(!err.message().contains("not linked"), "{}", err.message());
 }
