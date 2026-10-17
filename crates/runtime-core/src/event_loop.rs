@@ -135,6 +135,11 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.set_entry_module(name);
     }
 
+    fn check_script(&mut self, source: &Source) -> Result<(), JsException> {
+        self.on_owner();
+        self.inner.check_script(source)
+    }
+
     fn create_promise(&mut self) -> (Value, ResolverId) {
         self.on_owner();
         self.inner.create_promise()

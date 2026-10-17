@@ -350,6 +350,15 @@ impl CallContext for HostContext<'_, '_, '_> {
         serialize::deserialize(tc, self.shared, serialized).ok_or_else(|| caught(tc, self.shared))
     }
 
+    fn eval_script(&mut self, source: &Source) -> Result<Value, HostError> {
+        crate::script(self.scope, self.shared, source, true).map_err(exception_to_host)
+    }
+
+    fn request_gc(&mut self) -> Result<(), HostError> {
+        self.scope.low_memory_notification();
+        Ok(())
+    }
+
     fn compile_module(&mut self, source: &Source) -> Result<Handle, HostError> {
         modules::compile(self.scope, self.shared, source, None).map_err(exception_to_host)
     }

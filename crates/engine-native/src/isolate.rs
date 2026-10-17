@@ -144,25 +144,39 @@ fn host_function(def: HostFunctionDef, slots: Rc<RefCell<Slots>>) -> NativeFn {
             let mut slots = slots.borrow_mut();
             (def.callback)(&mut HostContext(&mut slots, vm), &exported)
         });
-        let result = match result {
-            Ok(result) => result.map(|value| import_value(vm, &value)),
-            Err(error) => Ok(Err(error)),
-        };
-        vm.pop_handle_scope();
-        match result {
-            Ok(Ok(value)) => Ok(value),
-            Ok(Err(error)) => Err(vm.error(ErrorKind::Type, strip_kind(&error.message))),
-            Err(HostError::TypeError(message)) => Err(vm.error(ErrorKind::Type, &message)),
-            Err(HostError::Thrown(value)) => match import_value(vm, &value) {
-                Ok(value) => Err(Abrupt::Throw(value)),
-                Err(error) => Err(vm.error(ErrorKind::Type, strip_kind(&error.message))),
-            },
+        // Handles (e.g. a thrown object) are only live inside the scope: import before it pops.
+        let outcome = match result {
+            Ok(Ok(value)) => import_value(vm, &value)
+                .map_err(|error| vm.error(ErrorKind::Type, strip_kind(&error.message))),
+            Ok(Err(HostError::TypeError(message))) => Err(vm.error(ErrorKind::Type, &message)),
+            Ok(Err(HostError::Thrown(value))) => Err(match import_value(vm, &value) {
+                Ok(value) => Abrupt::Throw(value),
+                Err(error) => vm.error(ErrorKind::Type, strip_kind(&error.message)),
+            }),
             // Same shape as engine-v8: the message, with the code on `error.code`.
-            Err(HostError::Velyr(error)) => {
+            Ok(Err(HostError::Velyr(error))) => {
                 Err(vm.error_with_code(error.message(), error.code().as_str()))
             }
-        }
+            Err(error) => Err(vm.error(ErrorKind::Type, strip_kind(&error.message))),
+        };
+        vm.pop_handle_scope();
+        outcome
     })
+}
+
+/// A nested script's abrupt completion as the error a host function returns (inverse of the
+/// HostError -> Abrupt mapping in the host-call trampoline above).
+fn abrupt_to_host(vm: &mut Interpreter, abrupt: Abrupt) -> HostError {
+    match abrupt {
+        Abrupt::Throw(value) => match export_value(vm, &value) {
+            Ok(value) => HostError::Thrown(value),
+            Err(error) => HostError::TypeError(error.message),
+        },
+        // The termination flag stays raised (only `NativeIsolate::exception` clears it), so the
+        // outer run stops at its next poll; same shape as engine-v8 `exception_to_host`.
+        Abrupt::Terminated => HostError::Velyr(VelyrError::invalid_data("execution terminated")),
+        Abrupt::Heap(error) => HostError::Velyr(error),
+    }
 }
 
 fn strip_kind(message: &str) -> &str {
@@ -341,6 +355,11 @@ impl Isolate for NativeIsolate {
         self.vm.set_entry_module(name);
     }
 
+    fn check_script(&mut self, source: &Source) -> Result<(), JsException> {
+        self.vm.enter_heap();
+        compile_named_script(&source.name, &source.text).map(drop)
+    }
+
     fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
         self.vm.push_handle_scope();
         let result = f(self);
@@ -361,6 +380,24 @@ fn unsupported_host(what: &str) -> HostError {
 }
 
 impl CallContext for HostContext<'_> {
+    fn eval_script(&mut self, source: &Source) -> Result<Value, HostError> {
+        let vm = &mut *self.1;
+        let code = match compile_named_script(&source.name, &source.text) {
+            Ok(code) => code,
+            Err(error) => {
+                let abrupt = vm.error(ErrorKind::Syntax, strip_kind(&error.message));
+                return Err(abrupt_to_host(vm, abrupt));
+            }
+        };
+        let value = vm
+            .run_script(&code)
+            .map_err(|abrupt| abrupt_to_host(vm, abrupt))?;
+        export_value(vm, &value).map_err(|error| HostError::TypeError(error.message))
+    }
+    fn request_gc(&mut self) -> Result<(), HostError> {
+        self.1.collect_garbage();
+        Ok(())
+    }
     fn create_string(&mut self, value: JsString) -> Value {
         Value::String(value)
     }

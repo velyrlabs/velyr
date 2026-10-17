@@ -219,24 +219,41 @@ impl Drop for V8Isolate {
     }
 }
 
+/// Compiles `source` as a classic script and, when `run`, runs it; `undefined` if not run.
+pub(crate) fn script(
+    scope: &mut v8::PinScope<'_, '_>,
+    shared: &Shared,
+    source: &Source,
+    run: bool,
+) -> Result<Value, JsException> {
+    v8::tc_scope!(let tc, scope);
+    let (Some(name), Some(text)) = (
+        v8::String::new(tc, &source.name),
+        v8::String::new(tc, &source.text),
+    ) else {
+        return Err(internal_exception("source too long"));
+    };
+    let origin = script_origin(tc, name);
+    let Some(compiled) = v8::Script::compile(tc, text, Some(&origin)) else {
+        return Err(exception_from(tc, shared));
+    };
+    if !run {
+        return Ok(Value::Undefined);
+    }
+    shared.microtasks_dirty.set(true);
+    match compiled.run(tc) {
+        Some(value) => Ok(from_v8(tc, &mut shared.handles.borrow_mut(), value)),
+        None => Err(exception_from(tc, shared)),
+    }
+}
+
 impl Isolate for V8Isolate {
     fn eval_script(&mut self, source: &Source) -> Result<Value, JsException> {
-        self.enter(|scope, shared| {
-            v8::tc_scope!(let tc, scope);
-            let (Some(name), Some(text)) = (
-                v8::String::new(tc, &source.name),
-                v8::String::new(tc, &source.text),
-            ) else {
-                return Err(internal_exception("source too long"));
-            };
-            let origin = script_origin(tc, name);
-            shared.microtasks_dirty.set(true);
-            let result = v8::Script::compile(tc, text, Some(&origin)).and_then(|s| s.run(tc));
-            match result {
-                Some(value) => Ok(from_v8(tc, &mut shared.handles.borrow_mut(), value)),
-                None => Err(exception_from(tc, shared)),
-            }
-        })
+        self.enter(|scope, shared| script(scope, shared, source, true))
+    }
+
+    fn check_script(&mut self, source: &Source) -> Result<(), JsException> {
+        self.enter(|scope, shared| script(scope, shared, source, false).map(drop))
     }
 
     fn compile_module(&mut self, source: &Source) -> Result<Handle, JsException> {

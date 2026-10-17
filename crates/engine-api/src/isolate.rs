@@ -49,9 +49,24 @@ impl JsException {
     pub fn quota_class(&self) -> Option<&str> {
         self.message.strip_prefix(QUOTA_EXCEEDED_PREFIX)
     }
+
+    /// Exception for an operation the engine does not implement (e.g. `check_script`).
+    pub fn unsupported(what: &str) -> Self {
+        Self {
+            message: format!("{UNSUPPORTED_PREFIX}{what} is not supported by this engine"),
+            stack: None,
+            value: None,
+        }
+    }
+
+    /// True when this exception came from [`JsException::unsupported`].
+    pub fn is_unsupported(&self) -> bool {
+        self.message.starts_with(UNSUPPORTED_PREFIX)
+    }
 }
 
 const QUOTA_EXCEEDED_PREFIX: &str = "VELYR_QUOTA_EXCEEDED: ";
+const UNSUPPORTED_PREFIX: &str = "VELYR_UNSUPPORTED: ";
 
 /// Opaque id of the settle side of a promise created by `create_promise`.
 /// Resolving or rejecting twice is a no-op.
@@ -238,6 +253,15 @@ pub trait CallContext {
     /// Namespace object of an instantiated module.
     fn module_namespace(&mut self, _module: Handle) -> Result<Value, HostError> {
         Err(unsupported_modules())
+    }
+    /// Compiles and runs `source` as a classic script in the current realm (shares the global).
+    /// Errors surface as [`HostError::Thrown`].
+    fn eval_script(&mut self, _source: &Source) -> Result<Value, HostError> {
+        Err(unsupported_hook("script evaluation"))
+    }
+    /// Asks the engine for a garbage collection (same intent as [`Isolate::request_gc`]).
+    fn request_gc(&mut self) -> Result<(), HostError> {
+        Err(unsupported_hook("garbage collection requests"))
     }
     /// See [`Isolate::promise_state`].
     fn promise_state(&mut self, _promise: &Value) -> Option<PromiseState> {
@@ -461,6 +485,19 @@ pub trait Isolate {
     /// is `true` only there. Call before compiling it. Engines without the feature ignore the
     /// call and leave `import.meta.main` undefined.
     fn set_entry_module(&mut self, _name: &str) {}
+
+    /// Parses `source` as a classic script (early errors included) without running it. The
+    /// default is an "unsupported" error, never `Ok`: callers must be able to tell an engine
+    /// without a parse-only path from a script that parses (see [`JsException::is_unsupported`]).
+    fn check_script(&mut self, _source: &Source) -> Result<(), JsException> {
+        Err(JsException::unsupported("check_script"))
+    }
+}
+
+fn unsupported_hook(what: &str) -> HostError {
+    HostError::Velyr(VelyrError::unsupported(format!(
+        "{what} is not supported by this engine"
+    )))
 }
 
 fn unsupported_modules() -> HostError {

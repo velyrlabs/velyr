@@ -286,3 +286,44 @@ fn read_bytes_copies_buffers_and_view_windows_and_rejects_others() {
         "0,1,7f,80,ff|1,7f,80|7f,80|0,1,7f,80||null|null"
     );
 }
+
+fn eval_script_hook(cx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    let Value::String(text) = &args[0] else {
+        unreachable!()
+    };
+    cx.request_gc()?;
+    cx.eval_script(&Source {
+        name: "<evalScript>".into(),
+        text: text.to_string_lossy(),
+    })
+}
+
+#[test]
+fn eval_script_from_host_function_shares_global() {
+    let mut iso = isolate();
+    let def = HostFunctionDef {
+        name: "evalScript",
+        arity: 1,
+        callback: eval_script_hook,
+    };
+    iso.register_host_function(def).expect("register");
+    assert_eq!(
+        eval(&mut iso, "evalScript('var z = 41;'); z + 1"),
+        Value::Number(42.0)
+    );
+}
+
+#[test]
+fn check_script_reports_early_errors_without_running() {
+    let mut iso = isolate();
+    let source = |text: &str| Source {
+        name: "t".into(),
+        text: text.into(),
+    };
+    assert!(iso.check_script(&source("throw 1; let x; let x;")).is_err());
+    assert!(iso.check_script(&source("globalThis.ran = 1;")).is_ok());
+    assert_eq!(
+        eval(&mut iso, "typeof ran"),
+        Value::String(JsString::from("undefined"))
+    );
+}

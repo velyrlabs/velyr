@@ -78,3 +78,19 @@ fn loop_isolate_forwards_set_entry_module() {
     });
     assert_eq!(seen, Value::String(JsString::from("true")));
 }
+
+#[test]
+fn loop_isolate_forwards_check_script() {
+    let (valid, invalid) = with_loop_isolate(|isolate| {
+        let source = |text: &str| Source {
+            name: "check.js".into(),
+            text: text.into(),
+        };
+        let valid = isolate.check_script(&source("1 + 1;")).is_ok();
+        let invalid = isolate.check_script(&source("let x; let x;")).unwrap_err();
+        (valid, invalid.is_unsupported())
+    });
+    // An unforwarded call would hit the trait default: `Err(unsupported)` for valid input too.
+    assert!(valid);
+    assert!(!invalid);
+}
