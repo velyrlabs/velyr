@@ -1,0 +1,26 @@
+[package]
+name = "velyr"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Embed the Velyr JavaScript runtime in a Rust host: permissions, quotas, host ops."
+
+[dependencies]
+velyr-engine-api = { path = "../engine-api" }
+velyr-engine-v8 = { path = "../engine-v8" }
+velyr-runtime-core = { path = "../runtime-core" }
+velyr-runtime-errors = { path = "../runtime-errors" }
+velyr-runtime-event-loop = { path = "../runtime-event-loop" }
+velyr-runtime-modules = { path = "../runtime-modules" }
+velyr-runtime-ops = { path = "../runtime-ops" }
+velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-web-core = { path = "../web-core" }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
