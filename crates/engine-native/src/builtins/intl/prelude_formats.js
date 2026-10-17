@@ -4,7 +4,7 @@
 (() => {
   const global = globalThis;
   const shared = global.__intl_shared;
-  const { ops, define, slots, slot, boundGetter, constructor, instance, resolveLocaleKeys, typeOption,
+  const { ops, define, slots, slot, constructor, instance, resolveLocaleKeys, typeOption,
     toOptions, getOption, getNumber, decodeParts, typeError } = shared;
   const { defineProperty } = Object;
   const Intl = global.Intl;
@@ -13,7 +13,7 @@
   const TIME_FIELDS = ['dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits'];
   // The order `datetime.rs` reads the spec in.
   const SPEC_KEYS = ['dateStyle', 'timeStyle', 'weekday', 'era', 'year', 'month', 'day',
-    'hour', 'minute', 'second', 'fractionalSecondDigits', 'hourCycle', 'timeZoneName'];
+    'hour', 'minute', 'second', 'fractionalSecondDigits', 'hourCycle', 'timeZoneName', 'dayPeriod'];
   const TEXT = ['narrow', 'short', 'long'];
   const NUMERIC = ['2-digit', 'numeric'];
   const COMPONENTS = [
@@ -23,42 +23,66 @@
   ];
   const STYLES = ['full', 'long', 'medium', 'short'];
 
-  // ToDateTimeOptions, kept for the toLocale*String methods: `required` is
-  // 'date' | 'time' | 'any', `defaults` is 'date' | 'time' | 'all'.
-  const toDateTimeOptions = (options, required, defaults) => {
-    const result = Object.create(options === undefined ? null : Object(options));
-    let needDefaults = true;
-    if (required !== 'time' && DATE_FIELDS.some((f) => result[f] !== undefined)) needDefaults = false;
-    if (required !== 'date' && TIME_FIELDS.some((f) => result[f] !== undefined)) needDefaults = false;
-    const dateStyle = result.dateStyle;
-    const timeStyle = result.timeStyle;
-    if (dateStyle !== undefined || timeStyle !== undefined) needDefaults = false;
-    if (required === 'date' && timeStyle !== undefined) typeError('Invalid option : timeStyle');
-    if (required === 'time' && dateStyle !== undefined) typeError('Invalid option : dateStyle');
-    const fill = (fields) => {
-      for (const field of fields) defineProperty(result, field, { value: 'numeric', writable: true, enumerable: true, configurable: true });
-    };
-    if (needDefaults && (defaults === 'date' || defaults === 'all')) fill(['year', 'month', 'day']);
-    if (needDefaults && (defaults === 'time' || defaults === 'all')) fill(['hour', 'minute', 'second']);
-    return result;
+  // 12-hour clock of locales whose hour12 resolves to something else than h12.
+  const TWELVE_HOUR = new Map([['ja', 'h11']]);
+  const CALENDAR_ALIASES = new Map([['ethiopic-amete-alem', 'ethioaa'], ['islamicc', 'islamic-civil']]);
+  const specOf = (record) => SPEC_KEYS.map((key) => (record[key] === undefined ? '' : String(record[key]))).join(',');
+  // The hour cycle a locale uses by default, read off how it writes 0:00, 11:00 and 13:00.
+  const defaultCycles = new Map();
+  const defaultHourCycle = (base) => {
+    let cycle = defaultCycles.get(base);
+    if (cycle === undefined) {
+      const spec = specOf(Object.assign(Object.create(null), { hour: 'numeric' }));
+      const at = (hour) => decodeParts(ops.date_time_format(base, spec, hour * 3600000, 'UTC', true));
+      if (!at(13).some((part) => part.type === 'dayPeriod')) {
+        cycle = 'h23';
+      } else {
+        const text = (hour) => at(hour).find((part) => part.type === 'hour').value;
+        cycle = text(0).length < text(11).length ? 'h11' : 'h12';
+      }
+      defaultCycles.set(base, cycle);
+    }
+    return cycle;
+  };
+  const resolveHourCycle = (base, hour12, requested) => {
+    const fallback = defaultHourCycle(base);
+    if (hour12 === undefined) return requested ?? fallback;
+    if (!hour12) return 'h23';
+    return fallback === 'h11' || fallback === 'h12' ? fallback : TWELVE_HOUR.get(base.split('-')[0]) ?? 'h12';
   };
 
+  // ChainDateTimeFormat: `Intl.DateTimeFormat.call(obj)` on an instance hangs the real
+  // formatter on `obj` under a private symbol, which format/resolvedOptions unwrap.
+  const FALLBACK = Symbol('IntlLegacyConstructedSymbol');
   function DateTimeFormat(locales = undefined, options = undefined) {
-    const self = instance(new.target, this, DateTimeFormat);
     const record = createDateTimeFormat(locales, options, 'any', 'date');
+    if (new.target === undefined && DateTimeFormat.prototype.isPrototypeOf(this)) {
+      const fallback = Object.create(DateTimeFormat.prototype);
+      slots.set(fallback, record);
+      defineProperty(this, FALLBACK, { value: fallback });
+      return this;
+    }
+    const self = instance(new.target, this, DateTimeFormat);
     slots.set(self, record);
     return self;
   }
+  const unwrap = (self, method) => {
+    const own = typeof self === 'object' && self !== null && slots.get(self)?.kind === 'DateTimeFormat';
+    const target = !own && DateTimeFormat.prototype.isPrototypeOf(self) ? self[FALLBACK] : self;
+    return slot(target, 'DateTimeFormat', method);
+  };
+  const hasAny = (record, fields) => fields.some((field) => record[field] !== undefined);
   const createDateTimeFormat = (locales, options, required, defaults) => {
-    options = toDateTimeOptions(options === undefined ? undefined : toOptions(options), required, defaults);
+    if (options === null) typeError('Cannot convert undefined or null to object');
+    options = toOptions(options);
     getOption(options, 'localeMatcher', ['lookup', 'best fit']);
-    const calendar = typeOption(options, 'calendar');
+    const calendarOption = typeOption(options, 'calendar');
+    const calendar = CALENDAR_ALIASES.get(calendarOption) ?? calendarOption;
     const numberingSystem = typeOption(options, 'numberingSystem');
-    const hour12 = options.hour12;
-    let hourCycle = getOption(options, 'hourCycle', ['h11', 'h12', 'h23', 'h24']);
-    if (hour12 !== undefined) hourCycle = hour12 ? 'h12' : 'h23';
-    const { locale, data, values } = resolveLocaleKeys(locales, { ca: calendar, nu: numberingSystem, hc: hourCycle });
-    hourCycle ??= values.hc;
+    const hour12 = getOption(options, 'hour12', Boolean);
+    const hourCycleOption = getOption(options, 'hourCycle', ['h11', 'h12', 'h23', 'h24']);
+    const { locale, data, values } = resolveLocaleKeys(locales,
+      { ca: calendar, nu: numberingSystem, hc: hour12 === undefined ? hourCycleOption : (hour12 ? 'h12' : 'h23') });
     let timeZone = options.timeZone;
     if (timeZone === undefined) {
       timeZone = ops.default_zone();
@@ -67,11 +91,12 @@
       timeZone = ops.canonical_zone(name);
       if (timeZone === undefined) throw new RangeError(`Invalid time zone specified: ${name}`);
     }
-    const record = { kind: 'DateTimeFormat', locale, data, calendar: values.ca ?? 'gregory',
-      numberingSystem: values.nu ?? 'latn', timeZone, hourCycle };
+    const record = Object.create(null);
+    Object.assign(record, { kind: 'DateTimeFormat', locale, data, calendar: values.ca ?? 'gregory',
+      numberingSystem: values.nu ?? 'latn', timeZone });
     let explicit;
-    for (const [name, values] of COMPONENTS) {
-      const value = getOption(options, name, values);
+    for (const [name, allowed] of COMPONENTS) {
+      const value = getOption(options, name, allowed);
       if (value !== undefined) { record[name] = value; explicit = name; }
     }
     const fractional = getNumber(options, 'fractionalSecondDigits', 1, 3, undefined);
@@ -84,39 +109,111 @@
     const timeStyle = getOption(options, 'timeStyle', STYLES);
     if (dateStyle !== undefined || timeStyle !== undefined) {
       if (explicit !== undefined) typeError(`Can't set option ${explicit} when dateStyle or timeStyle is used`);
+      if (required === 'date' && timeStyle !== undefined) typeError('Invalid option : timeStyle');
+      if (required === 'time' && dateStyle !== undefined) typeError('Invalid option : dateStyle');
       record.dateStyle = dateStyle;
       record.timeStyle = timeStyle;
+    } else {
+      const needDefaults = !(required !== 'time' && hasAny(record, DATE_FIELDS))
+        && !(required !== 'date' && hasAny(record, TIME_FIELDS));
+      if (needDefaults && (defaults === 'date' || defaults === 'all')) Object.assign(record, { year: 'numeric', month: 'numeric', day: 'numeric' });
+      if (needDefaults && (defaults === 'time' || defaults === 'all')) Object.assign(record, { hour: 'numeric', minute: 'numeric', second: 'numeric' });
     }
-    const hasHour = record.hour !== undefined || timeStyle !== undefined;
-    if (!hasHour) record.hourCycle = undefined;
-    record.spec = SPEC_KEYS.map((key) => (record[key] === undefined ? '' : String(record[key]))).join(',');
+    if (record.hour !== undefined || timeStyle !== undefined) {
+      const base = data.split('-u-')[0];
+      record.hourCycle = resolveHourCycle(base, hour12, values.hc ?? hourCycleOption);
+    }
+    record.spec = specOf(record);
     return record;
   };
-  const formatDate = (record, date, parts) => {
-    let t = date === undefined ? Date.now() : Number(date);
-    t = Math.abs(t) > 8.64e15 ? NaN : Math.trunc(t) + 0;
+  const timeClip = (value) => {
+    const t = Math.abs(value) > 8.64e15 ? NaN : Math.trunc(value) + 0;
     if (t !== t) throw new RangeError('Invalid time value');
+    return t;
+  };
+  const formatDate = (record, date, parts) => {
+    const t = timeClip(date === undefined ? Date.now() : Number(date));
     return ops.date_time_format(record.data, record.spec, t, record.timeZone, parts);
+  };
+
+  // formatRange: both ends are formatted with the same options and joined.
+  // shortcut: no CLDR interval patterns. Only a shared date before the time and, for the
+  // month-day-year order, a shared year and month are collapsed; everything else repeats.
+  const TIME_PARTS = ['hour', 'minute', 'second', 'fractionalSecond', 'dayPeriod', 'timeZoneName'];
+  const fieldTypes = (parts) => parts.filter((part) => part.type !== 'literal').map((part) => part.type);
+  const textOf = (parts) => parts.map((part) => part.value).join('');
+  const rangeSeparator = (locale) => (locale.split('-')[0] === 'en' ? ' – ' : ' – ');
+  const withSource = (parts, source) => parts.map((part) => ({ type: part.type, value: part.value, source }));
+  const valueOf = (parts, type) => parts.find((part) => part.type === type)?.value;
+  // The pieces of a range: parts shared before and after, and what differs in between.
+  const collapseMonthDayYear = (start, end) => {
+    const order = fieldTypes(start).join();
+    if (order !== 'month,day,year' || fieldTypes(end).join() !== order || !/\D/.test(valueOf(start, 'month'))) return undefined;
+    if (valueOf(start, 'year') !== valueOf(end, 'year')) return undefined;
+    const dayAt = (parts) => parts.findIndex((part) => part.type === 'day');
+    const sameMonth = valueOf(start, 'month') === valueOf(end, 'month');
+    const from = sameMonth ? dayAt(start) : 0;
+    return { prefix: start.slice(0, from), start: start.slice(from, dayAt(start) + 1),
+      end: end.slice(from, dayAt(end) + 1), suffix: start.slice(dayAt(start) + 1) };
+  };
+  const timeStart = (parts) => parts.findIndex((part) => TIME_PARTS.includes(part.type));
+  const collapseRange = (start, end) => {
+    const [split, splitEnd] = [timeStart(start), timeStart(end)];
+    if (split > 0 && textOf(start.slice(0, split)) === textOf(end.slice(0, splitEnd))) {
+      return { prefix: start.slice(0, split), start: start.slice(split), end: end.slice(splitEnd), suffix: [] };
+    }
+    return (split < 0 && collapseMonthDayYear(start, end)) || { prefix: [], start, end, suffix: [] };
+  };
+  const rangeParts = (record, startDate, endDate) => {
+    if (startDate === undefined || endDate === undefined) typeError('startDate and endDate are required');
+    const [a, b] = [Number(startDate), Number(endDate)];
+    const [start, end] = [timeClip(a), timeClip(b)].map((t) => decodeParts(
+      ops.date_time_format(record.data, record.spec, t, record.timeZone, true)));
+    if (textOf(start) === textOf(end)) return withSource(start, 'shared');
+    const separator = [{ type: 'literal', value: rangeSeparator(record.locale), source: 'shared' }];
+    const range = collapseRange(start, end);
+    return [...withSource(range.prefix, 'shared'), ...withSource(range.start, 'startRange'), ...separator,
+      ...withSource(range.end, 'endRange'), ...withSource(range.suffix, 'shared')];
   };
   constructor(DateTimeFormat, 'DateTimeFormat', {
     formatToParts(date) {
       return decodeParts(formatDate(slot(this, 'DateTimeFormat', 'formatToParts'), date, true));
     },
+    formatRange(startDate, endDate) {
+      return textOf(rangeParts(slot(this, 'DateTimeFormat', 'formatRange'), startDate, endDate));
+    },
+    formatRangeToParts(startDate, endDate) {
+      return rangeParts(slot(this, 'DateTimeFormat', 'formatRangeToParts'), startDate, endDate);
+    },
     resolvedOptions() {
-      const r = slot(this, 'DateTimeFormat', 'resolvedOptions');
-      const result = { locale: r.locale, calendar: r.calendar, numberingSystem: r.numberingSystem, timeZone: r.timeZone };
+      const r = unwrap(this, 'resolvedOptions');
+      const result = {};
+      // defineProperty: a plain assignment would run setters planted on Object.prototype.
+      const put = (key, value) => defineProperty(result, key,
+        { value, writable: true, enumerable: true, configurable: true });
+      put('locale', r.locale);
+      put('calendar', r.calendar);
+      put('numberingSystem', r.numberingSystem);
+      put('timeZone', r.timeZone);
       if (r.hourCycle !== undefined) {
-        result.hourCycle = r.hourCycle;
-        result.hour12 = r.hourCycle === 'h11' || r.hourCycle === 'h12';
+        put('hourCycle', r.hourCycle);
+        put('hour12', r.hourCycle === 'h11' || r.hourCycle === 'h12');
       }
       for (const key of [...COMPONENTS.map(([name]) => name), 'fractionalSecondDigits', 'timeZoneName', 'dateStyle', 'timeStyle']) {
-        if (r[key] !== undefined) result[key] = r[key];
+        if (r[key] !== undefined) put(key, r[key]);
       }
       return result;
     },
   });
-  boundGetter(DateTimeFormat.prototype, 'format', 'DateTimeFormat',
-    (record) => (date = undefined) => formatDate(record, date, false));
+  const formatGetter = {
+    get format() {
+      const record = unwrap(this, 'format');
+      record.bound ??= (date) => formatDate(record, date, false);
+      return record.bound;
+    },
+  };
+  defineProperty(DateTimeFormat.prototype, 'format',
+    { get: Object.getOwnPropertyDescriptor(formatGetter, 'format').get, configurable: true });
   define(Intl, { DateTimeFormat });
 
   // Locale-sensitive methods of the built-ins. Default parameters keep their `length`.

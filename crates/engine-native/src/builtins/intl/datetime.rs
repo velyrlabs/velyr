@@ -3,6 +3,7 @@
 //! moved to the wall clock of the time zone with the tzdb of `temporal_rs`.
 
 use icu_calendar::Iso;
+use icu_calendar::types::RataDie;
 use icu_datetime::fieldsets::builder::{DateFields, FieldSetBuilder, ZoneStyle};
 use icu_datetime::fieldsets::enums::{CompositeFieldSet, ZoneFieldSet};
 use icu_datetime::input::{Date, DateTime, Time, TimeZone, UtcOffset, ZonedDateTime};
@@ -14,11 +15,13 @@ use velyr_engine_vm::Value;
 use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
 use writeable::{Part, Writeable};
 
+mod time_fields;
+
 use super::{OpResult, Parts, bool_arg, locale, number_arg, range_error, string_arg};
 use crate::date::{host_zone, parse_zone};
 
 /// Option names in the order the prelude joins them into the spec.
-const KEYS: [&str; 13] = [
+const KEYS: [&str; 14] = [
     "dateStyle",
     "timeStyle",
     "weekday",
@@ -32,6 +35,7 @@ const KEYS: [&str; 13] = [
     "fractionalSecondDigits",
     "hourCycle",
     "timeZoneName",
+    "dayPeriod",
 ];
 
 struct Spec(Vec<String>);
@@ -73,20 +77,26 @@ fn date_fields(spec: &Spec) -> Option<DateFields> {
     )
 }
 
+/// The precision that covers every requested time field; `hour` is always part of the
+/// pattern and the fields nobody asked for are dropped afterwards (`keep_requested`).
 fn time_precision(spec: &Spec) -> Option<TimePrecision> {
-    spec.get("hour")?;
+    let fraction = spec.get("fractionalSecondDigits");
+    let wants = |key| spec.get(key).is_some();
     Some(
-        match (
-            spec.get("minute"),
-            spec.get("second"),
-            spec.get("fractionalSecondDigits"),
-        ) {
-            (_, Some(_), Some("1")) => TimePrecision::Subsecond(SubsecondDigits::S1),
-            (_, Some(_), Some("2")) => TimePrecision::Subsecond(SubsecondDigits::S2),
-            (_, Some(_), Some(_)) => TimePrecision::Subsecond(SubsecondDigits::S3),
-            (_, Some(_), None) => TimePrecision::Second,
-            (Some(_), None, _) => TimePrecision::Minute,
-            (None, None, _) => TimePrecision::Hour,
+        if fraction.is_some() && (wants("second") || !wants("hour")) {
+            TimePrecision::Subsecond(match fraction {
+                Some("1") => SubsecondDigits::S1,
+                Some("2") => SubsecondDigits::S2,
+                _ => SubsecondDigits::S3,
+            })
+        } else if wants("second") {
+            TimePrecision::Second
+        } else if wants("minute") {
+            TimePrecision::Minute
+        } else if wants("hour") || wants("dayPeriod") {
+            TimePrecision::Hour
+        } else {
+            return None;
         },
     )
 }
@@ -136,6 +146,13 @@ fn field_set(spec: &Spec) -> Option<CompositeFieldSet> {
     } else {
         builder.date_fields = date_fields(spec);
         builder.time_precision = time_precision(spec);
+        // shortcut: no pattern mixes date fields with a time that has no hour.
+        if builder.date_fields.is_some()
+            && builder.time_precision.is_some()
+            && spec.get("hour").is_none()
+        {
+            return None;
+        }
         builder.length = Some(match (spec.get("month"), spec.get("weekday")) {
             (Some("long"), _) => Length::Long,
             (Some("short" | "narrow"), _) => Length::Medium,
@@ -173,13 +190,30 @@ struct Instant {
     offset: Option<UtcOffset>,
 }
 
+const MS_PER_DAY: i64 = 86_400_000;
+/// Rata die of 1970-01-01.
+const EPOCH_RATA_DIE: i64 = 719_163;
+
 fn instant(zone: &str, t: f64) -> Option<Instant> {
     let id = parse_zone(zone)?;
     let zdt = TemporalZoned::try_new_iso(t as i128 * 1_000_000, id).ok()?;
-    let date = Date::try_new_iso(zdt.year(), zdt.month(), zdt.day()).ok()?;
-    let nanos = u32::from(zdt.millisecond()) * 1_000_000;
-    let time = Time::try_new(zdt.hour(), zdt.minute(), zdt.second(), nanos).ok()?;
     let seconds = (zdt.offset_nanoseconds() / 1_000_000_000) as i32;
+    // `Date::try_new_iso` stops at year 9999; the rata die constructor covers the whole
+    // ECMAScript time range.
+    let local = t as i64 + i64::from(seconds) * 1000;
+    let date = Date::from_rata_die(
+        RataDie::new(local.div_euclid(MS_PER_DAY) + EPOCH_RATA_DIE),
+        Iso,
+    );
+    let of_day = local.rem_euclid(MS_PER_DAY) as u32;
+    let (seconds_of_day, millis) = (of_day / 1000, of_day % 1000);
+    let time = Time::try_new(
+        (seconds_of_day / 3600) as u8,
+        (seconds_of_day / 60 % 60) as u8,
+        (seconds_of_day % 60) as u8,
+        millis * 1_000_000,
+    )
+    .ok()?;
     // Offset zones (`+05:30`) have no IANA name to look up.
     let named = !zone.starts_with(['+', '-']);
     Some(Instant {
@@ -212,21 +246,26 @@ fn part_name(part: Part) -> &'static str {
 }
 
 /// The weekday name at its own length: the field sets share one length with the month, so
-/// `weekday: 'long', month: 'short'` would otherwise get an abbreviated weekday.
+/// `weekday: 'long', month: 'short'` would otherwise get an abbreviated weekday. Formatted
+/// with the day so that the format (not stand-alone) form is used (`Sa.` in German).
 fn weekday_text(
     prefs: DateTimeFormatterPreferences,
     style: &str,
     date: &Date<Iso>,
 ) -> Option<String> {
     let mut builder = FieldSetBuilder::new();
-    builder.date_fields = Some(DateFields::E);
+    builder.date_fields = Some(DateFields::DE);
     builder.length = Some(if style == "long" {
         Length::Long
     } else {
         Length::Medium
     });
     let formatter = DateTimeFormatter::try_new(prefs, builder.build_date().ok()?).ok()?;
-    Some(formatter.format(date).write_to_string().into_owned())
+    let mut out = Parts::new(part_name);
+    let _ = formatter.format(date).write_to_parts(&mut out);
+    out.parts
+        .into_iter()
+        .find_map(|(kind, text)| (kind == "weekday").then_some(text))
 }
 
 /// Pads or truncates the numeric fields requested as `2-digit`; ICU4X patterns only know
@@ -242,13 +281,31 @@ fn apply_two_digit(spec: &Spec, parts: &mut Vec<(&'static str, String)>) {
     }
     *parts = merged;
     for (kind, text) in parts {
-        if spec.get(kind) != Some("2-digit") || !text.bytes().all(|b| b.is_ascii_digit()) {
+        if spec.get(kind) != Some("2-digit") {
             continue;
         }
-        if *kind == "year" {
+        if *kind == "year" && text.bytes().all(|b| b.is_ascii_digit()) {
             text.drain(..text.len().saturating_sub(2));
-        } else if text.len() < 2 {
-            text.insert(0, '0');
+        } else if *kind != "year" && text.chars().count() == 1 {
+            let zero = text.chars().next().and_then(time_fields::zero_of);
+            text.insert(0, zero.unwrap_or('0'));
+        }
+    }
+}
+
+/// ICU4X prints the full year of a short pattern when the year is far from now; CLDR
+/// (and V8) keep the pattern's two digits. `reference` is the same instant moved into the
+/// window, which shows what the pattern is.
+fn short_style_year(reference: &[(&'static str, String)], parts: &mut Vec<(&'static str, String)>) {
+    let two_digit = reference
+        .iter()
+        .any(|(kind, text)| *kind == "year" && text.len() == 2);
+    if !two_digit {
+        return;
+    }
+    for (_, text) in parts.iter_mut().filter(|(kind, _)| *kind == "year") {
+        if text.len() > 2 && text.bytes().all(|b| b.is_ascii_digit()) {
+            text.drain(..text.len() - 2);
         }
     }
 }
@@ -257,19 +314,43 @@ fn failure(vm: &mut Interpreter, what: &str) -> Abrupt {
     range_error(vm, &format!("Cannot format the date: {what}"))
 }
 
-/// `(locale, spec, epoch ms, time zone, parts)`: the formatted date, or encoded parts.
-pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
-    let spec = Spec(string_arg(args, 1).split(',').map(str::to_owned).collect());
-    let Some(fields) = field_set(&spec) else {
-        return Err(failure(vm, "unsupported option combination"));
+type PartList = Vec<(&'static str, String)>;
+
+const DATE_KEYS: [&str; 5] = ["weekday", "era", "year", "month", "day"];
+const TIME_KEYS: [&str; 6] = [
+    "hour",
+    "minute",
+    "second",
+    "fractionalSecondDigits",
+    "dayPeriod",
+    "timeZoneName",
+];
+
+impl Spec {
+    fn without(&self, keys: &[&str]) -> Spec {
+        let blank = |(index, value): (usize, &String)| {
+            let hidden = keys.contains(&KEYS[index]);
+            if hidden { String::new() } else { value.clone() }
+        };
+        Spec(self.0.iter().enumerate().map(blank).collect())
+    }
+
+    fn has_any(&self, keys: &[&str]) -> bool {
+        keys.iter().any(|key| self.get(key).is_some())
+    }
+}
+
+fn render(spec: &Spec, tag: &str, at: &Instant) -> Result<PartList, &'static str> {
+    let fields = field_set(spec).ok_or("unsupported option combination")?;
+    let day_period_only = spec.get("dayPeriod").is_some() && spec.get("hour").is_none();
+    let hour_cycle = if day_period_only {
+        Some("h12")
+    } else {
+        spec.get("hourCycle")
     };
-    let prefs = preferences(&string_arg(args, 0), spec.get("hourCycle"));
-    let Ok(formatter) = DateTimeFormatter::try_new(prefs, fields) else {
-        return Err(failure(vm, "no data for this locale"));
-    };
-    let Some(at) = instant(&string_arg(args, 3), number_arg(args, 2)) else {
-        return Err(failure(vm, "time value out of range"));
-    };
+    let prefs = preferences(tag, hour_cycle);
+    let formatter =
+        DateTimeFormatter::try_new(prefs, fields).map_err(|_| "no data for this locale")?;
     let zone = at.zone.with_offset(at.offset).at_date_time(at.wall);
     let input = ZonedDateTime {
         date: at.wall.date,
@@ -278,7 +359,27 @@ pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResul
     };
     let mut out = Parts::new(part_name);
     let _ = formatter.format(&input).write_to_parts(&mut out);
-    apply_two_digit(&spec, &mut out.parts);
+    apply_two_digit(spec, &mut out.parts);
+    if spec.get("dateStyle") == Some("short") {
+        let reference = ZonedDateTime {
+            date: Date::try_new_iso(2025, 6, 15).unwrap_or(input.date),
+            ..input
+        };
+        let mut probe = Parts::new(part_name);
+        let _ = formatter.format(&reference).write_to_parts(&mut probe);
+        short_style_year(&probe.parts, &mut out.parts);
+    }
+    time_fields::split_fraction(&mut out.parts, tag.contains("-u-nu-arab"));
+    if time_fields::is_hourless(spec) {
+        time_fields::keep_requested(spec, &mut out.parts);
+        time_fields::unpad_single(spec, &mut out.parts);
+    }
+    if spec.get("dayPeriod").is_some() && tag.starts_with("en") {
+        let time = at.wall.time;
+        let narrow = spec.get("dayPeriod") == Some("narrow");
+        let (hour, minute) = (time.hour.number(), time.minute.number());
+        time_fields::flexible_day_period(&mut out.parts, hour, minute, narrow);
+    }
     // `weekday` and `dateStyle` never combine (the prelude rejects it).
     if let Some(style) = spec.get("weekday")
         && let Some(name) = weekday_text(prefs, style, &at.wall.date)
@@ -287,6 +388,37 @@ pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResul
             text.clone_from(&name);
         }
     }
+    Ok(out.parts)
+}
+
+/// shortcut: date fields that no single pattern combines with the time fields (a year next
+/// to an hour, a day next to a lone minute) are formatted as two patterns joined by `, `.
+fn render_halves(spec: &Spec, tag: &str, at: &Instant) -> Option<PartList> {
+    let styled = spec.get("dateStyle").is_some() || spec.get("timeStyle").is_some();
+    if styled || !spec.has_any(&DATE_KEYS) || !spec.has_any(&TIME_KEYS) {
+        return None;
+    }
+    let mut parts = render(&spec.without(&TIME_KEYS), tag, at).ok()?;
+    parts.push(("literal", ", ".to_owned()));
+    parts.extend(render(&spec.without(&DATE_KEYS), tag, at).ok()?);
+    Some(parts)
+}
+
+/// `(locale, spec, epoch ms, time zone, parts)`: the formatted date, or encoded parts.
+pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
+    let spec = Spec(string_arg(args, 1).split(',').map(str::to_owned).collect());
+    let tag = string_arg(args, 0);
+    let Some(at) = instant(&string_arg(args, 3), number_arg(args, 2)) else {
+        return Err(failure(vm, "time value out of range"));
+    };
+    let rendered =
+        render(&spec, &tag, &at).or_else(|what| render_halves(&spec, &tag, &at).ok_or(what));
+    let parts = match rendered {
+        Ok(parts) => parts,
+        Err(what) => return Err(failure(vm, what)),
+    };
+    let mut out = Parts::new(part_name);
+    out.parts = parts;
     if bool_arg(args, 4) {
         return Ok(Value::str(&out.encode()));
     }
