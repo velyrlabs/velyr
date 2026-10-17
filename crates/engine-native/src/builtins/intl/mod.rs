@@ -229,7 +229,7 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
             Rc::new(number::plural_categories),
         ),
         ("__intl_collator_compare", 7, collator::compare()),
-        ("__intl_date_time_format", 5, Rc::new(datetime::format)),
+        ("__intl_date_time_format", 6, Rc::new(datetime::format)),
         (
             "__intl_canonical_zone",
             1,

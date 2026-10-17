@@ -72,7 +72,8 @@
     return slot(target, 'DateTimeFormat', method);
   };
   const hasAny = (record, fields) => fields.some((field) => record[field] !== undefined);
-  const createDateTimeFormat = (locales, options, required, defaults) => {
+  // `zone`: the fixed time zone of a Temporal.ZonedDateTime, which rejects a `timeZone` option.
+  const createDateTimeFormat = (locales, options, required, defaults, zone = undefined) => {
     if (options === null) typeError('Cannot convert undefined or null to object');
     options = toOptions(options);
     getOption(options, 'localeMatcher', ['lookup', 'best fit']);
@@ -84,7 +85,10 @@
     const { locale, data, values } = resolveLocaleKeys(locales,
       { ca: calendar, nu: numberingSystem, hc: hour12 === undefined ? hourCycleOption : (hour12 ? 'h12' : 'h23') });
     let timeZone = options.timeZone;
-    if (timeZone === undefined) {
+    if (zone !== undefined) {
+      if (timeZone !== undefined) typeError('The timeZone option is not allowed for a Temporal.ZonedDateTime');
+      timeZone = ops.canonical_zone(zone) ?? zone;
+    } else if (timeZone === undefined) {
       timeZone = ops.default_zone();
     } else {
       const name = String(timeZone);
@@ -107,6 +111,12 @@
     getOption(options, 'formatMatcher', ['basic', 'best fit']);
     const dateStyle = getOption(options, 'dateStyle', STYLES);
     const timeStyle = getOption(options, 'timeStyle', STYLES);
+    // What was asked for, before the defaults: each Temporal type derives its own fields from it.
+    const requested = Object.create(null);
+    for (const key of SPEC_KEYS) requested[key] = record[key];
+    Object.assign(requested, { dateStyle, timeStyle });
+    record.requested = requested;
+    record.cycle = [data.split('-u-')[0], hour12, values.hc ?? hourCycleOption];
     if (dateStyle !== undefined || timeStyle !== undefined) {
       if (explicit !== undefined) typeError(`Can't set option ${explicit} when dateStyle or timeStyle is used`);
       if (required === 'date' && timeStyle !== undefined) typeError('Invalid option : timeStyle');
@@ -118,10 +128,10 @@
         && !(required !== 'date' && hasAny(record, TIME_FIELDS));
       if (needDefaults && (defaults === 'date' || defaults === 'all')) Object.assign(record, { year: 'numeric', month: 'numeric', day: 'numeric' });
       if (needDefaults && (defaults === 'time' || defaults === 'all')) Object.assign(record, { hour: 'numeric', minute: 'numeric', second: 'numeric' });
+      if (needDefaults && zone !== undefined && record.timeZoneName === undefined) record.timeZoneName = 'short';
     }
     if (record.hour !== undefined || timeStyle !== undefined) {
-      const base = data.split('-u-')[0];
-      record.hourCycle = resolveHourCycle(base, hour12, values.hc ?? hourCycleOption);
+      record.hourCycle = resolveHourCycle(...record.cycle);
     }
     record.spec = specOf(record);
     return record;
@@ -131,9 +141,105 @@
     if (t !== t) throw new RangeError('Invalid time value');
     return t;
   };
+
+  // Temporal inputs (HandleDateTimeValue). The values are recognized by the tag on their
+  // prototype and read through their public API.
+  // shortcut: a user-patched Temporal prototype changes what is read; the Temporal side
+  // would have to hand over its internal slots to avoid it.
+  const KINDS = ['PlainDate', 'PlainTime', 'PlainDateTime', 'PlainYearMonth', 'PlainMonthDay', 'Instant', 'ZonedDateTime'];
+  const temporalKind = (value) => {
+    if (typeof value !== 'object' || value === null) return undefined;
+    const prototype = Object.getPrototypeOf(value);
+    const tag = prototype === null ? undefined : Object.getOwnPropertyDescriptor(prototype, Symbol.toStringTag)?.value;
+    return typeof tag === 'string' && tag.startsWith('Temporal.') && KINDS.includes(tag.slice(9)) ? tag.slice(9) : undefined;
+  };
+  // The fields of each Temporal type that a formatter's options can show.
+  const DATE_PART = ['weekday', 'era', 'year', 'month', 'day'];
+  const TIME_PART = ['dayPeriod', 'hour', 'minute', 'second', 'fractionalSecondDigits'];
+  const SHOWN = { PlainDate: DATE_PART, PlainTime: TIME_PART, PlainDateTime: [...DATE_PART, ...TIME_PART],
+    PlainYearMonth: ['era', 'year', 'month'], PlainMonthDay: ['month', 'day'],
+    Instant: [...DATE_PART, ...TIME_PART, 'timeZoneName'] };
+  // The fields that stop a type from using its default ones (`era` and `timeZoneName` do not).
+  const EXPLICIT = ['weekday', 'year', 'month', 'day', ...TIME_PART];
+  const DEFAULTS = { PlainDate: ['year', 'month', 'day'], PlainTime: ['hour', 'minute', 'second'],
+    PlainDateTime: ['year', 'month', 'day', 'hour', 'minute', 'second'], PlainYearMonth: ['year', 'month'],
+    PlainMonthDay: ['month', 'day'], Instant: ['year', 'month', 'day', 'hour', 'minute', 'second'] };
+  // dateStyle for the types that have no day or no year: the same style as components.
+  const PARTIAL_STYLES = {
+    PlainYearMonth: { long: { year: 'numeric', month: 'long' }, medium: { year: 'numeric', month: 'short' },
+      short: { year: '2-digit', month: 'numeric' } },
+    PlainMonthDay: { long: { month: 'long', day: 'numeric' }, medium: { month: 'short', day: 'numeric' },
+      short: { month: 'numeric', day: 'numeric' } },
+  };
+  // The options one Temporal type formats with; a formatter with nothing in common with it throws.
+  const typeView = (record, kind) => {
+    const { requested } = record;
+    const view = Object.create(null);
+    if (requested.dateStyle !== undefined || requested.timeStyle !== undefined) {
+      const partial = PARTIAL_STYLES[kind];
+      const dateStyle = kind === 'PlainTime' ? undefined : requested.dateStyle;
+      if (dateStyle !== undefined && partial !== undefined) Object.assign(view, partial[dateStyle === 'full' ? 'long' : dateStyle]);
+      else view.dateStyle = dateStyle;
+      if (kind === 'PlainTime' || kind === 'PlainDateTime' || kind === 'Instant') view.timeStyle = requested.timeStyle;
+      if (!hasAny(view, [...EXPLICIT, 'dateStyle', 'timeStyle'])) typeError(`The formatter has no field to show for a Temporal.${kind}`);
+    } else if (hasAny(requested, EXPLICIT)) {
+      for (const field of SHOWN[kind]) view[field] = requested[field];
+      if (!hasAny(view, EXPLICIT)) typeError(`The formatter has no field to show for a Temporal.${kind}`);
+    } else {
+      for (const field of ['era', 'timeZoneName']) if (SHOWN[kind].includes(field)) view[field] = requested[field];
+      for (const field of DEFAULTS[kind]) view[field] = 'numeric';
+    }
+    if (view.hour !== undefined || view.timeStyle !== undefined) view.hourCycle = resolveHourCycle(...record.cycle);
+    return { data: record.data, timeZone: record.timeZone, spec: specOf(view) };
+  };
+  // Days since 1970-01-01 of a proleptic Gregorian date.
+  const daysFromCivil = (year, month, day) => {
+    const y = year - (month <= 2 ? 1 : 0);
+    const era = Math.floor(y / 400);
+    const yoe = y - era * 400;
+    const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+    return era * 146097 + yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy - 719468;
+  };
+  const ISO_DATE = /^(?:([+-]\d{6}|\d{4})-)?(\d\d)(?:-(\d\d))?/;
+  const wallClock = (kind, value) => {
+    let days = 0;
+    if (kind !== 'PlainTime') {
+      const partial = kind === 'PlainYearMonth' || kind === 'PlainMonthDay';
+      const [, year = '1972', month, day = '1'] = ISO_DATE.exec(value.toString({ calendarName: partial ? 'always' : 'never' }));
+      days = daysFromCivil(Number(year), Number(month), Number(day));
+    }
+    const hasTime = kind === 'PlainTime' || kind === 'PlainDateTime';
+    const time = hasTime ? ((value.hour * 60 + value.minute) * 60 + value.second) * 1000 + value.millisecond : 0;
+    return days * 86400000 + time;
+  };
+  // Only a PlainDate-like value may carry the ISO calendar into another one's formatter.
+  const checkCalendar = (record, kind, value) => {
+    if (kind === 'PlainTime' || kind === 'Instant') return;
+    const calendar = value.calendarId;
+    const anyCalendar = calendar === 'iso8601' && kind !== 'PlainYearMonth' && kind !== 'PlainMonthDay';
+    if (calendar !== record.calendar && !anyCalendar) {
+      throw new RangeError(`The calendar ${calendar} does not match the formatter calendar ${record.calendar}`);
+    }
+  };
+  // ToDateTimeFormattable: a Temporal value stays as it is, anything else becomes a number.
+  const formattable = (date) => {
+    const kind = temporalKind(date);
+    return { kind, value: kind === undefined ? Number(date) : date };
+  };
+  // What the native op needs for one value: the options, a time (or wall clock) and its kind.
+  const resolveValue = (record, { kind, value }) => {
+    if (kind === undefined) return { record, t: timeClip(value), wall: false };
+    if (kind === 'ZonedDateTime') typeError('Temporal.ZonedDateTime is not supported by Intl.DateTimeFormat');
+    checkCalendar(record, kind, value);
+    record.views ??= Object.create(null);
+    record.views[kind] ??= typeView(record, kind);
+    const t = kind === 'Instant' ? value.epochMilliseconds : wallClock(kind, value);
+    return { record: record.views[kind], t, wall: kind !== 'Instant' };
+  };
+  const renderValue = ({ record, t, wall }, parts) => ops.date_time_format(record.data, record.spec, t, record.timeZone, parts, wall);
   const formatDate = (record, date, parts) => {
-    const t = timeClip(date === undefined ? Date.now() : Number(date));
-    return ops.date_time_format(record.data, record.spec, t, record.timeZone, parts);
+    const item = date === undefined ? { kind: undefined, value: Date.now() } : formattable(date);
+    return renderValue(resolveValue(record, item), parts);
   };
 
   // formatRange: both ends are formatted with the same options and joined.
@@ -166,9 +272,9 @@
   };
   const rangeParts = (record, startDate, endDate) => {
     if (startDate === undefined || endDate === undefined) typeError('startDate and endDate are required');
-    const [a, b] = [Number(startDate), Number(endDate)];
-    const [start, end] = [timeClip(a), timeClip(b)].map((t) => decodeParts(
-      ops.date_time_format(record.data, record.spec, t, record.timeZone, true)));
+    const items = [formattable(startDate), formattable(endDate)];
+    if (items[0].kind !== items[1].kind) typeError('startDate and endDate must be the same kind of value');
+    const [start, end] = items.map((item) => decodeParts(renderValue(resolveValue(record, item), true)));
     if (textOf(start) === textOf(end)) return withSource(start, 'shared');
     const separator = [{ type: 'literal', value: rangeSeparator(record.locale), source: 'shared' }];
     const range = collapseRange(start, end);
@@ -215,6 +321,21 @@
   defineProperty(DateTimeFormat.prototype, 'format',
     { get: Object.getOwnPropertyDescriptor(formatGetter, 'format').get, configurable: true });
   define(Intl, { DateTimeFormat });
+
+  // The Temporal toLocaleString methods (temporal/prelude_intl.js) pick this up once.
+  // The styles a type cannot show make the options invalid (ToDateTimeOptions `required`).
+  const REQUIRED = { PlainDate: 'date', PlainYearMonth: 'date', PlainMonthDay: 'date', PlainTime: 'time',
+    PlainDateTime: 'any', Instant: 'any', ZonedDateTime: 'any' };
+  defineProperty(global, '__intl_temporal', {
+    value: (kind, value, locales, options) => {
+      const zone = kind === 'ZonedDateTime' ? value.timeZoneId : undefined;
+      const record = createDateTimeFormat(locales, options, REQUIRED[kind], zone === undefined ? 'date' : 'all', zone);
+      if (zone === undefined) return renderValue(resolveValue(record, { kind, value }), false);
+      checkCalendar(record, kind, value);
+      return renderValue({ record, t: value.epochMilliseconds, wall: false }, false);
+    },
+    configurable: true,
+  });
 
   // Locale-sensitive methods of the built-ins. Default parameters keep their `length`.
   const { NumberFormat, Collator } = Intl;

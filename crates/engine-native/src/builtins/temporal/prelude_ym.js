@@ -45,7 +45,8 @@
   const fieldNames = (calendar) => (ERA_FREE_CALENDARS.includes(calendar)
     ? ['month', 'monthCode', 'year'] : ['era', 'eraYear', 'month', 'monthCode', 'year']);
   // The calendar of a property bag (an id or any ISO string), read before any other field.
-  const bagCalendar = (bag) => (bag.calendar === undefined ? ISO : calendarId(bag.calendar, true));
+  // A Temporal object (PlainDate, ...) keeps its calendar in its slot.
+  const bagCalendar = (bag) => (slotOf(bag) !== undefined ? slotCalendar(slotOf(bag).str) : bag.calendar === undefined ? ISO : calendarId(bag.calendar, true));
   // Alphabetical, one Get and conversion each.
   const readFields = (bag, names) => {
     const out = {};

@@ -3,10 +3,9 @@
 //! moved to the wall clock of the time zone with the tzdb of `temporal_rs`.
 
 use icu_calendar::Iso;
-use icu_calendar::types::RataDie;
 use icu_datetime::fieldsets::builder::{DateFields, FieldSetBuilder, ZoneStyle};
 use icu_datetime::fieldsets::enums::{CompositeFieldSet, ZoneFieldSet};
-use icu_datetime::input::{Date, DateTime, Time, TimeZone, UtcOffset, ZonedDateTime};
+use icu_datetime::input::{Date, DateTime, TimeZone, UtcOffset, ZonedDateTime};
 use icu_datetime::options::{Length, SubsecondDigits, TimePrecision, YearStyle};
 use icu_datetime::preferences::HourCycle;
 use icu_datetime::{DateTimeFormatter, DateTimeFormatterPreferences, parts};
@@ -15,6 +14,7 @@ use velyr_engine_vm::Value;
 use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
 use writeable::{Part, Writeable};
 
+mod temporal;
 mod time_fields;
 
 use super::{OpResult, Parts, bool_arg, locale, number_arg, range_error, string_arg};
@@ -123,9 +123,9 @@ fn zone_style(spec: &Spec) -> Option<ZoneStyle> {
 /// `timeStyle` of different lengths use the date's (which also picks the date-time glue,
 /// as CLDR does), and textual weekday/month lengths collapse onto it; the narrow forms
 /// are not available.
-fn field_set(spec: &Spec) -> Option<CompositeFieldSet> {
+fn field_set(spec: &Spec, zoned: bool) -> Option<CompositeFieldSet> {
     let mut builder = FieldSetBuilder::new();
-    builder.zone_style = zone_style(spec);
+    builder.zone_style = zone_style(spec).filter(|_| zoned);
     if spec.get("dateStyle").is_some() || spec.get("timeStyle").is_some() {
         if let Some(style) = spec.get("dateStyle") {
             builder.length = Some(length(style));
@@ -188,43 +188,27 @@ struct Instant {
     wall: DateTime<Iso>,
     zone: TimeZone,
     offset: Option<UtcOffset>,
+    /// False for Temporal plain types: they have no zone, so no zone name is written.
+    zoned: bool,
 }
-
-const MS_PER_DAY: i64 = 86_400_000;
-/// Rata die of 1970-01-01.
-const EPOCH_RATA_DIE: i64 = 719_163;
 
 fn instant(zone: &str, t: f64) -> Option<Instant> {
     let id = parse_zone(zone)?;
     let zdt = TemporalZoned::try_new_iso(t as i128 * 1_000_000, id).ok()?;
     let seconds = (zdt.offset_nanoseconds() / 1_000_000_000) as i32;
-    // `Date::try_new_iso` stops at year 9999; the rata die constructor covers the whole
-    // ECMAScript time range.
-    let local = t as i64 + i64::from(seconds) * 1000;
-    let date = Date::from_rata_die(
-        RataDie::new(local.div_euclid(MS_PER_DAY) + EPOCH_RATA_DIE),
-        Iso,
-    );
-    let of_day = local.rem_euclid(MS_PER_DAY) as u32;
-    let (seconds_of_day, millis) = (of_day / 1000, of_day % 1000);
-    let time = Time::try_new(
-        (seconds_of_day / 3600) as u8,
-        (seconds_of_day / 60 % 60) as u8,
-        (seconds_of_day % 60) as u8,
-        millis * 1_000_000,
-    )
-    .ok()?;
     // Offset zones (`+05:30`) have no IANA name to look up.
     let named = !zone.starts_with(['+', '-']);
-    Some(Instant {
-        wall: DateTime { date, time },
-        zone: if named {
-            TimeZone::from_iana_id(zone)
-        } else {
-            TimeZone::UNKNOWN
-        },
-        offset: UtcOffset::try_from_seconds(seconds).ok(),
-    })
+    let tz = if named {
+        TimeZone::from_iana_id(zone)
+    } else {
+        TimeZone::UNKNOWN
+    };
+    temporal::at_local(
+        t as i64 + i64::from(seconds) * 1000,
+        tz,
+        UtcOffset::try_from_seconds(seconds).ok(),
+        true,
+    )
 }
 
 fn part_name(part: Part) -> &'static str {
@@ -341,7 +325,7 @@ impl Spec {
 }
 
 fn render(spec: &Spec, tag: &str, at: &Instant) -> Result<PartList, &'static str> {
-    let fields = field_set(spec).ok_or("unsupported option combination")?;
+    let fields = field_set(spec, at.zoned).ok_or("unsupported option combination")?;
     let day_period_only = spec.get("dayPeriod").is_some() && spec.get("hour").is_none();
     let hour_cycle = if day_period_only {
         Some("h12")
@@ -370,6 +354,10 @@ fn render(spec: &Spec, tag: &str, at: &Instant) -> Result<PartList, &'static str
         short_style_year(&probe.parts, &mut out.parts);
     }
     time_fields::split_fraction(&mut out.parts, tag.contains("-u-nu-arab"));
+    time_fields::zero_offset_as_gmt(&mut out.parts);
+    if spec.get("hourCycle") == Some("h24") {
+        time_fields::midnight_as_24(&mut out.parts);
+    }
     if time_fields::is_hourless(spec) {
         time_fields::keep_requested(spec, &mut out.parts);
         time_fields::unpad_single(spec, &mut out.parts);
@@ -404,11 +392,17 @@ fn render_halves(spec: &Spec, tag: &str, at: &Instant) -> Option<PartList> {
     Some(parts)
 }
 
-/// `(locale, spec, epoch ms, time zone, parts)`: the formatted date, or encoded parts.
+/// `(locale, spec, epoch ms, time zone, parts, wall)`: the formatted date, or encoded parts.
+/// With `wall`, the number is a wall clock in ms since 1970-01-01T00:00 (no time zone).
 pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
     let spec = Spec(string_arg(args, 1).split(',').map(str::to_owned).collect());
     let tag = string_arg(args, 0);
-    let Some(at) = instant(&string_arg(args, 3), number_arg(args, 2)) else {
+    let at = if bool_arg(args, 5) {
+        temporal::wall_instant(number_arg(args, 2))
+    } else {
+        instant(&string_arg(args, 3), number_arg(args, 2))
+    };
+    let Some(at) = at else {
         return Err(failure(vm, "time value out of range"));
     };
     let rendered =

@@ -161,3 +161,21 @@ pub(super) fn flexible_day_period(parts: &mut PartList, hour: u8, minute: u8, na
         }
     }
 }
+
+/// `hourCycle: 'h24'` writes midnight as 24; ICU4X has no such cycle and writes 0 (or 00).
+pub(super) fn midnight_as_24(parts: &mut PartList) {
+    for (_, text) in parts.iter_mut().filter(|(kind, _)| *kind == "hour") {
+        if text.bytes().all(|b| b == b'0') {
+            *text = "24".to_owned();
+        }
+    }
+}
+
+/// A zero offset is just `GMT` in CLDR; ICU4X writes `GMT+0` for zones given as an offset.
+pub(super) fn zero_offset_as_gmt(parts: &mut PartList) {
+    for (_, text) in parts.iter_mut().filter(|(kind, _)| *kind == "timeZoneName") {
+        if matches!(text.as_str(), "GMT+0" | "GMT-0" | "GMT+00:00" | "GMT-00:00") {
+            *text = "GMT".to_owned();
+        }
+    }
+}
