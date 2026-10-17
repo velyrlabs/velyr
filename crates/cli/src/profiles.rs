@@ -52,10 +52,43 @@ static SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/startup.snaps
 /// build has none or `VELYR_NO_SNAPSHOT=1`.
 pub fn v8_engine() -> V8Engine {
     let disabled = std::env::var_os("VELYR_NO_SNAPSHOT").is_some_and(|value| value == "1");
-    if SNAPSHOT.is_empty() || disabled {
-        return V8Engine::new();
+    let engine = if SNAPSHOT.is_empty() || disabled {
+        V8Engine::new()
+    } else {
+        V8Engine::with_snapshot(SNAPSHOT, host_functions(V8Engine::new().features()))
+    };
+    if hardening().disallow_code_generation {
+        engine.disallow_code_generation_from_strings()
+    } else {
+        engine
     }
-    V8Engine::with_snapshot(SNAPSHOT, host_functions(V8Engine::new().features()))
+}
+
+/// Opt-in CLI hardening, process-wide so workers inherit it (set once from `main`).
+#[derive(Clone, Copy, Default)]
+pub struct Hardening {
+    pub disallow_code_generation: bool,
+    pub frozen_intrinsics: bool,
+}
+
+static HARDENING: std::sync::OnceLock<Hardening> = std::sync::OnceLock::new();
+
+pub fn set_hardening(hardening: Hardening) {
+    let _ = HARDENING.set(hardening);
+}
+
+fn hardening() -> Hardening {
+    HARDENING.get().copied().unwrap_or_default()
+}
+
+const FREEZE_INTRINSICS: &str = "for (const intrinsic of [Object, Array, Function, String, Promise]) Object.freeze(intrinsic.prototype);";
+
+fn freeze_intrinsics<I: velyr_engine_api::Isolate>(isolate: &mut LoopIsolate<I>) {
+    let source = Source {
+        name: "velyr:frozen-intrinsics".into(),
+        text: FREEZE_INTRINSICS.into(),
+    };
+    isolate.eval_script(&source).expect("the freeze script is valid JS");
 }
 
 /// How a run's isolates start.
@@ -171,6 +204,9 @@ fn install_globals<I: velyr_engine_api::Isolate>(
         .expect("worker bootstrap is valid JS");
     #[cfg(feature = "node")]
     install_node(isolate, timers, script);
+    if hardening().frozen_intrinsics {
+        freeze_intrinsics(isolate);
+    }
 }
 
 /// The Rust state the bootstrap scripts' host functions use, installed on every boot.
@@ -285,8 +321,15 @@ fn install_node<I: velyr_engine_api::Isolate>(
         };
         node::configure_process(isolate, config);
     }
-    // The ~685 KB bootstrap runs on first use of `process`, `Buffer`, a `node:` import or `require`.
-    let drain = node::install_node_lazy(isolate, timers).expect("node bootstrap is valid JS");
+    let drain = if hardening().disallow_code_generation {
+        // The lazy install boots through JS `eval`, which this flag disables: install eagerly.
+        node::install_compat_node(isolate).expect("node bootstrap is valid JS");
+        node::install_buffer_global(isolate).expect("buffer global is valid JS");
+        node::install_process_global(isolate, timers).expect("process global is valid JS")
+    } else {
+        // The ~685 KB bootstrap runs on first use of `process`, `Buffer`, a `node:` import or `require`.
+        node::install_node_lazy(isolate, timers).expect("node bootstrap is valid JS")
+    };
     isolate.set_tick_hook(drain);
 }
 

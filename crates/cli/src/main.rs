@@ -39,6 +39,14 @@ struct Cli {
     #[arg(long, global = true)]
     experimental_shared_code_cache: bool,
 
+    /// Make `eval` and `new Function` throw an `EvalError` in every isolate, workers included.
+    #[arg(long, global = true)]
+    disallow_code_generation_from_strings: bool,
+
+    /// Freeze `Object`, `Array`, `Function`, `String` and `Promise` prototypes before user code.
+    #[arg(long, global = true)]
+    frozen_intrinsics: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -176,6 +184,10 @@ fn main() -> ExitCode {
 }
 
 fn real_main(cli: Cli) -> ExitCode {
+    profiles::set_hardening(profiles::Hardening {
+        disallow_code_generation: cli.disallow_code_generation_from_strings,
+        frozen_intrinsics: cli.frozen_intrinsics,
+    });
     if cli.experimental_shared_code_cache {
         velyr_runtime_modules::SharedCache::enable_global();
     }

@@ -105,15 +105,24 @@
         legacyCompile = true;
       }
     }
-    return new Function(
-      "exports",
-      "require",
-      "module",
-      "__filename",
-      "__dirname",
-      "__velyrImport",
-      `${body}\n//# sourceURL=${filename}`,
-    );
+    try {
+      return new Function(
+        "exports",
+        "require",
+        "module",
+        "__filename",
+        "__dirname",
+        "__velyrImport",
+        `${body}\n//# sourceURL=${filename}`,
+      );
+    } catch (error) {
+      if (error instanceof EvalError) {
+        throw new EvalError(
+          `cannot load ${filename}: this engine has no compile_function and code generation from strings is disabled`,
+        );
+      }
+      throw error;
+    }
   }
 
   function run(module, format) {
