@@ -7,6 +7,7 @@ mod collator;
 mod currency;
 mod datetime;
 mod display;
+mod display_table;
 mod duration;
 mod enumeration;
 mod list;
