@@ -34,8 +34,8 @@ fn create_facade_dir() -> io::Result<PathBuf> {
     dir.canonicalize()
 }
 
-/// Wraps `inner` so `import 'node:x'` / `import 'x'` reach the builtins. The facade files are
-/// rewritten on every start, so what the loader reads is always what this binary generated.
+/// Wraps `inner` so `import 'node:x'` / `import 'x'` reach the builtins. The facades are served
+/// from memory (`/$velyr/node/<name>.js`); `facade_dir` only backs the Windows fallback.
 pub fn resolver(inner: ModuleResolverHandle) -> ModuleResolverHandle {
     let built = facade_dir().and_then(|dir| NodeBuiltinResolver::new(inner.clone(), dir));
     match built {

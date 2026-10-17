@@ -95,6 +95,15 @@ impl ModuleHost {
         self.shared.as_ref()
     }
 
+    /// Serves `/$velyr/node/<name>.js` from memory for exactly the given `names`, never from disk
+    /// and without a grant. Process-wide and first call wins.
+    pub fn register_embedded_facades(
+        names: &'static [&'static str],
+        source: fn(&str) -> Option<String>,
+    ) {
+        crate::embedded::register_facades(names, source);
+    }
+
     /// Runs `transform` on every module after it is read and authorized; the cached and returned
     /// text (and its hash) is the transformed one.
     pub fn with_transform(mut self, transform: Arc<dyn SourceTransform>) -> Self {
@@ -119,7 +128,7 @@ impl ModuleHost {
         ctx: &LoadContext,
     ) -> Result<Arc<ModuleSource>> {
         if let Some(text) = crate::embedded::source(&module.path) {
-            return Ok(Arc::new(ModuleSource::new(text.into())));
+            return Ok(Arc::new(ModuleSource::new(text.into_owned())));
         }
         authorize(module, ctx)?;
         if let Some(hit) = self.cache.lock().unwrap().get(&module.id) {

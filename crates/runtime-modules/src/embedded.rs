@@ -1,6 +1,8 @@
 //! Modules compiled into the binary and served without touching the filesystem or permissions.
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use velyr_runtime_errors::VelyrError;
 
@@ -13,6 +15,22 @@ pub const OXC_HELPERS_VERSION: &str = "0.154.0";
 
 const SPECIFIER_PREFIX: &str = "velyr-oxc-runtime/helpers/";
 const PATH_PREFIX: &str = "/$velyr/oxc-runtime/helpers/";
+
+const FACADE_PATH_PREFIX: &str = "/$velyr/node/";
+
+/// The registered in-memory facades: `names` is the whole set of valid `/$velyr/node/<name>.js`
+/// paths (exact match, no prefix rule) and `source` builds the text of one of them.
+struct FacadeTable {
+    names: &'static [&'static str],
+    source: fn(&str) -> Option<String>,
+}
+
+static FACADES: OnceLock<FacadeTable> = OnceLock::new();
+
+/// First registration wins; later calls (one per resolver, workers included) are no-ops.
+pub(crate) fn register_facades(names: &'static [&'static str], source: fn(&str) -> Option<String>) {
+    let _ = FACADES.set(FacadeTable { names, source });
+}
 
 const FILES: &[(&str, &str)] = &[
     ("decorate", include_str!("../helpers/decorate.js")),
@@ -60,17 +78,31 @@ pub(crate) fn resolve(specifier: &str, referrer: &Path) -> Result<Option<PathBuf
 
 /// Single predicate for "this path is served from the binary, never from disk".
 pub fn is_embedded(path: &Path) -> bool {
-    source(path).is_some()
+    path.to_str().is_some_and(|path| {
+        helper_text(path).is_some() || facade_name(path).is_some()
+    })
 }
 
-/// The only place that maps an embedded path to its text.
-pub(crate) fn source(path: &Path) -> Option<&'static str> {
-    let name = path
-        .to_str()?
-        .strip_prefix(PATH_PREFIX)?
-        .strip_suffix(".js")?;
+fn helper_text(path: &str) -> Option<&'static str> {
+    let name = path.strip_prefix(PATH_PREFIX)?.strip_suffix(".js")?;
     FILES
         .iter()
         .find(|(known, _)| *known == name)
         .map(|(_, text)| *text)
+}
+
+/// The facade name when `path` is exactly `/$velyr/node/<name>.js` for a registered name.
+fn facade_name(path: &str) -> Option<&str> {
+    let name = path.strip_prefix(FACADE_PATH_PREFIX)?.strip_suffix(".js")?;
+    FACADES.get()?.names.contains(&name).then_some(name)
+}
+
+/// The only place that maps an embedded path to its text.
+pub(crate) fn source(path: &Path) -> Option<Cow<'static, str>> {
+    let path = path.to_str()?;
+    if let Some(text) = helper_text(path) {
+        return Some(Cow::Borrowed(text));
+    }
+    let name = facade_name(path)?;
+    (FACADES.get()?.source)(name).map(Cow::Owned)
 }

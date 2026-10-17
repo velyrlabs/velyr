@@ -1,18 +1,17 @@
 //! The `node:` builtin registry: which modules exist, the JS bootstrap that defines them, the
 //! ESM facade each one gets, and the resolver that maps `node:x` / `x` onto those facades.
 //!
-//! The module host reads every module from a file and authorizes its path, so an ESM `import` of
-//! a builtin resolves to a generated facade file inside a directory the host chooses and grants
-//! (`ImportLocal` on that directory only). The facade just re-exports the isolate's builtin.
+//! An ESM `import` of a builtin resolves to `/$velyr/node/<name>.js`, a facade the module host
+//! serves from memory without a grant (see `runtime_modules::embedded`); it just re-exports the
+//! isolate's builtin. Windows keeps generated files in a directory the host grants.
 //! The export lists and factory sources are data and live in `registry_tables.rs`.
 
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result};
+use velyr_runtime_modules::{ModuleHost, ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result};
 
 use crate::registry_tables::FACTORIES;
 pub use crate::registry_tables::{BUILTINS, Builtin};
@@ -56,8 +55,14 @@ pub fn builtin_name(specifier: &str) -> Option<&'static str> {
     BUILTINS.iter().find(|b| b.name == bare).map(|b| b.name)
 }
 
+#[cfg(windows)]
 fn facade_file(name: &str) -> String {
     format!("{}.mjs", name.replace('/', "__"))
+}
+
+/// `facade_source` by name, the shape `ModuleHost::register_embedded_facades` wants.
+fn facade_source_of(name: &str) -> Option<String> {
+    BUILTINS.iter().find(|b| b.name == name).map(facade_source)
 }
 
 pub fn facade_source(builtin: &Builtin) -> String {
@@ -73,14 +78,15 @@ pub fn facade_source(builtin: &Builtin) -> String {
 
 /// Atomically (write + rename) replaces `dir/file` unless it already holds exactly `source`.
 /// Content is always compared: the directory is trusted via `ImportLocal`, so no hash/marker shortcut.
+#[cfg(windows)]
 fn write_if_changed(dir: &Path, file: &str, source: &str) -> io::Result<()> {
     let target = dir.join(file);
-    if fs::read(&target).is_ok_and(|current| current == source.as_bytes()) {
+    if std::fs::read(&target).is_ok_and(|current| current == source.as_bytes()) {
         return Ok(());
     }
     let staging = dir.join(format!(".{file}.{}", std::process::id()));
-    fs::write(&staging, source)?;
-    fs::rename(&staging, &target)
+    std::fs::write(&staging, source)?;
+    std::fs::rename(&staging, &target)
 }
 
 /// Resolves `node:x` and bare `x` builtins to facade modules; everything else goes to `inner`.
@@ -91,15 +97,24 @@ pub struct NodeBuiltinResolver {
 }
 
 impl NodeBuiltinResolver {
-    /// Writes the facade files into `dir` (created if needed; a facade is rewritten only when missing or its content differs).
-    /// The host must grant `ImportLocal` on [`facade_dir`](Self::facade_dir) and nothing wider,
-    /// and `dir` must not be writable by other users.
+    /// Registers the in-memory facades; nothing is written to `dir` (kept for tools that want real
+    /// files, and for Windows, which still generates them there: the host must grant `ImportLocal`
+    /// on [`facade_dir`](Self::facade_dir) and nothing wider).
     pub fn new(inner: Arc<dyn ModuleResolver + Send + Sync>, dir: &Path) -> io::Result<Self> {
-        fs::create_dir_all(dir)?;
-        let dir = fs::canonicalize(dir)?;
-        for builtin in BUILTINS {
-            write_if_changed(&dir, &facade_file(builtin.name), &facade_source(builtin))?;
-        }
+        static NAMES: OnceLock<Vec<&'static str>> = OnceLock::new();
+        let names = NAMES.get_or_init(|| BUILTINS.iter().map(|b| b.name).collect());
+        ModuleHost::register_embedded_facades(names, facade_source_of);
+        #[cfg(windows)]
+        let dir = {
+            std::fs::create_dir_all(dir)?;
+            let dir = std::fs::canonicalize(dir)?;
+            for builtin in BUILTINS {
+                write_if_changed(&dir, &facade_file(builtin.name), &facade_source(builtin))?;
+            }
+            dir
+        };
+        #[cfg(not(windows))]
+        let dir = dir.to_path_buf();
         Ok(Self { inner, dir })
     }
 
@@ -124,7 +139,10 @@ impl ModuleResolver for NodeBuiltinResolver {
             }
             return self.inner.resolve(specifier, referrer, ctx);
         };
+        #[cfg(windows)]
         let path = self.dir.join(facade_file(name));
+        #[cfg(not(windows))]
+        let path = PathBuf::from(format!("/$velyr/node/{name}.js"));
         let id = ModuleId::from_path(&path)
             .ok_or_else(|| VelyrError::invalid_data("facade path is not representable as a URL"))?;
         Ok(ResolvedModule { id, path })

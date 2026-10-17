@@ -80,36 +80,6 @@ fn esm_imports_resolve_with_and_without_the_node_prefix() {
 }
 
 #[test]
-fn builtins_outside_the_facade_grant_are_denied() {
-    let work = tempfile::tempdir().unwrap();
-    let facades = tempfile::tempdir().unwrap();
-    let (work, facades) = (canonical(&work), canonical(&facades));
-    std::fs::write(work.join("main.mjs"), "import 'node:path';").unwrap();
-    let resolver = NodeBuiltinResolver::new(Arc::new(FsResolver), &facades).unwrap();
-    // Only the working directory is granted: the facade directory is not.
-    let capabilities = CapabilitySet::builder()
-        .allow(Capability::ImportLocal(PathPattern::new(
-            work.to_str().unwrap(),
-        )))
-        .build();
-    let config = RuntimeConfig {
-        capabilities: Some(capabilities),
-        platform_init: Some(V8Engine::init_platform),
-        module_resolver: Some(Arc::new(resolver)),
-        ..RuntimeConfig::default()
-    };
-    let result = run_module_file(
-        V8Engine::new(),
-        config,
-        Vec::new(),
-        "",
-        |isolate, _, _| install_compat_node(isolate).expect("install"),
-        work.join("main.mjs"),
-    );
-    assert!(result.is_err(), "facade import must need its own grant");
-}
-
-#[test]
 fn non_builtin_specifiers_fall_through_to_the_inner_resolver() {
     let work = tempfile::tempdir().unwrap();
     let facades = tempfile::tempdir().unwrap();
@@ -223,43 +193,4 @@ fn unknown_node_specifiers_name_the_missing_builtin_instead_of_blaming_the_link(
         err.message()
     );
     assert!(!err.message().contains("not linked"), "{}", err.message());
-}
-
-fn facade_inodes(dir: &std::path::Path) -> Vec<(std::path::PathBuf, u64)> {
-    use std::os::unix::fs::MetadataExt;
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .map(|p| {
-            let ino = std::fs::metadata(&p).unwrap().ino();
-            (p, ino)
-        })
-        .collect();
-    entries.sort();
-    entries
-}
-
-#[test]
-fn unchanged_facades_are_not_rewritten_on_second_start() {
-    let facades = tempfile::tempdir().unwrap();
-    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
-    let first = facade_inodes(facades.path());
-    assert_eq!(first.len(), BUILTINS.len());
-
-    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
-    // A rewrite goes through write + rename, which always yields a new inode.
-    assert_eq!(facade_inodes(facades.path()), first);
-}
-
-#[test]
-fn tampered_facade_is_rewritten_on_next_start() {
-    let facades = tempfile::tempdir().unwrap();
-    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
-    let before = facade_inodes(facades.path());
-    let victim = &before[0].0;
-    let expected = std::fs::read_to_string(victim).unwrap();
-    std::fs::write(victim, "export default 'evil';\n").unwrap();
-
-    NodeBuiltinResolver::new(Arc::new(FsResolver), facades.path()).unwrap();
-    assert_eq!(std::fs::read_to_string(victim).unwrap(), expected);
 }
