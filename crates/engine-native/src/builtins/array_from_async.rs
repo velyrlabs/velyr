@@ -1,4 +1,4 @@
-//! Placeholder slot: the array_from_async prelude is filled by a later task.
+//! `Array.fromAsync` (ES2026): a JS prelude that follows the spec's await steps literally.
 
 use velyr_engine_vm::interpreter::Interpreter;
 
