@@ -4,6 +4,7 @@
 //! authorized for, and gives files under `node_modules/` no project config (D8).
 
 mod config;
+pub mod resolver;
 
 use std::collections::HashMap;
 use std::fs;
@@ -12,6 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub use config::{CompilerOptions, Paths, TsConfig};
+pub use resolver::{ImportMap, ProjectResolver};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::authorize_path;
 use velyr_runtime_permissions::CapabilitySet;
