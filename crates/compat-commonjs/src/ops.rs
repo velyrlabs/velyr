@@ -100,9 +100,10 @@ fn op_cjs_resolve(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Ho
     let request = string_arg(args, 0, "op_cjs_resolve")?;
     let parent = string_arg(args, 1, "op_cjs_resolve")?;
     let (permissions, conditions) = state(ctx)?;
-    let path = resolve(&request, Path::new(&parent), &conditions)?;
+    let auth = |p: &Path| authorize_path(p, &permissions);
+    let path = resolve(&request, Path::new(&parent), &conditions, &auth)?;
     authorize_path(&path, &permissions)?;
-    let format = fscache::global().classify(&path);
+    let format = fscache::global().classify(&path, &auth);
     let path = path.to_string_lossy();
     Ok(text(
         &serde_json::json!({ "path": path, "format": format.as_str() }).to_string(),
@@ -116,7 +117,9 @@ fn op_cjs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostE
     let (permissions, _) = state(ctx)?;
     let path = Path::new(&path);
     authorize_path(path, &permissions)?;
-    let read = fscache::global().read(path).map_err(read_error)?;
+    let read = fscache::global()
+        .read(path, &|p| authorize_path(p, &permissions))
+        .map_err(read_error)?;
     if read.format == Format::Json || !read.text.contains("import") {
         return Ok(text(&read.text));
     }

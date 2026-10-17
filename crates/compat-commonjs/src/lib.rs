@@ -37,18 +37,20 @@ use ops::CommonJsState;
 
 pub use format::Format as ModuleFormat;
 pub use fscache::clear_fs_caches;
+pub use fscache::debug_manifest;
 #[cfg(feature = "test-counters")]
 pub use fscache::debug_read_count;
 
 /// Where `require(request)` from the file `from` lands, with the same rules as the runtime's
-/// `require` (`velyr compile` uses it to find the files a CommonJS module needs).
+/// `require` (`velyr compile` uses it to find the files a CommonJS module needs). Build tooling
+/// reads manifests without a sandbox, so no permission check runs here.
 pub fn resolve_require(request: &str, from: &Path) -> Result<std::path::PathBuf> {
-    resolve::resolve(request, from, &conditions())
+    resolve::resolve(request, from, &conditions(), &|_| Ok(()))
 }
 
 /// Whether the file at `path` loads as ES module, CommonJS or JSON.
 pub fn detect_format(path: &Path) -> ModuleFormat {
-    detect(path, || fscache::read_to_string(path).ok())
+    detect(path, &|_| Ok(()), || fscache::read_to_string(path).ok())
 }
 
 /// Bootstrap script: installs `require` machinery behind `Symbol.for("velyr.commonjs")`.
@@ -101,6 +103,10 @@ impl CommonJsTransform {
         Self { permissions }
     }
 
+    fn authorize(&self, path: &Path) -> Result<()> {
+        authorize_path(path, &self.permissions)
+    }
+
     /// Names detected in `source`, following re-exports through files `permissions` allow.
     fn named_exports(&self, path: &Path, source: &str, seen: &mut Vec<String>) -> BTreeSet<String> {
         let mut names = BTreeSet::new();
@@ -109,7 +115,9 @@ impl CommonJsTransform {
         };
         names.extend(found.exports);
         for request in found.reexports {
-            let Ok(target) = resolve::resolve(&request, path, &crate::conditions()) else {
+            let Ok(target) =
+                resolve::resolve(&request, path, &crate::conditions(), &|p| self.authorize(p))
+            else {
                 continue;
             };
             let key = target.to_string_lossy().into_owned();
@@ -122,7 +130,7 @@ impl CommonJsTransform {
             let Ok(text) = fscache::read_to_string(&target) else {
                 continue;
             };
-            if detect(&target, || Some(text.clone())) == Format::CommonJs {
+            if detect(&target, &|p| self.authorize(p), || Some(text.clone())) == Format::CommonJs {
                 seen.push(key);
                 names.extend(self.named_exports(&target, &text, seen));
             }
@@ -160,7 +168,7 @@ impl SourceTransform for CommonJsTransform {
             return false;
         };
         MediaType::from_path(&path) == MediaType::JavaScript
-            && detect(&path, || Some(text)) != Format::Esm
+            && detect(&path, &|p| self.authorize(p), || Some(text)) != Format::Esm
     }
 
     fn transform(
@@ -171,7 +179,7 @@ impl SourceTransform for CommonJsTransform {
     ) -> Result<Transformed> {
         let path = Path::new(specifier);
         let format = if media_type == MediaType::JavaScript {
-            detect(path, || Some(source.to_owned()))
+            detect(path, &|p| self.authorize(p), || Some(source.to_owned()))
         } else {
             Format::Esm
         };

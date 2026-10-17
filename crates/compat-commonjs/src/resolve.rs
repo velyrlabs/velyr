@@ -5,9 +5,9 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use crate::fscache::{self, Kind};
+use crate::fscache::{self, Auth, Kind};
 use velyr_compat_npm::resolve::exports::{match_exports, match_imports};
-use velyr_runtime_errors::VelyrError;
+use velyr_runtime_errors::{ErrorCode, VelyrError};
 use velyr_runtime_modules::Result;
 
 const EXTENSIONS: [&str; 3] = ["js", "json", "cjs"];
@@ -58,25 +58,28 @@ fn load_as_file(base: &Path) -> Option<PathBuf> {
     })
 }
 
-fn load_as_directory(dir: &Path) -> Option<PathBuf> {
+fn load_as_directory(dir: &Path, auth: Auth) -> Result<Option<PathBuf>> {
     let main = fscache::global()
-        .manifest(dir)
-        .and_then(|manifest| manifest.get("main")?.as_str().map(str::to_owned));
+        .manifest(dir, auth)?
+        .and_then(|manifest| manifest.main.clone());
     if let Some(main) = main {
         let target = dir.join(main);
         if let Some(found) = load_as_file(&target).or_else(|| load_as_index(&target)) {
-            return Some(found);
+            return Ok(Some(found));
         }
     }
-    load_as_index(dir)
+    Ok(load_as_index(dir))
 }
 
 fn load_as_index(dir: &Path) -> Option<PathBuf> {
     load_as_file(&dir.join("index"))
 }
 
-fn load_path(target: &Path) -> Option<PathBuf> {
-    load_as_file(target).or_else(|| load_as_directory(target))
+fn load_path(target: &Path, auth: Auth) -> Result<Option<PathBuf>> {
+    match load_as_file(target) {
+        Some(file) => Ok(Some(file)),
+        None => load_as_directory(target, auth),
+    }
 }
 
 /// `@scope/name/rest` into (`@scope/name`, `./rest`); `.` when there is no subpath.
@@ -92,8 +95,15 @@ fn split_specifier(request: &str) -> Option<(&str, String)> {
     (name.len() > scope_len).then(|| (name, format!(".{rest}")))
 }
 
-fn resolve_package(request: &str, from_dir: &Path, conditions: &[String]) -> Option<PathBuf> {
-    let (name, subpath) = split_specifier(request)?;
+fn resolve_package(
+    request: &str,
+    from_dir: &Path,
+    conditions: &[String],
+    auth: Auth,
+) -> Result<Option<PathBuf>> {
+    let Some((name, subpath)) = split_specifier(request) else {
+        return Ok(None);
+    };
     for ancestor in from_dir.ancestors() {
         if ancestor.file_name().is_some_and(|n| n == "node_modules") {
             continue;
@@ -103,50 +113,65 @@ fn resolve_package(request: &str, from_dir: &Path, conditions: &[String]) -> Opt
             continue;
         }
         let exports = fscache::global()
-            .manifest(&package)
-            .and_then(|manifest| manifest.get("exports").cloned());
+            .manifest(&package, auth)?
+            .and_then(|manifest| manifest.exports.clone());
         return match exports {
             Some(exports) => {
-                let file = match_exports(&exports, &subpath, conditions, &package).ok()??;
-                is_file(&file).then_some(file)
+                let file = match_exports(&exports, &subpath, conditions, &package)
+                    .ok()
+                    .flatten();
+                Ok(file.filter(|file| is_file(file)))
             }
-            None if subpath == "." => load_as_directory(&package),
-            None => load_path(&package.join(subpath)),
+            None if subpath == "." => load_as_directory(&package, auth),
+            None => load_path(&package.join(subpath), auth),
         };
     }
-    None
+    Ok(None)
 }
 
 /// `#name` through the `imports` of the nearest `package.json`.
-fn resolve_imports(request: &str, from_dir: &Path, conditions: &[String]) -> Option<PathBuf> {
-    let (dir, manifest) = from_dir
-        .ancestors()
-        .find_map(|dir| Some((dir, fscache::global().manifest(dir)?)))?;
-    let imports = manifest.get("imports")?;
-    let external = |target: &str| {
-        resolve_package(target, dir, conditions).ok_or_else(|| not_found(target, dir))
+fn resolve_imports(
+    request: &str,
+    from_dir: &Path,
+    conditions: &[String],
+    auth: Auth,
+) -> Result<Option<PathBuf>> {
+    let Some((dir, manifest)) = fscache::global().nearest_manifest(from_dir, auth) else {
+        return Ok(None);
     };
-    let file = match_imports(imports, request, conditions, dir, &external).ok()??;
-    is_file(&file).then_some(file)
+    let Some(imports) = manifest.imports.as_ref() else {
+        return Ok(None);
+    };
+    let external = |target: &str| {
+        resolve_package(target, dir, conditions, auth)?.ok_or_else(|| not_found(target, dir))
+    };
+    let file = match match_imports(imports, request, conditions, dir, &external) {
+        Ok(file) => file,
+        Err(err) if err.code() == ErrorCode::PermissionDenied => return Err(err),
+        Err(_) => None,
+    };
+    Ok(file.filter(|file| is_file(file)))
 }
 
-/// Canonical path `require(request)` loads from the file `from`.
-pub fn resolve(request: &str, from: &Path, conditions: &[String]) -> Result<PathBuf> {
+/// Canonical path `require(request)` loads from the file `from`. `auth` gates every
+/// `package.json` read; a denial surfaces as the error, except while looking for the nearest
+/// manifest above a directory, which stops at the grant boundary.
+pub fn resolve(request: &str, from: &Path, conditions: &[String], auth: Auth) -> Result<PathBuf> {
     let from_dir = from.parent().unwrap_or(from);
     let found = if let Some(url) = request.strip_prefix("file://") {
-        load_path(Path::new(url))
+        load_path(Path::new(url), auth)?
     } else if Path::new(request).is_absolute() {
-        load_path(Path::new(request))
+        load_path(Path::new(request), auth)?
     } else if request == "."
         || request == ".."
         || request.starts_with("./")
         || request.starts_with("../")
     {
-        load_path(&normalize(&from_dir.join(request)))
+        load_path(&normalize(&from_dir.join(request)), auth)?
     } else if request.starts_with('#') {
-        resolve_imports(request, from_dir, conditions)
+        resolve_imports(request, from_dir, conditions, auth)?
     } else {
-        resolve_package(request, from_dir, conditions)
+        resolve_package(request, from_dir, conditions, auth)?
     };
     found.map(real).ok_or_else(|| not_found(request, from))
 }

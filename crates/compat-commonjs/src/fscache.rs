@@ -13,8 +13,12 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::SystemTime;
 
 use serde_json::Value;
+use velyr_runtime_modules::Result as ModuleResult;
 
 use crate::format::{Format, detect};
+
+/// Permission check run on a path before the cache reads or reveals it.
+pub(crate) type Auth<'a> = &'a dyn Fn(&Path) -> ModuleResult<()>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -33,15 +37,52 @@ pub(crate) struct Read {
     stamp: Stamp,
 }
 
-struct Manifest {
-    value: Arc<Value>,
+/// Package `type` field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum ModuleType {
+    #[default]
+    Unspecified,
+    Module,
+    CommonJs,
+}
+
+/// The only `package.json` fields resolution reads; everything else (`scripts`, `dependencies`,
+/// ...) is dropped at parse time. `exports` and `imports` keep their open-ended JSON grammar.
+#[derive(Debug, Default)]
+pub(crate) struct Manifest {
+    pub type_: ModuleType,
+    pub main: Option<String>,
+    pub exports: Option<Value>,
+    pub imports: Option<Value>,
+}
+
+/// `None` when `raw` is not JSON; valid JSON that is not an object is a manifest with no fields.
+fn project(raw: &[u8]) -> Option<Manifest> {
+    let Value::Object(mut map) = serde_json::from_slice(raw).ok()? else {
+        return Some(Manifest::default());
+    };
+    let type_ = match map.get("type").and_then(Value::as_str) {
+        Some("module") => ModuleType::Module,
+        Some("commonjs") => ModuleType::CommonJs,
+        _ => ModuleType::Unspecified,
+    };
+    Some(Manifest {
+        type_,
+        main: map.get("main").and_then(Value::as_str).map(str::to_owned),
+        exports: map.remove("exports"),
+        imports: map.remove("imports"),
+    })
+}
+
+struct CachedManifest {
+    value: Arc<Manifest>,
     stamp: Stamp,
 }
 
 #[derive(Default)]
 pub(crate) struct FsCache {
     kinds: Mutex<HashMap<PathBuf, Kind>>,
-    manifests: Mutex<HashMap<PathBuf, Option<Manifest>>>,
+    manifests: Mutex<HashMap<PathBuf, Option<CachedManifest>>>,
     /// Reads made by `op_cjs_resolve`, consumed once by `op_cjs_read`.
     pending: Mutex<HashMap<PathBuf, Arc<Read>>>,
     /// Format of files already handed to `op_cjs_read`: `require.cache` holds them, so later
@@ -72,14 +113,17 @@ impl FsCache {
         kind
     }
 
-    /// Parsed `dir/package.json`; `None` when it is missing, unreadable or not JSON. A cached
-    /// manifest is revalidated with one `metadata` call, so a rewritten one is observed.
-    pub(crate) fn manifest(&self, dir: &Path) -> Option<Arc<Value>> {
+    /// Projection of `dir/package.json`; `Ok(None)` when it is missing, unreadable or not JSON.
+    /// `auth` runs on the `package.json` path first, cache hit or not, so one isolate's grant
+    /// never exposes what another already read. A cached manifest is revalidated with one
+    /// `metadata` call, so a rewritten one is observed.
+    pub(crate) fn manifest(&self, dir: &Path, auth: Auth) -> ModuleResult<Option<Arc<Manifest>>> {
         let path = dir.join("package.json");
+        auth(&path)?;
         if let Some(hit) = self.manifests.lock().unwrap().get(dir) {
             match hit {
-                None => return None,
-                Some(m) if m.stamp == stamp_of(&path) => return Some(m.value.clone()),
+                None => return Ok(None),
+                Some(m) if m.stamp == stamp_of(&path) => return Ok(Some(m.value.clone())),
                 Some(_) => {}
             }
         }
@@ -87,8 +131,8 @@ impl FsCache {
         let stamp = stamp_of(&path);
         let parsed = read_to_string(&path)
             .ok()
-            .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-            .map(|value| Manifest {
+            .and_then(|raw| project(raw.as_bytes()))
+            .map(|value| CachedManifest {
                 value: Arc::new(value),
                 stamp,
             });
@@ -97,17 +141,34 @@ impl FsCache {
             .lock()
             .unwrap()
             .insert(dir.to_owned(), parsed);
-        value
+        Ok(value)
+    }
+
+    /// Nearest manifest at or above `start` and its directory. The walk ends at the first
+    /// directory `auth` denies: nothing above a grant is read.
+    pub(crate) fn nearest_manifest<'p>(
+        &self,
+        start: &'p Path,
+        auth: Auth,
+    ) -> Option<(&'p Path, Arc<Manifest>)> {
+        for dir in start.ancestors() {
+            match self.manifest(dir, auth) {
+                Ok(Some(manifest)) => return Some((dir, manifest)),
+                Ok(None) => {}
+                Err(_) => return None,
+            }
+        }
+        None
     }
 
     /// Format of `path` for `op_cjs_resolve`. The text is read only when detection has to sniff
     /// it, and then kept for the `read` that follows instead of being read again.
-    pub(crate) fn classify(&self, path: &Path) -> Format {
+    pub(crate) fn classify(&self, path: &Path, auth: Auth) -> Format {
         if let Some(format) = self.served.lock().unwrap().get(path) {
             return *format;
         }
         let mut sniffed = None;
-        let format = detect(path, || {
+        let format = detect(path, auth, || {
             let (text, stamp) = read_source(path).ok()?;
             sniffed = Some((text.clone(), stamp));
             Some(text)
@@ -127,13 +188,13 @@ impl FsCache {
 
     /// Source and format of `path`: the read `classify` left behind when the file is unchanged
     /// since, else one fresh read. The kept copy is dropped here.
-    pub(crate) fn read(&self, path: &Path) -> io::Result<Arc<Read>> {
+    pub(crate) fn read(&self, path: &Path, auth: Auth) -> io::Result<Arc<Read>> {
         let kept = self.pending.lock().unwrap().remove(path);
         let read = match kept {
             Some(read) if read.stamp == stamp_of(path) => read,
             _ => {
                 let (text, stamp) = read_source(path)?;
-                let format = detect(path, || Some(text.clone()));
+                let format = detect(path, auth, || Some(text.clone()));
                 Arc::new(Read {
                     text,
                     format,
@@ -217,6 +278,13 @@ pub(crate) fn global() -> &'static FsCache {
     &GLOBAL
 }
 
+/// Debug dump of the manifest projection cached for `dir`, to assert what is retained.
+#[doc(hidden)]
+pub fn debug_manifest(dir: &Path) -> Option<String> {
+    let manifest = GLOBAL.manifest(dir, &|_| Ok(())).ok()??;
+    Some(format!("{manifest:?}"))
+}
+
 /// Forgets every cached file kind and manifest, for hosts that reload modules in place.
 pub fn clear_fs_caches() {
     GLOBAL.clear();
@@ -225,6 +293,10 @@ pub fn clear_fs_caches() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn allow(_: &Path) -> ModuleResult<()> {
+        Ok(())
+    }
 
     #[test]
     fn repeated_probes_hit_the_filesystem_once() {
@@ -236,8 +308,13 @@ mod tests {
             assert_eq!(cache.kind(&dir.path().join("a.js")), Kind::File);
             assert_eq!(cache.kind(&dir.path().join("a.ts")), Kind::Missing);
             assert_eq!(cache.kind(dir.path()), Kind::Dir);
-            assert!(cache.manifest(dir.path()).is_some());
-            assert!(cache.manifest(&dir.path().join("sub")).is_none());
+            assert!(cache.manifest(dir.path(), &allow).unwrap().is_some());
+            assert!(
+                cache
+                    .manifest(&dir.path().join("sub"), &allow)
+                    .unwrap()
+                    .is_none()
+            );
         }
         assert_eq!(cache.syscalls(), 5);
     }
@@ -260,9 +337,15 @@ mod tests {
         let manifest = dir.path().join("package.json");
         fs::write(&manifest, r#"{"type":"module"}"#).unwrap();
         let cache = FsCache::default();
-        assert_eq!(cache.manifest(dir.path()).unwrap()["type"], "module");
+        assert_eq!(
+            cache.manifest(dir.path(), &allow).unwrap().unwrap().type_,
+            ModuleType::Module
+        );
         fs::write(&manifest, r#"{"type":"commonjs"}"#).unwrap();
-        assert_eq!(cache.manifest(dir.path()).unwrap()["type"], "commonjs");
+        assert_eq!(
+            cache.manifest(dir.path(), &allow).unwrap().unwrap().type_,
+            ModuleType::CommonJs
+        );
     }
 
     #[test]
@@ -271,8 +354,8 @@ mod tests {
         let file = dir.path().join("a.js");
         fs::write(&file, "exports.a = 1;").unwrap();
         let cache = FsCache::default();
-        assert_eq!(cache.classify(&file), Format::CommonJs);
-        let read = cache.read(&file).unwrap();
+        assert_eq!(cache.classify(&file, &allow), Format::CommonJs);
+        let read = cache.read(&file, &allow).unwrap();
         assert_eq!(&*read.text, "exports.a = 1;");
         assert_eq!(cache.pending.lock().unwrap().len(), 0);
     }
@@ -283,8 +366,8 @@ mod tests {
         let file = dir.path().join("a.js");
         fs::write(&file, "exports.a = 1;").unwrap();
         let cache = FsCache::default();
-        cache.classify(&file);
+        cache.classify(&file, &allow);
         fs::write(&file, "exports.a = 22;").unwrap();
-        assert_eq!(&*cache.read(&file).unwrap().text, "exports.a = 22;");
+        assert_eq!(&*cache.read(&file, &allow).unwrap().text, "exports.a = 22;");
     }
 }

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::analysis::has_module_syntax;
-use crate::fscache;
+use crate::fscache::{self, Auth, ModuleType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
@@ -22,25 +22,29 @@ impl Format {
     }
 }
 
-/// `type` of the nearest `package.json` above `dir` (missing or unreadable manifests have none).
-fn package_type(dir: &Path) -> Option<String> {
-    let manifest = dir
-        .ancestors()
-        .find_map(|d| fscache::global().manifest(d))?;
-    manifest.get("type")?.as_str().map(str::to_owned)
+/// `type` of the nearest `package.json` above `dir` (missing, unreadable or denied manifests
+/// have none).
+fn package_type(dir: &Path, auth: Auth) -> ModuleType {
+    fscache::global()
+        .nearest_manifest(dir, auth)
+        .map_or(ModuleType::Unspecified, |(_, manifest)| manifest.type_)
 }
 
 /// `.mjs` is ESM, `.cjs` CommonJS, `.json` JSON. For `.js` (and extensionless files) the package
 /// `type` decides; without one the source is sniffed for `import`/`export` like Node 22+.
 /// TypeScript files are left to the TypeScript transform and count as ESM.
-pub fn detect<S: AsRef<str>>(path: &Path, read: impl FnOnce() -> Option<S>) -> Format {
+pub(crate) fn detect<S: AsRef<str>>(
+    path: &Path,
+    auth: Auth,
+    read: impl FnOnce() -> Option<S>,
+) -> Format {
     match path.extension().and_then(|e| e.to_str()) {
         Some("mjs" | "mts" | "ts" | "tsx") => Format::Esm,
         Some("cjs" | "cts") => Format::CommonJs,
         Some("json") => Format::Json,
-        _ => match package_type(path.parent().unwrap_or(path)).as_deref() {
-            Some("module") => Format::Esm,
-            Some("commonjs") => Format::CommonJs,
+        _ => match package_type(path.parent().unwrap_or(path), auth) {
+            ModuleType::Module => Format::Esm,
+            ModuleType::CommonJs => Format::CommonJs,
             _ if read().is_some_and(|source| has_module_syntax(source.as_ref())) => Format::Esm,
             _ => Format::CommonJs,
         },
