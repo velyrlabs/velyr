@@ -5260,6 +5260,9 @@ dependencies = [
  "tempfile",
  "velyr-runtime-errors",
  "velyr-runtime-modules",
+ "velyr-runtime-permissions",
+ "velyr-tooling-tsconfig",
+ "velyr-tooling-typescript",
 ]
 
 [[package]]
@@ -5268,6 +5271,19 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "velyr-tooling-tsconfig"
+version = "0.1.0"
+dependencies = [
+ "jsonc-parser",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "velyr-runtime-errors",
+ "velyr-runtime-modules",
+ "velyr-runtime-permissions",
 ]
 
 [[package]]

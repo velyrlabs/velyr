@@ -5,6 +5,7 @@
 //! Register with `ModuleHost::with_transform(Arc::new(JsxTransform::discover(dir)?))`.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use oxc_allocator::Allocator;
 use oxc_codegen::{Codegen, CodegenOptions};
@@ -12,9 +13,11 @@ use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
 use oxc_transformer::{JsxOptions, JsxRuntime, TransformOptions, Transformer};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
+use velyr_tooling_tsconfig::{CompilerOptions, TsconfigLoader};
+use velyr_tooling_typescript::{transform_options, warn_once};
 
 const KEYS: [&str; 4] = ["jsx", "jsxImportSource", "jsxFactory", "jsxFragmentFactory"];
 
@@ -70,23 +73,53 @@ impl JsxConfig {
         Self::from_compiler_options(&Value::Object(merged))
     }
 
-    fn options(&self) -> TransformOptions {
+    fn from_tsconfig(options: &CompilerOptions) -> Result<Self> {
+        Self::from_compiler_options(&json!({
+            "jsx": options.jsx,
+            "jsxImportSource": options.jsx_import_source,
+            "jsxFactory": options.jsx_factory,
+            "jsxFragmentFactory": options.jsx_fragment_factory,
+        }))
+    }
+
+    fn apply(&mut self, overrides: &JsxOverrides) -> Result<()> {
+        if overrides.jsx.is_some() {
+            self.classic = Self::from_compiler_options(&json!({ "jsx": overrides.jsx }))?.classic;
+        }
+        let set = |slot: &mut Option<String>, value: &Option<String>| {
+            if value.is_some() {
+                slot.clone_from(value);
+            }
+        };
+        set(&mut self.import_source, &overrides.import_source);
+        set(&mut self.factory, &overrides.factory);
+        set(&mut self.fragment_factory, &overrides.fragment_factory);
+        Ok(())
+    }
+
+    fn jsx_options(&self) -> JsxOptions {
         let runtime = if self.classic {
             JsxRuntime::Classic
         } else {
             JsxRuntime::Automatic
         };
-        TransformOptions {
-            jsx: JsxOptions {
-                runtime,
-                import_source: self.import_source.clone(),
-                pragma: self.factory.clone(),
-                pragma_frag: self.fragment_factory.clone(),
-                ..JsxOptions::default()
-            },
-            ..TransformOptions::default()
+        JsxOptions {
+            runtime,
+            import_source: self.import_source.clone(),
+            pragma: self.factory.clone(),
+            pragma_frag: self.fragment_factory.clone(),
+            ..JsxOptions::default()
         }
     }
+}
+
+/// Per-key `velyr.json` `compilerOptions` that win over the tsconfig.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct JsxOverrides {
+    pub jsx: Option<String>,
+    pub import_source: Option<String>,
+    pub factory: Option<String>,
+    pub fragment_factory: Option<String>,
 }
 
 /// The `compilerOptions` object of a JSON file; empty when the file or the key is absent.
@@ -102,11 +135,45 @@ fn compiler_options(path: &Path) -> Result<Value> {
 #[derive(Default)]
 pub struct JsxTransform {
     config: JsxConfig,
+    loader: Option<Arc<TsconfigLoader>>,
+    overrides: JsxOverrides,
 }
 
 impl JsxTransform {
     pub fn new(config: JsxConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            loader: None,
+            overrides: JsxOverrides::default(),
+        }
+    }
+
+    /// Derives the JSX and TypeScript options per file from the nearest `tsconfig.json`.
+    /// Replaces the fixed config; a broken tsconfig is reported once and defaults apply.
+    pub fn with_tsconfig(mut self, loader: Arc<TsconfigLoader>) -> Self {
+        self.loader = Some(loader);
+        self
+    }
+
+    pub fn with_overrides(mut self, overrides: JsxOverrides) -> Self {
+        self.overrides = overrides;
+        self
+    }
+
+    fn options(&self, specifier: &str, media_type: MediaType) -> Result<TransformOptions> {
+        let tsconfig = self
+            .loader
+            .as_ref()
+            .and_then(|l| warn_once(l.for_file(Path::new(specifier)), specifier));
+        let mut config = match (&self.loader, &tsconfig) {
+            (None, _) => self.config.clone(),
+            (Some(_), Some(found)) => JsxConfig::from_tsconfig(&found.options)?,
+            (Some(_), None) => JsxConfig::default(),
+        };
+        config.apply(&self.overrides)?;
+        let mut options = transform_options(media_type, tsconfig.as_deref());
+        options.jsx = config.jsx_options();
+        Ok(options)
     }
 
     /// Config discovered from `start` upwards, see [`JsxConfig::discover`].
@@ -173,7 +240,8 @@ impl SourceTransform for JsxTransform {
         let mut program = parsed.program;
         let semantic = SemanticBuilder::new().with_enum_eval(true).build(&program);
         let path = Path::new(specifier);
-        let transformed = Transformer::new(&allocator, path, &self.config.options())
+        let options = self.options(specifier, media_type)?;
+        let transformed = Transformer::new(&allocator, path, &options)
             .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
         if let Some(first) = transformed.diagnostics.first() {
             return Err(failure(
