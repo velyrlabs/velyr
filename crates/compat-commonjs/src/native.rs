@@ -55,6 +55,7 @@ mod tests {
         isolate.set_slot(CommonJsState {
             permissions: Arc::new(permissions),
             conditions: Vec::new(),
+            strip: None,
         });
         let source = Source {
             name: "test.js".into(),

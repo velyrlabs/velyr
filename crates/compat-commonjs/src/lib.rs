@@ -11,7 +11,8 @@
 //! next to [`install_commonjs`]); a graph with top-level await throws `ERR_REQUIRE_ASYNC_MODULE`.
 //!
 //! Known limits: `require(esm)` ignores the `"module.exports"` export name; bare specifiers need `import`-side support
-//! in compat-npm's resolver (it rejects CommonJS packages); TypeScript sources are not handled.
+//! in compat-npm's resolver (it rejects CommonJS packages). `.cts` is CommonJS (types stripped on read through
+//! [`install_commonjs_with`]) unless it has real ESM syntax; `.ts` and `.mts` stay ES modules.
 
 mod analysis;
 mod format;
@@ -74,6 +75,10 @@ pub fn install_commonjs(
     permissions: Arc<CapabilitySet>,
 ) -> std::result::Result<(), JsException> {
     install_commonjs_slots(isolate, permissions);
+    eval_bootstrap(isolate)
+}
+
+fn eval_bootstrap(isolate: &mut impl Isolate) -> std::result::Result<(), JsException> {
     isolate
         .eval_script(&Source {
             name: "velyr:commonjs".into(),
@@ -82,11 +87,32 @@ pub fn install_commonjs(
         .map(drop)
 }
 
+/// [`install_commonjs`] that also strips TypeScript from the files `require` reads, with `strip`
+/// (the JSX and TypeScript steps only: no CommonJS step, which would recurse).
+pub fn install_commonjs_with(
+    isolate: &mut impl Isolate,
+    permissions: Arc<CapabilitySet>,
+    strip: Arc<dyn SourceTransform>,
+) -> std::result::Result<(), JsException> {
+    install_commonjs_slots_with(isolate, permissions, Some(strip));
+    eval_bootstrap(isolate)
+}
+
 /// The Rust half of [`install_commonjs`], for an isolate whose [`COMMONJS_JS`] already ran.
 pub fn install_commonjs_slots(isolate: &mut impl Isolate, permissions: Arc<CapabilitySet>) {
+    install_commonjs_slots_with(isolate, permissions, None);
+}
+
+/// [`install_commonjs_slots`] with the TypeScript `strip` of [`install_commonjs_with`].
+pub fn install_commonjs_slots_with(
+    isolate: &mut impl Isolate,
+    permissions: Arc<CapabilitySet>,
+    strip: Option<Arc<dyn SourceTransform>>,
+) {
     isolate.set_slot(CommonJsState {
         permissions,
         conditions: conditions(),
+        strip,
     });
 }
 
@@ -167,8 +193,14 @@ impl SourceTransform for CommonJsTransform {
         let Some(path) = id.to_path().filter(|path| !is_embedded(path)) else {
             return false;
         };
-        MediaType::from_path(&path) == MediaType::JavaScript
-            && detect(&path, &|p| self.authorize(p), || Some(text)) != Format::Esm
+        match MediaType::from_path(&path) {
+            MediaType::JavaScript => {
+                detect(&path, &|p| self.authorize(p), || Some(text)) != Format::Esm
+            }
+            // `text` is still TypeScript here; `transform` decides on the stripped text.
+            MediaType::Cts => true,
+            _ => false,
+        }
     }
 
     fn transform(
@@ -178,10 +210,14 @@ impl SourceTransform for CommonJsTransform {
         media_type: MediaType,
     ) -> Result<Transformed> {
         let path = Path::new(specifier);
-        let format = if media_type == MediaType::JavaScript {
-            detect(path, &|p| self.authorize(p), || Some(source.to_owned()))
-        } else {
-            Format::Esm
+        let source = &*ops::drop_empty_export(source, media_type);
+        let format = match media_type {
+            MediaType::JavaScript => {
+                detect(path, &|p| self.authorize(p), || Some(source.to_owned()))
+            }
+            // D5: `source` is already stripped; a `.cts` with real ESM syntax loads as ESM.
+            MediaType::Cts if !analysis::has_module_syntax(source) => Format::CommonJs,
+            _ => Format::Esm,
         };
         let code = match format {
             Format::Esm => source.to_owned(),

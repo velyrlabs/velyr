@@ -8,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use crate::fscache::{self, Auth, Kind};
 use velyr_compat_npm::resolve::exports::{match_exports, match_imports};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
-use velyr_runtime_modules::Result;
+use velyr_runtime_modules::{MediaType, Result};
 
 const EXTENSIONS: [&str; 3] = ["js", "json", "cjs"];
 
@@ -56,6 +56,27 @@ fn load_as_file(base: &Path) -> Option<PathBuf> {
         let candidate = PathBuf::from(name);
         is_file(&candidate).then_some(candidate)
     })
+}
+
+/// TypeScript sources a JavaScript specifier may stand for: `./x.cjs` is `x.cts`, `./x.js` is
+/// `x.ts`, and `./x` may be either. Only tried when the requiring file is TypeScript itself.
+fn load_typescript(base: &Path) -> Option<PathBuf> {
+    let name = base.file_name()?.to_str()?;
+    let swapped = [(".cjs", "cts"), (".js", "ts"), (".mjs", "mts")]
+        .iter()
+        .find_map(|(js, ts)| name.strip_suffix(js).map(|stem| (stem, *ts)));
+    let candidates: Vec<PathBuf> = match swapped {
+        Some((stem, ts)) => vec![base.with_file_name(format!("{stem}.{ts}"))],
+        None => ["ts", "cts"]
+            .iter()
+            .map(|ts| base.with_file_name(format!("{name}.{ts}")))
+            .collect(),
+    };
+    candidates.into_iter().find(|candidate| is_file(candidate))
+}
+
+fn is_typescript(path: &Path) -> bool {
+    MediaType::from_path(path) != MediaType::JavaScript
 }
 
 fn load_as_directory(dir: &Path, auth: Auth) -> Result<Option<PathBuf>> {
@@ -158,16 +179,24 @@ fn resolve_imports(
 /// manifest above a directory, which stops at the grant boundary.
 pub fn resolve(request: &str, from: &Path, conditions: &[String], auth: Auth) -> Result<PathBuf> {
     let from_dir = from.parent().unwrap_or(from);
-    let found = if let Some(url) = request.strip_prefix("file://") {
-        load_path(Path::new(url), auth)?
+    let path_target = if let Some(url) = request.strip_prefix("file://") {
+        Some(PathBuf::from(url))
     } else if Path::new(request).is_absolute() {
-        load_path(Path::new(request), auth)?
+        Some(PathBuf::from(request))
     } else if request == "."
         || request == ".."
         || request.starts_with("./")
         || request.starts_with("../")
     {
-        load_path(&normalize(&from_dir.join(request)), auth)?
+        Some(normalize(&from_dir.join(request)))
+    } else {
+        None
+    };
+    let found = if let Some(target) = path_target {
+        match load_path(&target, auth)? {
+            None if is_typescript(from) => load_typescript(&target),
+            found => found,
+        }
     } else if request.starts_with('#') {
         resolve_imports(request, from_dir, conditions, auth)?
     } else {

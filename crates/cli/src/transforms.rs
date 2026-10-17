@@ -14,7 +14,26 @@ pub fn source_transform(
     permissions: &Arc<CapabilitySet>,
     features: EngineFeatures,
 ) -> Option<Arc<dyn SourceTransform>> {
-    #[cfg(not(any(feature = "node", feature = "typescript", feature = "jsx")))]
+    #[cfg(not(feature = "node"))]
+    let _ = permissions;
+    let mut chain = strip_steps(permissions, features);
+    #[cfg(feature = "node")]
+    chain.push(Arc::new(velyr_compat_commonjs::CommonJsTransform::new(
+        permissions.clone(),
+    )));
+    match chain.len() {
+        0 => None,
+        1 => chain.pop(),
+        _ => Some(Arc::new(Chain(chain))),
+    }
+}
+
+/// JSX and TypeScript steps, without the CommonJS facade.
+fn strip_steps(
+    permissions: &Arc<CapabilitySet>,
+    features: EngineFeatures,
+) -> Vec<Arc<dyn SourceTransform>> {
+    #[cfg(not(any(feature = "typescript", feature = "jsx")))]
     let _ = permissions;
     #[cfg(not(feature = "typescript"))]
     let _ = features;
@@ -40,10 +59,16 @@ pub fn source_transform(
                     .contains(EngineFeatures::EXPLICIT_RESOURCE_MANAGEMENT),
             }),
     ));
-    #[cfg(feature = "node")]
-    chain.push(Arc::new(velyr_compat_commonjs::CommonJsTransform::new(
-        permissions.clone(),
-    )));
+    chain
+}
+
+/// What `require` runs on the TypeScript it reads: the steps of [`source_transform`] without the
+/// CommonJS facade (which would recurse). `None` when neither TypeScript nor JSX is built in.
+pub fn commonjs_strip(
+    permissions: &Arc<CapabilitySet>,
+    features: EngineFeatures,
+) -> Option<Arc<dyn SourceTransform>> {
+    let mut chain = strip_steps(permissions, features);
     match chain.len() {
         0 => None,
         1 => chain.pop(),

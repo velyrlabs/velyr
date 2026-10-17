@@ -1,6 +1,7 @@
 //! The `op_cjs_*` host functions behind `require`. Both are synchronous (`require` is), so they
 //! read with `std::fs` after the same `ImportLocal`/`FsRead` check `ModuleHost::load` makes.
 
+use std::borrow::Cow;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -9,7 +10,7 @@ use velyr_engine_api::{
 };
 use velyr_runtime_core::require_esm;
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{ModuleId, SharedCache, authorize_path};
+use velyr_runtime_modules::{MediaType, ModuleId, SharedCache, SourceTransform, authorize_path};
 use velyr_runtime_ops::CapabilityKind;
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -22,6 +23,8 @@ use crate::resolve::resolve;
 pub(crate) struct CommonJsState {
     pub permissions: Arc<CapabilitySet>,
     pub conditions: Vec<String>,
+    /// Strips TypeScript from the files `op_cjs_read` returns; `None` leaves them as read.
+    pub strip: Option<Arc<dyn SourceTransform>>,
 }
 
 pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 4] = [
@@ -110,23 +113,63 @@ fn op_cjs_resolve(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Ho
     ))
 }
 
-/// `op_cjs_read(path) -> source`; CommonJS text has its `import(` calls routed through the
-/// wrapper's `__velyrImport`.
+/// `op_cjs_read(path) -> source`; TypeScript is stripped first (the only strip site, so the text
+/// V8 compiles and the code-cache key are the stripped text), then CommonJS text has its
+/// `import(` calls routed through the wrapper's `__velyrImport`.
 fn op_cjs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let path = string_arg(args, 0, "op_cjs_read")?;
-    let (permissions, _) = state(ctx)?;
+    let (permissions, strip) = {
+        let state = ctx
+            .isolate_slot::<CommonJsState>()
+            .ok_or_else(|| HostError::TypeError("CommonJS ops need install_commonjs".into()))?;
+        (state.permissions.clone(), state.strip.clone())
+    };
     let path = Path::new(&path);
     authorize_path(path, &permissions)?;
     let read = fscache::global()
         .read(path, &|p| authorize_path(p, &permissions))
         .map_err(read_error)?;
-    if read.format == Format::Json || !read.text.contains("import") {
+    if read.format == Format::Json {
         return Ok(text(&read.text));
     }
-    let offsets = analyze(&read.text)
+    let source = strip_types(strip.as_deref(), path, &read.text)?;
+    if !source.contains("import") {
+        return Ok(text(&source));
+    }
+    let offsets = analyze(&source)
         .map(|a| a.dynamic_imports)
         .unwrap_or_default();
-    Ok(text(&rewrite_dynamic_imports(&read.text, &offsets)))
+    Ok(text(&rewrite_dynamic_imports(&source, &offsets)))
+}
+
+/// oxc keeps a trailing `export {};` where an `import type` was erased; in a `.cts` it would
+/// make the CommonJS body a syntax error and read as ESM. shortcut: only the trailing statement,
+/// oxc emits it nowhere else.
+pub(crate) fn drop_empty_export(code: &str, media_type: MediaType) -> Cow<'_, str> {
+    match code.strip_suffix("export {};\n") {
+        Some(rest) if media_type == MediaType::Cts => Cow::Borrowed(rest),
+        _ => Cow::Borrowed(code),
+    }
+}
+
+/// `raw` with its types removed when `path` is TypeScript and a `strip` step is installed.
+fn strip_types<'a>(
+    strip: Option<&dyn SourceTransform>,
+    path: &Path,
+    raw: &'a str,
+) -> Result<Cow<'a, str>, HostError> {
+    let media_type = MediaType::from_path(path);
+    match strip {
+        Some(strip) if media_type != MediaType::JavaScript && strip.handles(media_type) => {
+            let code = strip
+                .transform(&path.to_string_lossy(), raw, media_type)?
+                .code;
+            Ok(Cow::Owned(
+                drop_empty_export(&code, media_type).into_owned(),
+            ))
+        }
+        _ => Ok(Cow::Borrowed(raw)),
+    }
 }
 
 /// `op_cjs_require_esm(path) -> namespace`, or `undefined` when the module has top-level await

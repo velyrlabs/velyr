@@ -88,7 +88,9 @@ fn freeze_intrinsics<I: velyr_engine_api::Isolate>(isolate: &mut LoopIsolate<I>)
         name: "velyr:frozen-intrinsics".into(),
         text: FREEZE_INTRINSICS.into(),
     };
-    isolate.eval_script(&source).expect("the freeze script is valid JS");
+    isolate
+        .eval_script(&source)
+        .expect("the freeze script is valid JS");
 }
 
 /// How a run's isolates start.
@@ -191,7 +193,14 @@ fn install_globals<I: velyr_engine_api::Isolate>(
 ) {
     #[cfg(not(feature = "node"))]
     let _ = script;
-    install_slots(isolate, &timers, host, scope.as_ref(), permissions);
+    install_slots(
+        isolate,
+        &timers,
+        host,
+        scope.as_ref(),
+        permissions,
+        boot.features,
+    );
     let values = if boot.from_snapshot {
         BootValues::take_from_snapshot(isolate)
     } else {
@@ -216,9 +225,10 @@ fn install_slots<I: velyr_engine_api::Isolate>(
     host: WorkerHost,
     scope: Option<&WorkerScope<'_>>,
     permissions: Arc<CapabilitySet>,
+    features: velyr_engine_api::EngineFeatures,
 ) {
     #[cfg(not(feature = "node"))]
-    let _ = permissions;
+    let _ = (&permissions, features);
     install_timer_slots(isolate, timers.clone());
     install_blob_slots(isolate);
     install_performance_slots(isolate);
@@ -232,7 +242,10 @@ fn install_slots<I: velyr_engine_api::Isolate>(
     }
     install_web_api_slots(isolate, Some(host), scope);
     #[cfg(feature = "node")]
-    velyr_compat_commonjs::install_commonjs_slots(isolate, permissions);
+    {
+        let strip = crate::transforms::commonjs_strip(&permissions, features);
+        velyr_compat_commonjs::install_commonjs_slots_with(isolate, permissions, strip);
+    }
 }
 
 /// Completion values of the bootstrap scripts that the host keeps.
