@@ -2,9 +2,7 @@
 //! `PluralRules`. The prelude resolves the options into a comma separated spec (see
 //! `Spec`); rounding is `halfExpand`. Currency and percent affixes live in `currency.rs`.
 
-use fixed_decimal::{
-    Decimal, FloatPrecision, Sign, SignDisplay, SignedRoundingMode, UnsignedRoundingMode,
-};
+use fixed_decimal::{Decimal, FloatPrecision, Sign, SignDisplay};
 use icu_decimal::options::{DecimalFormatterOptions, GroupingStrategy};
 use icu_decimal::{DecimalFormatter, parts};
 use icu_plurals::{PluralCategory, PluralRuleType, PluralRules, PluralRulesOptions};
@@ -12,96 +10,11 @@ use velyr_engine_vm::Value;
 use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
 use writeable::{Part, Writeable};
 
+use self::digits::{Digits, Spec};
 use super::currency::{self, Layout, NBSP};
-use super::{OpResult, Parts, bool_arg, locale, number_arg, range_error, string_arg};
+use super::{OpResult, Parts, bool_arg, locale, range_error, string_arg};
 
-/// Option names in the order the prelude joins them into the spec.
-const KEYS: [&str; 12] = [
-    "minimumIntegerDigits",
-    "minimumFractionDigits",
-    "maximumFractionDigits",
-    "minimumSignificantDigits",
-    "maximumSignificantDigits",
-    "useGrouping",
-    "style",
-    "currency",
-    "currencyDisplay",
-    "currencySign",
-    "notation",
-    "signDisplay",
-];
-
-struct Spec(Vec<String>);
-
-impl Spec {
-    fn text(&self, key: &str) -> &str {
-        let index = KEYS.iter().position(|k| *k == key);
-        index.and_then(|i| self.0.get(i)).map_or("", String::as_str)
-    }
-
-    fn digits(&self, key: &str) -> Option<i16> {
-        self.text(key).parse().ok()
-    }
-}
-
-enum Precision {
-    Fraction { min: i16, max: i16 },
-    Significant { min: i16, max: i16 },
-}
-
-struct Digits {
-    min_integer: i16,
-    precision: Precision,
-}
-
-impl Digits {
-    fn fraction(min_integer: i16, min: i16, max: i16) -> Self {
-        Self {
-            min_integer,
-            precision: Precision::Fraction { min, max },
-        }
-    }
-
-    fn from_spec(spec: &Spec) -> Self {
-        let min_integer = spec.digits("minimumIntegerDigits").unwrap_or(1);
-        let precision = match spec.digits("maximumSignificantDigits") {
-            Some(max) => Precision::Significant {
-                min: spec.digits("minimumSignificantDigits").unwrap_or(1),
-                max,
-            },
-            None => Precision::Fraction {
-                min: spec.digits("minimumFractionDigits").unwrap_or(0),
-                max: spec.digits("maximumFractionDigits").unwrap_or(3),
-            },
-        };
-        Self {
-            min_integer,
-            precision,
-        }
-    }
-
-    fn apply(&self, decimal: &mut Decimal) {
-        let mode = SignedRoundingMode::Unsigned(UnsignedRoundingMode::HalfExpand);
-        match self.precision {
-            Precision::Fraction { min, max } => {
-                decimal.round_with_mode(-max, mode);
-                decimal.absolute.trim_end();
-                decimal.absolute.pad_end(-min);
-            }
-            Precision::Significant { min, max } => {
-                if !decimal.absolute.is_zero() {
-                    let top = decimal.absolute.nonzero_magnitude_start();
-                    decimal.round_with_mode(top - max + 1, mode);
-                    decimal.absolute.trim_end();
-                }
-                // Rounding can carry into a new leading digit (999.96 -> 1000).
-                let top = decimal.absolute.nonzero_magnitude_start();
-                decimal.absolute.pad_end(top - min + 1);
-            }
-        }
-        decimal.absolute.pad_start(self.min_integer);
-    }
-}
+mod digits;
 
 /// A number as a decimal: a JS number, or the decimal string of a BigInt.
 fn decimal_of(value: &Value) -> Option<Decimal> {
@@ -284,7 +197,7 @@ fn add_currency(spec: &Spec, layout: &Layout, entries: &mut Entries) {
 /// `(locale, value, spec, parts)`: the formatted string, or encoded parts when `parts` is
 /// true.
 pub(crate) fn format(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
-    let spec = Spec(string_arg(args, 2).split(',').map(str::to_owned).collect());
+    let spec = Spec::parse(&string_arg(args, 2));
     let value = args.get(1).cloned().unwrap_or(Value::Undefined);
     let tag = string_arg(args, 0);
     let mut entries = number_entries(vm, &spec, &value, &tag)?;
@@ -329,20 +242,16 @@ fn category_name(category: PluralCategory) -> &'static str {
     }
 }
 
-/// `(locale, ordinal, value, minFrac, maxFrac)`: the plural category of the value as it
-/// would be formatted.
+/// `(locale, ordinal, value, spec)`: the plural category of the value as it would be
+/// formatted with the digit options of `spec`.
 pub(crate) fn plural_select(vm: &mut Interpreter, _: &Value, args: &[Value]) -> OpResult {
     let rules = rules(vm, &string_arg(args, 0), bool_arg(args, 1))?;
-    let n = number_arg(args, 2);
-    if !n.is_finite() {
+    let value = args.get(2).cloned().unwrap_or(Value::Undefined);
+    if matches!(value, Value::Number(n) if !n.is_finite()) {
         return Ok(Value::str("other"));
     }
-    let mut decimal = decimal_of(&Value::Number(n)).unwrap_or_default();
-    let digit = |i: usize, fallback: f64| {
-        let n = number_arg(args, i);
-        (if n.is_nan() { fallback } else { n }) as i16
-    };
-    Digits::fraction(1, digit(3, 0.0), digit(4, 3.0)).apply(&mut decimal);
+    let mut decimal = decimal_of(&value).unwrap_or_default();
+    Digits::from_spec(&Spec::parse(&string_arg(args, 3))).apply(&mut decimal);
     Ok(Value::str(category_name(rules.category_for(&decimal))))
 }
 

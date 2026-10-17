@@ -221,7 +221,7 @@ fn materialize(vm: &mut Interpreter) -> Result<(), String> {
             1,
             Rc::new(number::currency_digits),
         ),
-        ("__intl_plural_select", 5, Rc::new(number::plural_select)),
+        ("__intl_plural_select", 4, Rc::new(number::plural_select)),
         (
             "__intl_plural_categories",
             2,

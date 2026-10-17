@@ -195,44 +195,6 @@
   const instance = (target, self, C) =>
     target === undefined ? Object.create(C.prototype) : self;
 
-  // Digit options of NumberFormat and PluralRules.
-  const digitOptions = (options, defaultMax) => {
-    const minimumIntegerDigits = getNumber(options, 'minimumIntegerDigits', 1, 21, 1);
-    const minFraction = options.minimumFractionDigits;
-    const maxFraction = options.maximumFractionDigits;
-    const minimumFractionDigits = getNumber(options, 'minimumFractionDigits', 0, 100, undefined);
-    const maximumFractionDigits = getNumber(options, 'maximumFractionDigits', 0, 100, undefined);
-    const min = minFraction === undefined ? Math.min(0, maximumFractionDigits ?? 0) : minimumFractionDigits;
-    const max = maxFraction === undefined ? Math.max(min, defaultMax) : maximumFractionDigits;
-    if (min > max) throw new RangeError('maximumFractionDigits value is out of range.');
-    return { minimumIntegerDigits, minimumFractionDigits: min, maximumFractionDigits: max };
-  };
-
-  function PluralRules(locales = undefined, options = undefined) {
-    if (new.target === undefined) typeError("Constructor Intl.PluralRules requires 'new'");
-    options = toOptions(options);
-    getOption(options, 'localeMatcher', ['lookup', 'best fit']);
-    const locale = resolveLocale(locales);
-    const type = getOption(options, 'type', ['cardinal', 'ordinal'], 'cardinal');
-    slots.set(this, { kind: 'PluralRules', locale, type, ...digitOptions(options, 3) });
-  }
-  constructor(PluralRules, 'PluralRules', {
-    select(value) {
-      const r = slot(this, 'PluralRules', 'select');
-      return ops.plural_select(r.locale, r.type === 'ordinal', Number(value),
-        r.minimumFractionDigits, r.maximumFractionDigits);
-    },
-    resolvedOptions() {
-      const r = slot(this, 'PluralRules', 'resolvedOptions');
-      return {
-        locale: r.locale, type: r.type, minimumIntegerDigits: r.minimumIntegerDigits,
-        minimumFractionDigits: r.minimumFractionDigits, maximumFractionDigits: r.maximumFractionDigits,
-        pluralCategories: ops.plural_categories(r.locale, r.type === 'ordinal').split(','),
-        roundingMode: 'halfExpand',
-      };
-    },
-  });
-
   function Collator(locales = undefined, options = undefined) {
     const self = instance(new.target, this, Collator);
     options = toOptions(options);
@@ -313,7 +275,7 @@
   const Intl = global.Intl;
   define(Intl, {
     getCanonicalLocales(locales) { return canonicalLocales(locales); },
-    Collator, PluralRules, Segmenter,
+    Collator, Segmenter,
   });
   tag(Intl, 'Intl');
   defineProperty(global, '__intl_shared', {
