@@ -1,7 +1,8 @@
 //! `Temporal.ZonedDateTime` ops; the state is the IXDTF string with offset and `[zone]`.
 
 use temporal_rs::options::{Disambiguation, OffsetDisambiguation};
-use temporal_rs::{Instant, TemporalError, TemporalResult, ZonedDateTime};
+use temporal_rs::provider::TransitionDirection;
+use temporal_rs::{Instant, PlainTime, TemporalError, TemporalResult, TimeZone, ZonedDateTime};
 
 use super::{
     Args, Res, arg, date_fields, difference, duration, ensure_iso, opt, ordering, overflow, range,
@@ -70,6 +71,23 @@ pub(super) fn run(method: &str, a: Args) -> Res {
             .to_string()),
         "round" => zoned(a, 0)?.round(rounding(a, 1)?).map(text),
         "startOfDay" => zoned(a, 0)?.start_of_day().map(text),
+        // time text, or "" for the start of the day
+        "withPlainTime" => {
+            let time = match arg(a, 1) {
+                "" => None,
+                text => Some(PlainTime::from_utf8(text.as_bytes())?),
+            };
+            zoned(a, 0)?.with_plain_time(time).map(text)
+        }
+        // "next" | "previous"; "" means no transition (`null`)
+        "transition" => {
+            let direction: TransitionDirection =
+                opt(a, 1, "invalid direction")?.ok_or_else(|| range("direction is required"))?;
+            let found = zoned(a, 0)?.get_time_zone_transition(direction)?;
+            Ok(found.map(text).unwrap_or_default())
+        }
+        // an identifier only (ISO date-time strings are not time zone identifiers)
+        "zoneId" => TimeZone::try_from_identifier_str(arg(a, 0))?.identifier(),
         "withTimeZone" => zoned(a, 0)?.with_timezone(time_zone(a, 1)?).map(text),
         "compare" => ordering(zoned(a, 0)?.compare_instant(&zoned(a, 1)?)),
         "equals" => Ok(zoned(a, 0)?.equals(&zoned(a, 1)?)?.to_string()),
