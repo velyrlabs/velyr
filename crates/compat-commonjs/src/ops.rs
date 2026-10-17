@@ -12,7 +12,7 @@ use velyr_runtime_ops::CapabilityKind;
 use velyr_runtime_permissions::CapabilitySet;
 
 use crate::analysis::{analyze, rewrite_dynamic_imports};
-use crate::format::{Format, detect};
+use crate::format::Format;
 use crate::fscache;
 use crate::resolve::resolve;
 
@@ -64,15 +64,15 @@ fn state(ctx: &mut dyn CallContext) -> Result<(Arc<CapabilitySet>, Vec<String>),
         .ok_or_else(|| HostError::TypeError("CommonJS ops need install_commonjs".into()))
 }
 
-fn read_text(path: &Path) -> Result<String, VelyrError> {
-    fscache::read_to_string(path).map_err(|err| match err.kind() {
+fn read_error(err: std::io::Error) -> VelyrError {
+    match err.kind() {
         std::io::ErrorKind::NotFound => VelyrError::not_found("module not found"),
         _ => VelyrError::invalid_data("module is not readable UTF-8 text").with_cause(err),
-    })
+    }
 }
 
-fn text(value: String) -> Value {
-    Value::String(JsString::from(value.as_str()))
+fn text(value: &str) -> Value {
+    Value::String(JsString::from(value))
 }
 
 /// `op_cjs_resolve(request, parentFile) -> '{"path": ..., "format": "commonjs"|"json"|"esm"}'`.
@@ -82,10 +82,10 @@ fn op_cjs_resolve(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Ho
     let (permissions, conditions) = state(ctx)?;
     let path = resolve(&request, Path::new(&parent), &conditions)?;
     authorize_path(&path, &permissions)?;
-    let format = detect(&path, || fscache::read_to_string(&path).ok());
+    let format = fscache::global().classify(&path);
     let path = path.to_string_lossy();
     Ok(text(
-        serde_json::json!({ "path": path, "format": format.as_str() }).to_string(),
+        &serde_json::json!({ "path": path, "format": format.as_str() }).to_string(),
     ))
 }
 
@@ -96,15 +96,14 @@ fn op_cjs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostE
     let (permissions, _) = state(ctx)?;
     let path = Path::new(&path);
     authorize_path(path, &permissions)?;
-    let source = read_text(path)?;
-    let is_json = detect(path, || None) == Format::Json;
-    if is_json || !source.contains("import") {
-        return Ok(text(source));
+    let read = fscache::global().read(path).map_err(read_error)?;
+    if read.format == Format::Json || !read.text.contains("import") {
+        return Ok(text(&read.text));
     }
-    let offsets = analyze(&source)
+    let offsets = analyze(&read.text)
         .map(|a| a.dynamic_imports)
         .unwrap_or_default();
-    Ok(text(rewrite_dynamic_imports(&source, &offsets)))
+    Ok(text(&rewrite_dynamic_imports(&read.text, &offsets)))
 }
 
 /// `op_cjs_require_esm(path) -> namespace`, or `undefined` when the module has top-level await

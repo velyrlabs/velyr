@@ -35,6 +35,8 @@ use ops::CommonJsState;
 
 pub use format::Format as ModuleFormat;
 pub use fscache::clear_fs_caches;
+#[cfg(feature = "test-counters")]
+pub use fscache::debug_read_count;
 
 /// Where `require(request)` from the file `from` lands, with the same rules as the runtime's
 /// `require` (`velyr compile` uses it to find the files a CommonJS module needs).

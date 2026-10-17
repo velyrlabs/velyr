@@ -33,7 +33,7 @@ fn package_type(dir: &Path) -> Option<String> {
 /// `.mjs` is ESM, `.cjs` CommonJS, `.json` JSON. For `.js` (and extensionless files) the package
 /// `type` decides; without one the source is sniffed for `import`/`export` like Node 22+.
 /// TypeScript files are left to the TypeScript transform and count as ESM.
-pub fn detect(path: &Path, read: impl FnOnce() -> Option<String>) -> Format {
+pub fn detect<S: AsRef<str>>(path: &Path, read: impl FnOnce() -> Option<S>) -> Format {
     match path.extension().and_then(|e| e.to_str()) {
         Some("mjs" | "mts" | "ts" | "tsx") => Format::Esm,
         Some("cjs" | "cts") => Format::CommonJs,
@@ -41,7 +41,7 @@ pub fn detect(path: &Path, read: impl FnOnce() -> Option<String>) -> Format {
         _ => match package_type(path.parent().unwrap_or(path)).as_deref() {
             Some("module") => Format::Esm,
             Some("commonjs") => Format::CommonJs,
-            _ if read().is_some_and(|source| has_module_syntax(&source)) => Format::Esm,
+            _ if read().is_some_and(|source| has_module_syntax(source.as_ref())) => Format::Esm,
             _ => Format::CommonJs,
         },
     }

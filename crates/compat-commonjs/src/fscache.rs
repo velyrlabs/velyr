@@ -10,8 +10,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
+use std::time::SystemTime;
 
 use serde_json::Value;
+
+use crate::format::{Format, detect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -20,10 +23,30 @@ pub(crate) enum Kind {
     Missing,
 }
 
+/// `(mtime, len)` of a file; `None` for files served from the virtual root, which never change.
+type Stamp = Option<(SystemTime, u64)>;
+
+/// One read of a source file and the format decided from that text.
+pub(crate) struct Read {
+    pub text: Arc<str>,
+    pub format: Format,
+    stamp: Stamp,
+}
+
+struct Manifest {
+    value: Arc<Value>,
+    stamp: Stamp,
+}
+
 #[derive(Default)]
 pub(crate) struct FsCache {
     kinds: Mutex<HashMap<PathBuf, Kind>>,
-    manifests: Mutex<HashMap<PathBuf, Option<Arc<Value>>>>,
+    manifests: Mutex<HashMap<PathBuf, Option<Manifest>>>,
+    /// Reads made by `op_cjs_resolve`, consumed once by `op_cjs_read`.
+    pending: Mutex<HashMap<PathBuf, Arc<Read>>>,
+    /// Format of files already handed to `op_cjs_read`: `require.cache` holds them, so later
+    /// resolves neither read nor stash them again.
+    served: Mutex<HashMap<PathBuf, Format>>,
     syscalls: AtomicUsize,
 }
 
@@ -49,26 +72,87 @@ impl FsCache {
         kind
     }
 
-    /// Parsed `dir/package.json`; `None` when it is missing, unreadable or not JSON.
+    /// Parsed `dir/package.json`; `None` when it is missing, unreadable or not JSON. A cached
+    /// manifest is revalidated with one `metadata` call, so a rewritten one is observed.
     pub(crate) fn manifest(&self, dir: &Path) -> Option<Arc<Value>> {
+        let path = dir.join("package.json");
         if let Some(hit) = self.manifests.lock().unwrap().get(dir) {
-            return hit.clone();
+            match hit {
+                None => return None,
+                Some(m) if m.stamp == stamp_of(&path) => return Some(m.value.clone()),
+                Some(_) => {}
+            }
         }
         self.syscalls.fetch_add(1, Ordering::Relaxed);
-        let parsed = read_to_string(&dir.join("package.json"))
+        let stamp = stamp_of(&path);
+        let parsed = read_to_string(&path)
             .ok()
             .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
-            .map(Arc::new);
+            .map(|value| Manifest {
+                value: Arc::new(value),
+                stamp,
+            });
+        let value = parsed.as_ref().map(|m| m.value.clone());
         self.manifests
             .lock()
             .unwrap()
-            .insert(dir.to_owned(), parsed.clone());
-        parsed
+            .insert(dir.to_owned(), parsed);
+        value
+    }
+
+    /// Format of `path` for `op_cjs_resolve`. The text is read only when detection has to sniff
+    /// it, and then kept for the `read` that follows instead of being read again.
+    pub(crate) fn classify(&self, path: &Path) -> Format {
+        if let Some(format) = self.served.lock().unwrap().get(path) {
+            return *format;
+        }
+        let mut sniffed = None;
+        let format = detect(path, || {
+            let (text, stamp) = read_source(path).ok()?;
+            sniffed = Some((text.clone(), stamp));
+            Some(text)
+        });
+        if let Some((text, stamp)) = sniffed
+            && format != Format::Esm
+        {
+            let read = Arc::new(Read {
+                text,
+                format,
+                stamp,
+            });
+            self.pending.lock().unwrap().insert(path.to_owned(), read);
+        }
+        format
+    }
+
+    /// Source and format of `path`: the read `classify` left behind when the file is unchanged
+    /// since, else one fresh read. The kept copy is dropped here.
+    pub(crate) fn read(&self, path: &Path) -> io::Result<Arc<Read>> {
+        let kept = self.pending.lock().unwrap().remove(path);
+        let read = match kept {
+            Some(read) if read.stamp == stamp_of(path) => read,
+            _ => {
+                let (text, stamp) = read_source(path)?;
+                let format = detect(path, || Some(text.clone()));
+                Arc::new(Read {
+                    text,
+                    format,
+                    stamp,
+                })
+            }
+        };
+        self.served
+            .lock()
+            .unwrap()
+            .insert(path.to_owned(), read.format);
+        Ok(read)
     }
 
     pub(crate) fn clear(&self) {
         self.kinds.lock().unwrap().clear();
         self.manifests.lock().unwrap().clear();
+        self.pending.lock().unwrap().clear();
+        self.served.lock().unwrap().clear();
     }
 
     #[cfg(test)]
@@ -88,6 +172,45 @@ pub(crate) fn read_to_string(path: &Path) -> io::Result<String> {
         .and_then(|key| vfs.read(key))
         .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?;
     String::from_utf8(bytes.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
+fn stamp_of(path: &Path) -> Stamp {
+    if velyr_runtime_vfs::covering(path).is_some() {
+        return None;
+    }
+    let meta = fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+/// One counted read of a source file, stamped before the read so a later change is never missed.
+fn read_source(path: &Path) -> io::Result<(Arc<str>, Stamp)> {
+    #[cfg(feature = "test-counters")]
+    counters::record(path);
+    let stamp = stamp_of(path);
+    Ok((read_to_string(path)?.into(), stamp))
+}
+
+#[cfg(feature = "test-counters")]
+mod counters {
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+    use std::sync::{LazyLock, Mutex};
+
+    static READS: LazyLock<Mutex<HashMap<PathBuf, usize>>> = LazyLock::new(Mutex::default);
+
+    pub(super) fn record(path: &Path) {
+        *READS.lock().unwrap().entry(path.to_owned()).or_default() += 1;
+    }
+
+    pub(super) fn count(path: &Path) -> usize {
+        READS.lock().unwrap().get(path).copied().unwrap_or(0)
+    }
+}
+
+/// How many times the runtime read the source of `path` (test builds only).
+#[cfg(feature = "test-counters")]
+pub fn debug_read_count(path: &Path) -> usize {
+    counters::count(path)
 }
 
 pub(crate) fn global() -> &'static FsCache {
@@ -129,5 +252,39 @@ mod tests {
         assert_eq!(cache.kind(&file), Kind::Missing);
         cache.clear();
         assert_eq!(cache.kind(&file), Kind::File);
+    }
+
+    #[test]
+    fn rewritten_manifest_is_observed() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest = dir.path().join("package.json");
+        fs::write(&manifest, r#"{"type":"module"}"#).unwrap();
+        let cache = FsCache::default();
+        assert_eq!(cache.manifest(dir.path()).unwrap()["type"], "module");
+        fs::write(&manifest, r#"{"type":"commonjs"}"#).unwrap();
+        assert_eq!(cache.manifest(dir.path()).unwrap()["type"], "commonjs");
+    }
+
+    #[test]
+    fn unchanged_file_between_resolve_and_read_is_not_reread() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.js");
+        fs::write(&file, "exports.a = 1;").unwrap();
+        let cache = FsCache::default();
+        assert_eq!(cache.classify(&file), Format::CommonJs);
+        let read = cache.read(&file).unwrap();
+        assert_eq!(&*read.text, "exports.a = 1;");
+        assert_eq!(cache.pending.lock().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn file_rewritten_between_resolve_and_read_is_reread() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.js");
+        fs::write(&file, "exports.a = 1;").unwrap();
+        let cache = FsCache::default();
+        cache.classify(&file);
+        fs::write(&file, "exports.a = 22;").unwrap();
+        assert_eq!(&*cache.read(&file).unwrap().text, "exports.a = 22;");
     }
 }
