@@ -4,17 +4,21 @@
 
 use std::collections::HashMap;
 use std::fs;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::path::Path;
+use std::pin::pin;
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Wake, Waker};
+use std::thread::{self, Thread};
 
 use velyr_engine_api::{
     CallContext, HostError, Isolate, ModuleResolveHook, PromiseState, Source, Value,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{
-    FsResolver, MediaType, ModuleId, ModuleSource, ResolveContext, ResolvedModule, SourceTransform,
-    authorize_path,
+    FsResolver, LoadContext, MediaType, ModuleHost, ModuleId, ModuleSource, ResolveContext,
+    ResolvedModule, SharedCache, SourceTransform, authorize_path,
 };
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -31,6 +35,8 @@ pub struct EsmRequire {
     resolve_ctx: ResolveContext,
     permissions: Arc<CapabilitySet>,
     transform: Option<Arc<dyn SourceTransform>>,
+    host: Option<Arc<ModuleHost>>,
+    shared: Option<Arc<SharedCache>>,
     loaded: SourceCache,
 }
 
@@ -42,6 +48,8 @@ impl EsmRequire {
             resolve_ctx: ResolveContext::default(),
             permissions,
             transform: None,
+            host: None,
+            shared: None,
             loaded: SourceCache::default(),
         }
     }
@@ -50,6 +58,21 @@ impl EsmRequire {
     #[must_use]
     pub fn with_transform(mut self, transform: Arc<dyn SourceTransform>) -> Self {
         self.transform = Some(transform);
+        self
+    }
+
+    /// Reads through `host`, the module host `import` uses: one permission check, one source
+    /// layer, source maps registered. Without it, files are read directly.
+    #[must_use]
+    pub fn with_host(mut self, host: Arc<ModuleHost>) -> Self {
+        self.host = Some(host);
+        self
+    }
+
+    /// Lets the dependencies of a required graph consume code caches published by `import`.
+    #[must_use]
+    pub fn with_shared(mut self, shared: Arc<SharedCache>) -> Self {
+        self.shared = Some(shared);
         self
     }
 
@@ -63,6 +86,9 @@ impl EsmRequire {
     }
 
     fn read(&self, module: &ResolvedModule) -> Result<Arc<ModuleSource>, VelyrError> {
+        if let Some(host) = &self.host {
+            return self.read_through(host, module);
+        }
         authorize_path(&module.path, &self.permissions)?;
         if let Some(hit) = self.loaded.lock().unwrap().get(&module.id) {
             return Ok(Arc::clone(hit));
@@ -93,6 +119,26 @@ impl EsmRequire {
             None => text,
         };
         let source = Arc::new(ModuleSource::new(text));
+        self.loaded
+            .lock()
+            .unwrap()
+            .insert(module.id.clone(), Arc::clone(&source));
+        Ok(source)
+    }
+
+    fn read_through(
+        &self,
+        host: &ModuleHost,
+        module: &ResolvedModule,
+    ) -> Result<Arc<ModuleSource>, VelyrError> {
+        // Entries of `loaded` came from `ModuleHost::load` under the same permissions.
+        if let Some(hit) = self.loaded.lock().unwrap().get(&module.id) {
+            return Ok(Arc::clone(hit));
+        }
+        let ctx = LoadContext {
+            permissions: Arc::clone(&self.permissions),
+        };
+        let source = block_on(host.load(module, &ctx))?;
         self.loaded
             .lock()
             .unwrap()
@@ -166,10 +212,146 @@ impl SyncHook<'_> {
 }
 
 impl ModuleResolveHook for SyncHook<'_> {
+    fn code_cache(&mut self, name: &str) -> Option<Arc<[u8]>> {
+        let shared = self.loader.shared.as_ref()?;
+        let id = ModuleId::parse(name)?;
+        let hash = self.loader.loaded.lock().unwrap().get(&id)?.hash.clone();
+        shared.code(&id, &hash)
+    }
+
     fn resolve(&mut self, specifier: &str, referrer: &str) -> Result<Source, HostError> {
         self.load(specifier, referrer).map_err(|err| {
             self.failure = Some(err);
             HostError::Velyr(VelyrError::internal("module resolution failed"))
         })
+    }
+}
+
+struct Unparker(Thread);
+
+impl Wake for Unparker {
+    fn wake(self: Arc<Self>) {
+        self.0.unpark();
+    }
+}
+
+/// Drives `future` to completion on the calling thread. The isolate thread runs inside the Tokio
+/// runtime, so `ModuleHost::load` finds its blocking pool and the pool thread unparks us.
+fn block_on<F: Future>(future: F) -> F::Output {
+    let waker = Waker::from(Arc::new(Unparker(thread::current())));
+    let mut cx = Context::from_waker(&waker);
+    let mut future = pin!(future);
+    loop {
+        if let Poll::Ready(out) = future.as_mut().poll(&mut cx) {
+            return out;
+        }
+        thread::park();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use velyr_runtime_modules::{BoxFuture, ModuleLoader, Transformed};
+    use velyr_runtime_permissions::{Capability, PathPattern};
+
+    use super::*;
+
+    const MAP: &str = r#"{"version":3,"sources":["x.ts"],"names":[],"mappings":";AAAA"}"#;
+
+    struct MapTransform;
+
+    impl SourceTransform for MapTransform {
+        fn transform(
+            &self,
+            _specifier: &str,
+            source: &str,
+            _media_type: MediaType,
+        ) -> velyr_runtime_modules::Result<Transformed> {
+            Ok(Transformed {
+                code: source.to_owned(),
+                source_map: Some(MAP.to_owned()),
+            })
+        }
+    }
+
+    #[derive(Default)]
+    struct CountingLoader(AtomicUsize);
+
+    impl ModuleLoader for CountingLoader {
+        fn load<'a>(
+            &'a self,
+            _module: &'a ResolvedModule,
+            _ctx: &'a LoadContext,
+        ) -> BoxFuture<'a, velyr_runtime_modules::Result<ModuleSource>> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Ok(ModuleSource::new(String::new())) })
+        }
+    }
+
+    fn module(name: &str, text: &str) -> (std::path::PathBuf, ResolvedModule) {
+        let dir = std::fs::canonicalize(std::env::temp_dir())
+            .unwrap()
+            .join(format!("velyr-sync-{}-{name}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(name);
+        std::fs::write(&path, text).unwrap();
+        let id = ModuleId::from_path(&path).unwrap();
+        (dir, ResolvedModule { id, path })
+    }
+
+    fn allow(dir: &Path) -> Arc<CapabilitySet> {
+        CapabilitySet::builder()
+            .allow(Capability::ImportLocal(PathPattern::new(
+                dir.to_str().unwrap(),
+            )))
+            .build()
+    }
+
+    fn runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn read_through_host_registers_source_maps() {
+        let (dir, module) = module("x.ts", "export const x = 1;");
+        let host = Arc::new(
+            ModuleHost::new(Arc::new(velyr_runtime_modules::FsLoader))
+                .with_transform(Arc::new(MapTransform)),
+        );
+        let require = EsmRequire::new(None, allow(&dir)).with_host(Arc::clone(&host));
+        let runtime = runtime();
+        let _guard = runtime.enter();
+        require.read(&module).unwrap();
+        let mapper = host.source_maps().mapper();
+        assert!(mapper(module.id.as_str(), 2, 1).is_some());
+    }
+
+    #[test]
+    fn read_through_host_denies_an_ungranted_path_before_the_loader_runs() {
+        let (_dir, module) = module("denied.mjs", "export {};");
+        let loader = Arc::new(CountingLoader::default());
+        let host = Arc::new(ModuleHost::new(loader.clone()));
+        let other = std::env::temp_dir().join("velyr-sync-elsewhere");
+        let require = EsmRequire::new(None, allow(&other)).with_host(host);
+        let runtime = runtime();
+        let _guard = runtime.enter();
+        assert!(require.read(&module).is_err());
+        assert_eq!(loader.0.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn read_through_host_keeps_the_module_hash() {
+        let (dir, module) = module("same.mjs", "export const a = 1;");
+        let direct = EsmRequire::new(None, allow(&dir)).read(&module).unwrap();
+        let host = Arc::new(ModuleHost::new(Arc::new(velyr_runtime_modules::FsLoader)));
+        let hosted = EsmRequire::new(None, allow(&dir)).with_host(host);
+        let runtime = runtime();
+        let _guard = runtime.enter();
+        assert_eq!(hosted.read(&module).unwrap().hash, direct.hash);
     }
 }

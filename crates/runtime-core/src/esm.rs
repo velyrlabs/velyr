@@ -340,18 +340,22 @@ pub(crate) async fn run<I: Isolate>(
     let entry = ModuleId::from_path(&absolute)
         .ok_or_else(|| RunError::Load(VelyrError::invalid_data("entry path is not absolute")))?;
     let permissions = capabilities.unwrap_or_default();
-    let mut require = EsmRequire::new(resolver.clone(), Arc::clone(&permissions));
     let mut host = ModuleHost::new(loader.unwrap_or_else(|| Arc::new(FsLoader)));
     let shared = SharedCache::global();
     if let Some(shared) = &shared {
         host = host.with_shared(Arc::clone(shared));
     }
     if let Some(transform) = source_transform {
-        require = require.with_transform(Arc::clone(&transform));
         host = host.with_transform(transform);
     }
+    let host = Arc::new(host);
+    let mut require = EsmRequire::new(resolver.clone(), Arc::clone(&permissions))
+        .with_host(Arc::clone(&host));
+    if let Some(shared) = &shared {
+        require = require.with_shared(Arc::clone(shared));
+    }
     let mut modules = Modules {
-        host: Arc::new(host),
+        host,
         load: LoadContext { permissions },
         resolve_ctx: ResolveContext::default(),
         resolver: resolver.unwrap_or_else(|| Arc::new(FsResolver)),
