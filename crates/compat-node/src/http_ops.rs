@@ -291,7 +291,12 @@ fn op_node_http_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Valu
 /// 503 and the head is `[null]`.
 fn op_node_http_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let server = server_arg(ctx, args, "op_node_http_take")?;
-    let parked: Vec<Incoming> = server.parked.lock().expect("parked queue").drain(..).collect();
+    let parked: Vec<Incoming> = server
+        .parked
+        .lock()
+        .expect("parked queue")
+        .drain(..)
+        .collect();
     if parked.is_empty() {
         return Err(VelyrError::new(ErrorCode::InvalidData, "no request is waiting").into());
     }
