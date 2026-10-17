@@ -16,6 +16,8 @@ const BUDGETS: &[(&str, bool, f64)] = &[
     ("p99_ms", false, 5.0),
     ("rss_mb", false, 3.0),
     ("wall_ms", false, 5.0),
+    // Wall time is unreliable on a busy machine; instructions are the startup regression gate.
+    ("instructions", false, 2.0),
 ];
 
 #[derive(Parser)]
@@ -39,9 +41,29 @@ enum Cmd {
         profile: String,
         #[arg(long, default_value = "benches/results")]
         out_dir: PathBuf,
+        /// Commit recorded in the result instead of the current `git rev-parse HEAD`.
+        #[arg(long)]
+        commit: Option<String>,
     },
     /// Compare a result with a baseline using the merge budgets; exit 1 on regression.
     Compare { baseline: PathBuf, result: PathBuf },
+    /// Run a suite with a recompiled baseline binary and the new one in the same session,
+    /// writing `<out-dir>/base` and `<out-dir>/new`; exit 1 if instructions regress.
+    Ab {
+        suite: PathBuf,
+        /// Baseline binary, built from `--base-commit`.
+        #[arg(long)]
+        base_bin: PathBuf,
+        /// Commit the baseline binary was built from.
+        #[arg(long)]
+        base_commit: String,
+        #[arg(long, env = "VELYR_BIN", default_value = "target/release/velyr")]
+        bin: PathBuf,
+        #[arg(long, default_value = "release")]
+        profile: String,
+        #[arg(long, default_value = "benches/results")]
+        out_dir: PathBuf,
+    },
 }
 
 #[derive(Deserialize)]
@@ -79,6 +101,9 @@ struct BenchResult {
     rustc: String,
     os: String,
     timestamp: String,
+    /// 1, 5 and 15 minute load average when the run started; absent in older baselines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    load_average: Option<[f64; 3]>,
     metrics: BTreeMap<String, f64>,
 }
 
@@ -89,8 +114,22 @@ fn main() -> ExitCode {
             bin,
             profile,
             out_dir,
-        } => run(&suite, &bin, profile, &out_dir).map(|()| true),
-        Cmd::Compare { baseline, result } => compare(&baseline, &result),
+            commit,
+        } => run(&suite, &bin, profile, &out_dir, commit).map(|path| {
+            println!("{}", path.display());
+            true
+        }),
+        Cmd::Compare { baseline, result } => {
+            read_result(&baseline).and_then(|b| Ok(compare(&b, &read_result(&result)?, None)))
+        }
+        Cmd::Ab {
+            suite,
+            base_bin,
+            base_commit,
+            bin,
+            profile,
+            out_dir,
+        } => ab(&suite, (&base_bin, base_commit), &bin, &profile, &out_dir),
     };
     match outcome {
         Ok(true) => ExitCode::SUCCESS,
@@ -112,7 +151,14 @@ fn read_result(path: &Path) -> Result<BenchResult, String> {
     serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result<(), String> {
+/// Runs the suite and returns the path of the written result.
+fn run(
+    suite_path: &Path,
+    bin: &Path,
+    profile: String,
+    out_dir: &Path,
+    commit: Option<String>,
+) -> Result<PathBuf, String> {
     let suite: Suite = read_toml(suite_path)?;
     if suite.iterations == 0 || suite.command.is_empty() {
         return Err("suite needs a command and iterations > 0".into());
@@ -122,6 +168,8 @@ fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result
         cmd[0] = bin.display().to_string();
     }
 
+    let load = System::load_average();
+    let load_average = [load.one, load.five, load.fifteen];
     for _ in 0..suite.warmup {
         spawn_once(&cmd)?;
     }
@@ -140,7 +188,26 @@ fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result
     }
     walls.sort_by(f64::total_cmp);
     let cpu_total = children_cpu_seconds()? - cpu_before;
-    let usage = getrusage(UsageWho::RUSAGE_CHILDREN).map_err(|e| e.to_string())?;
+    // shortcut: cumulative max over every child of this process (rustc, git, earlier A/B legs),
+    // used only where no per-child RSS exists (Linux, server mode); upgrade with wait4 per run.
+    let fallback_rss_mb = max_rss_mb(
+        getrusage(UsageWho::RUSAGE_CHILDREN)
+            .map_err(|e| e.to_string())?
+            .max_rss(),
+    );
+    // Server mode runs a load driver per iteration; it is instrumented only for counters, never just for RSS.
+    let wanted: Vec<&str> = COUNTER_METRICS
+        .iter()
+        .copied()
+        .filter(|name| suite.metrics.iter().any(|m| m == name))
+        .collect();
+    let with_rss =
+        IS_MACOS && suite.mode == Mode::Command && suite.metrics.iter().any(|m| m == "rss_mb");
+    let counters = if !wanted.is_empty() || with_rss {
+        median_counters(&cmd, suite.iterations, &wanted, with_rss)?
+    } else {
+        BTreeMap::new()
+    };
 
     let mut metrics = BTreeMap::new();
     for metric in &suite.metrics {
@@ -157,7 +224,8 @@ fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result
             // `velyr run` hosts a single isolate; recorded so baselines state what RSS covers.
             "isolates" => 1.0,
             "cpu_seconds" => cpu_total / f64::from(suite.iterations),
-            "rss_mb" => max_rss_mb(usage.max_rss()),
+            "rss_mb" => counters.get("rss_mb").copied().unwrap_or(fallback_rss_mb),
+            counter if COUNTER_METRICS.contains(&counter) => counters[counter],
             other => return Err(format!("unknown metric `{other}`")),
         };
         metrics.insert(metric.clone(), value);
@@ -172,7 +240,7 @@ fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result
         .as_secs();
     let result = BenchResult {
         benchmark: suite.name.clone(),
-        commit: git_commit(),
+        commit: commit.unwrap_or_else(git_commit),
         profile,
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
         cpu: sys
@@ -184,14 +252,113 @@ fn run(suite_path: &Path, bin: &Path, profile: String, out_dir: &Path) -> Result
         rustc: command_stdout("rustc", &["--version"]).unwrap_or_else(|| "unknown".into()),
         os: System::long_os_version().unwrap_or_else(|| std::env::consts::OS.into()),
         timestamp: rfc3339_utc(secs),
+        load_average: Some(load_average),
         metrics,
     };
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
     let path = out_dir.join(format!("{}-{secs}.json", suite.name));
     let json = serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| format!("{}: {e}", path.display()))?;
-    println!("{}", path.display());
-    Ok(())
+    Ok(path)
+}
+
+/// A/B in one session: the baseline binary runs first, then the new one, back to back.
+fn ab(
+    suite: &Path,
+    (base_bin, base_commit): (&Path, String),
+    bin: &Path,
+    profile: &str,
+    out_dir: &Path,
+) -> Result<bool, String> {
+    let base = run(
+        suite,
+        base_bin,
+        profile.into(),
+        &out_dir.join("base"),
+        Some(base_commit),
+    )?;
+    let new = run(suite, bin, profile.into(), &out_dir.join("new"), None)?;
+    Ok(compare(
+        &read_result(&base)?,
+        &read_result(&new)?,
+        Some("instructions"),
+    ))
+}
+
+/// Hardware counter metrics, measured by `/usr/bin/time -l` (macOS) or `perf stat` (Linux).
+const COUNTER_METRICS: &[&str] = &["instructions", "cycles"];
+
+const IS_MACOS: bool = cfg!(target_os = "macos");
+
+/// Median of `runs` instrumented runs; separate from the timed runs so the wrapper cannot skew wall time.
+/// With `with_rss` (macOS), also the median `rss_mb` of the child itself, from `time -l`.
+fn median_counters(
+    cmd: &[String],
+    runs: u32,
+    counters: &[&str],
+    with_rss: bool,
+) -> Result<BTreeMap<String, f64>, String> {
+    let wrapper: &[&str] = if IS_MACOS {
+        &["/usr/bin/time", "-l"]
+    } else {
+        &["perf", "stat", "-x,", "-e", "instructions,cycles", "--"]
+    };
+    let mut samples: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+    for _ in 0..runs {
+        let out = Command::new(wrapper[0])
+            .args(&wrapper[1..])
+            .args(cmd)
+            .stdout(Stdio::null())
+            .output()
+            .map_err(|e| format!("{}: instructions/cycles need it on PATH: {e}", wrapper[0]))?;
+        if !out.status.success() {
+            return Err(format!("`{}` exited with {}", cmd[0], out.status));
+        }
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        for name in counters {
+            let value = parse_counter(&stderr, name)
+                .ok_or_else(|| format!("{} reported no `{name}` count", wrapper[0]))?;
+            samples.entry((*name).into()).or_default().push(value);
+        }
+        if with_rss {
+            let rss = parse_max_rss_mb(&stderr)
+                .ok_or_else(|| format!("{} reported no max resident set size", wrapper[0]))?;
+            samples.entry("rss_mb".into()).or_default().push(rss);
+        }
+    }
+    Ok(samples
+        .into_iter()
+        .map(|(name, mut values)| {
+            values.sort_by(f64::total_cmp);
+            (name, values[values.len() / 2])
+        })
+        .collect())
+}
+
+/// Reads `N instructions retired` / `N cycles elapsed` (time -l) or `N,,instructions,...` (perf -x,).
+fn parse_counter(stderr: &str, name: &str) -> Option<f64> {
+    stderr.lines().find_map(|line| {
+        let mac = line.split_whitespace().collect::<Vec<_>>();
+        let perf = line.split(',').collect::<Vec<_>>();
+        if mac.len() == 3 && mac[1] == name {
+            mac[0].parse().ok()
+        } else if perf.get(2).is_some_and(|event| event.starts_with(name)) {
+            perf[0].parse().ok()
+        } else {
+            None
+        }
+    })
+}
+
+/// Reads `N  maximum resident set size` (bytes) from `time -l`.
+fn parse_max_rss_mb(stderr: &str) -> Option<f64> {
+    stderr.lines().find_map(|line| {
+        let (bytes, label) = line.trim().split_once(char::is_whitespace)?;
+        (label.trim() == "maximum resident set size")
+            .then(|| bytes.parse::<f64>().ok())
+            .flatten()
+            .map(|b| b / (1024.0 * 1024.0))
+    })
 }
 
 /// The `metrics` of the driver's result file, read after each driver run.
@@ -300,11 +467,13 @@ fn rfc3339_utc(secs: u64) -> String {
     )
 }
 
-/// Returns Ok(true) when no budget is exceeded.
-fn compare(baseline: &Path, result: &Path) -> Result<bool, String> {
-    let (base, new) = (read_result(baseline)?, read_result(result)?);
+/// Returns true when no budget is exceeded; `only` restricts the check to one metric.
+fn compare(base: &BenchResult, new: &BenchResult, only: Option<&str>) -> bool {
     let mut ok = true;
     for &(metric, higher_is_better, limit) in BUDGETS {
+        if only.is_some_and(|name| name != metric) {
+            continue;
+        }
         let (Some(&b), Some(&n)) = (base.metrics.get(metric), new.metrics.get(metric)) else {
             continue;
         };
@@ -323,5 +492,5 @@ fn compare(baseline: &Path, result: &Path) -> Result<bool, String> {
             if breached { "FAIL" } else { "ok" }
         );
     }
-    Ok(ok)
+    ok
 }

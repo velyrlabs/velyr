@@ -239,6 +239,135 @@ fn footprint_metrics_cover_binary_size_p95_and_isolates() {
     assert_eq!(m["isolates"].as_f64().unwrap(), 1.0);
 }
 
+fn startup_suite(dir: &Path) -> PathBuf {
+    let suite = dir.join("startup.toml");
+    std::fs::write(
+        &suite,
+        "name='startup'\ncommand=['velyr','--version']\niterations=3\nwarmup=1\n\
+         metrics=['wall_ms','rss_mb','instructions','cycles']\n",
+    )
+    .unwrap();
+    suite
+}
+
+fn only_json(dir: &Path) -> serde_json::Value {
+    let file = std::fs::read_dir(dir)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()
+}
+
+#[test]
+fn startup_run_records_commit_load_average_and_instructions() {
+    let out = tempdir("startup");
+    let bin = assert_cmd::cargo::cargo_bin("velyr-bench");
+    bench()
+        .arg("run")
+        .arg(startup_suite(&out))
+        .arg("--bin")
+        .arg(&bin)
+        .arg("--out-dir")
+        .arg(out.join("res"))
+        .assert()
+        .success();
+    let result = only_json(&out.join("res"));
+    assert!(
+        jsonschema::validator_for(&schema())
+            .unwrap()
+            .is_valid(&result),
+        "{result}"
+    );
+    let commit = result["commit"].as_str().unwrap();
+    assert!(
+        commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()),
+        "{commit}"
+    );
+    let load = result["load_average"].as_array().unwrap();
+    assert!(load.len() == 3 && load.iter().all(|v| v.as_f64().is_some_and(|n| n >= 0.0)));
+    assert!(result["metrics"]["instructions"].as_f64().unwrap() > 0.0);
+    assert!(result["metrics"]["cycles"].as_f64().unwrap() > 0.0);
+}
+
+#[test]
+fn compare_exits_1_when_instructions_regress_5_percent() {
+    let out = bench()
+        .arg("compare")
+        .arg(fixture("instructions_base.json"))
+        .arg(fixture("instructions_worse.json"))
+        .assert()
+        .code(1);
+    let stdout = String::from_utf8_lossy(&out.get_output().stdout).into_owned();
+    assert!(
+        stdout.contains("instructions") && stdout.contains("FAIL"),
+        "{stdout}"
+    );
+}
+
+#[test]
+fn ab_runs_both_binaries_in_one_session_and_records_the_base_commit() {
+    let out = tempdir("ab");
+    let bin = assert_cmd::cargo::cargo_bin("velyr-bench");
+    let run = bench()
+        .arg("ab")
+        .arg(startup_suite(&out))
+        .arg("--base-bin")
+        .arg(&bin)
+        .arg("--base-commit")
+        .arg("0123456789abcdef0123456789abcdef01234567")
+        .arg("--bin")
+        .arg(&bin)
+        .arg("--out-dir")
+        .arg(out.join("res"))
+        .assert();
+    // Same binary on both sides: only exit 0 or 1 (noise) are legitimate, never 2 (error).
+    assert!(matches!(run.get_output().status.code(), Some(0 | 1)));
+    let stdout = String::from_utf8_lossy(&run.get_output().stdout).into_owned();
+    assert!(
+        stdout.contains("instructions") && !stdout.contains("wall_ms:"),
+        "{stdout}"
+    );
+    assert_eq!(
+        only_json(&out.join("res/base"))["commit"],
+        "0123456789abcdef0123456789abcdef01234567"
+    );
+    let new = only_json(&out.join("res/new"));
+    assert!(new["metrics"]["instructions"].is_number());
+    if cfg!(target_os = "macos") {
+        let base_rss = only_json(&out.join("res/base"))["metrics"]["rss_mb"]
+            .as_f64()
+            .unwrap();
+        let new_rss = new["metrics"]["rss_mb"].as_f64().unwrap();
+        assert!((base_rss - new_rss).abs() < 1.0, "{base_rss} vs {new_rss}");
+    }
+}
+
+/// The first invocation (a warmup) allocates ~200 MB; every measured one is a tiny `:`.
+/// rss_mb must come from the measured child, not from the harness' children high-water mark.
+/// macOS only: Linux has no per-child RSS yet (see the `shortcut:` in main.rs).
+#[cfg(target_os = "macos")]
+#[test]
+fn rss_mb_ignores_a_large_process_that_ran_before_the_measurement() {
+    let out = tempdir("rss-isolated");
+    let marker = out.join("seen");
+    let suite = out.join("rss.toml");
+    std::fs::write(
+        &suite,
+        format!(
+            "name='trivial'\niterations=3\nwarmup=1\nmetrics=['wall_ms','rss_mb']\n\
+             command=['sh','-c','if [ -e {0} ]; then :; else touch {0}; \
+             perl -e \"print length(q(x) x 200000000)\"; fi']\n",
+            marker.display()
+        ),
+    )
+    .unwrap();
+    let result = run_suite(&suite, &out.join("res"));
+    let rss = result["metrics"]["rss_mb"].as_f64().unwrap();
+    assert!(rss < 50.0, "rss_mb leaked the warmup process: {rss}");
+}
+
 #[test]
 fn committed_baselines_validate_against_schema() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benches/baselines");

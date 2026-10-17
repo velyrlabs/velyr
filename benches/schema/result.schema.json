@@ -14,6 +14,13 @@
     "rustc": { "type": "string" },
     "os": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" },
+    "load_average": {
+      "description": "1, 5 and 15 minute load average when the run started (optional: older baselines lack it).",
+      "type": "array",
+      "items": { "type": "number", "minimum": 0 },
+      "minItems": 3,
+      "maxItems": 3
+    },
     "metrics": {
       "type": "object",
       "minProperties": 1,

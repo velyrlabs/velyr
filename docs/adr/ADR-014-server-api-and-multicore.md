@@ -17,7 +17,7 @@
 
 ### Worker count
 - The default is 1 worker. Multicore is opt-in through `--workers` or the `workers` key in `velyr.json`.
-- `auto` computes `min(available_parallelism honoring cgroup CPU quota, floor(memory_budget / per_worker_estimate))`. The per-worker estimate starts at 64 MiB until Phase 05 measures it.
+- `auto` computes `min(available_parallelism honoring cgroup CPU quota, floor(memory_budget / per_worker_estimate))`. The per-worker estimate is 128 MiB, measured in ADR-016 (which supersedes the earlier 64 MiB placeholder).
 
 ### Workers API
 - `new Worker(url, { type: "module", velyr: { permissions } })`. Only module workers are supported.

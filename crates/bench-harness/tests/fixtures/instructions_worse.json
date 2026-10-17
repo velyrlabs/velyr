@@ -1,0 +1,1 @@
+{"benchmark":"startup","commit":"b","profile":"release","platform":"p","cpu":"c","memory":"m","rustc":"r","os":"o","timestamp":"2026-01-01T00:00:00Z","load_average":[9.0,9.0,9.0],"metrics":{"wall_ms":20,"instructions":1050000,"cycles":400000}}

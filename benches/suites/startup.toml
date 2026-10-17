@@ -5,4 +5,6 @@ name = "startup"
 command = ["velyr", "run", "benches/fixtures/empty.js"]
 iterations = 30
 warmup = 5
-metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds"]
+# Regression gate is `instructions` (VELYR-229): wall time is unreliable on a busy machine.
+# A/B: velyr-bench ab benches/suites/startup.toml --base-bin <recompiled baseline> --base-commit <sha>
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds", "instructions", "cycles"]

@@ -1,6 +1,6 @@
 # ADR-016 — Multicore measurements: per-worker memory, pointer compression, shared code cache
 
-**Status:** Proposed (2026-10-16). The decision belongs to the project owner; nothing here is Accepted.
+**Status:** Accepted (2026-10-17)
 **Date:** 2026-10-16
 **Relates to:** ADR-009 (V8), ADR-010 (isolate threading), ADR-014 (server API and multicore); VELYR-56/58 (`--workers=auto`), VELYR-60 (shared code cache), VELYR-61 (this benchmark), VELYR-156 (SO_REUSEPORT CI job)
 
@@ -39,26 +39,32 @@ Workers are threads of one process, so RSS is the process total; the per-worker 
 
 Idle memory is small; the cost is garbage that has not been collected yet under load, and it depends on the handler (a streamed body allocates a promise and a chunk per read). The VELYR-16 figure of 21.4 MiB idle per isolate is a standalone `velyr run`, which includes the process base.
 
-## Decision (proposed)
+## Decision
+
+Accepted by the project owner on 2026-10-17:
+
+1. `per_worker` estimate of 128 MiB (below).
+2. Pointer compression stays off. Enabling it needs a custom V8 build, outside the prebuilt artifacts of ADR-009.
+3. The shared code cache stays in the code, off by default behind `--experimental-shared-code-cache`.
 
 ### 1. per_worker estimate: 128 MiB
 
-`PER_WORKER_ESTIMATE_BYTES` in `crates/runtime-workers/src/auto.rs` goes from 64 MiB to 128 MiB, which covers the 85 to 130 MiB seen under a streaming load. The estimate protects against going over a memory budget, so it follows the worst measured handler, not the idle figure. Cost: `--workers=auto` picks fewer workers in small containers (a 512 MiB budget gives 4, not 8). The real bound on a worker is a heap limit per isolate (`heap_limit_bytes`); setting one makes the estimate conservative instead of load-bearing. The change is applied in this ticket (constant, its tests, the `--workers` help text and the `auto_workers_are_capped_by_the_memory_budget` CLI test); ADR-014 still says 64 MiB and should point here if this ADR is accepted.
+`PER_WORKER_ESTIMATE_BYTES` in `crates/runtime-workers/src/auto.rs` goes from 64 MiB to 128 MiB, which covers the 85 to 130 MiB seen under a streaming load. The estimate protects against going over a memory budget, so it follows the worst measured handler, not the idle figure. Cost: `--workers=auto` picks fewer workers in small containers (a 512 MiB budget gives 4, not 8). The real bound on a worker is a heap limit per isolate (`heap_limit_bytes`); setting one makes the estimate conservative instead of load-bearing. The constant, its tests, the `--workers` help text and the `auto_workers_are_capped_by_the_memory_budget` CLI test already use 128 MiB. ADR-014 now points here.
 
-### 2. Pointer compression: recommendation only, do not enable now
+### 2. Pointer compression: off
 
 The V8 build is not changed by this ADR.
 
 - It cuts heap size for pointer-heavy heaps (V8 reports roughly 40%), which would shrink the loaded per-worker figure above.
 - It needs a custom V8 build: the prebuilt `v8` crate artifacts do not enable it, and a custom build means giving up the prebuilt binaries ADR-009 chose.
 - It caps the managed heap at 4 GiB. As far as I recall, V8's default pointer-compression cage is shared by every isolate of the process, so the sum of all isolates' heaps would have to fit in 4 GiB, which a `--workers=16` server with generous heap limits can exceed; newer V8 has isolate groups that lift this per group. This must be verified against the V8 version in use before relying on it.
-- Recommendation: stay without it. Revisit when a real workload shows managed-heap RSS dominating the per-worker cost and a `heap_limit_bytes` budget (sum over workers) below 4 GiB is acceptable. If enabled, add a startup check that `workers x heap_limit_bytes` fits the cage.
+- Decision: stay without it. Revisit when a real workload shows managed-heap RSS dominating the per-worker cost and a `heap_limit_bytes` budget (sum over workers) below 4 GiB is acceptable. If enabled, add a startup check that `workers x heap_limit_bytes` fits the cage.
 
 ### 3. Shared code cache: off by default
 
 Numbers (VELYR-60, `benches/results/worker-startup-summary.md`): with a 100-module graph, workers after the first start 23% faster (27.5 to 21.3 ms) and the first one pays 16% (28.2 to 32.6 ms); peak RSS is 1.5 to 2 MiB higher and there is no per-worker RSS gain. In this benchmark's single-module server it has nothing to share: throughput and p99 were equal within the noise at 1 to 4 workers, and at 8 workers three repeats on a loaded machine gave 62.0k, 45.4k and 47.5k req/s with the cache against 61.1k, 62.1k and 56.6k without it, with a lower peak RSS in two of them (195 and 192 MiB against 326 and 335 in the first two repeats); the cause (noise or lock contention in the shared layer) was not isolated.
 
-- Recommendation: keep `--experimental-shared-code-cache` off by default. The gain only exists for large module graphs and workers that start after the first (restarts, late scale-out); `serve --workers N` starts all workers together and they all miss. The shared source layer never invalidates, which a restarted worker can turn into serving stale files. Revisit with an mtime check on hit and a Linux run.
+- Decision: keep `--experimental-shared-code-cache` off by default. The gain only exists for large module graphs and workers that start after the first (restarts, late scale-out); `serve --workers N` starts all workers together and they all miss. The shared source layer never invalidates, which a restarted worker can turn into serving stale files. Revisit with an mtime check on hit and a Linux run.
 
 ## Consequences
 
