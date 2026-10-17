@@ -1,0 +1,9 @@
+# "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+# Module-graph load (ML-01): 2041 ESM modules (40 groups x 50) from a cold process.
+# Fixture: python3 -I benches/module-graph/prepare.py (generated under target/, not committed).
+# Gate metric is `instructions`; gate with benches/module-graph/gain.py.
+name = "module-graph-esm"
+command = ["velyr", "run", "-A", "target/bench-fixtures/module-graph-esm/src/index.js"]
+iterations = 15
+warmup = 3
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds", "instructions", "cycles"]
