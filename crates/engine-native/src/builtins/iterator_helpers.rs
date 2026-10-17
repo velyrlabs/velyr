@@ -1,6 +1,6 @@
 //! ES2025 iterator helpers (VELYR-109): the `Iterator` constructor, `Iterator.from` and
 //! `Iterator.prototype.{map, filter, take, drop, flatMap, reduce, toArray, forEach, some,
-//! every, find, chunks, windows, includes, join}`. Written in JS and run once per realm: the lazy helpers are generators
+//! every, find, chunks, windows, includes, join}` plus `Iterator.{concat, zip, zipKeyed}`. Written in JS and run once per realm: the lazy helpers are generators
 //! behind %IteratorHelperPrototype% objects, so they get suspension and closing for free.
 //! shortcut: `toString` of these functions shows their JS source, not `[native code]`.
 
@@ -149,6 +149,143 @@ const PRELUDE: &str = r#"'use strict';
       wrapped.set(wrapper, record);
       return wrapper;
     },
+  });
+
+  // IteratorCloseAll: reverse order; with a normal completion the first close error wins.
+  const closeAll = (records, abrupt) => {
+    let failure;
+    let failed = false;
+    for (let i = records.length - 1; i >= 0; i--) {
+      try { close(records[i].iterator); } catch (error) {
+        if (!abrupt && !failed) { failed = true; failure = error; }
+      }
+    }
+    if (failed) throw failure;
+  };
+  // A helper that is closed before its first `next()` closes `records` instead of a source.
+  const closer = (records) => ({ iterator: { return() { closeAll(records, false); return {}; } } });
+  const getIterator = (value) => {
+    const method = value[Symbol.iterator];
+    if (typeof method !== 'function') fail('value is not iterable');
+    const iterator = apply(method, value, []);
+    if (!isObject(iterator)) fail('iterator is not an object');
+    return { iterator, next: iterator.next };
+  };
+  // Iterator.zip / zipKeyed: `names` is undefined for zip, the property keys for zipKeyed.
+  function* zipBody(records, mode, padding, names) {
+    const count = records.length;
+    const done = records.map(() => false);
+    const open = () => records.filter((_, j) => !done[j]);
+    const others = (i) => records.filter((_, j) => j !== i && !done[j]);
+    const stepAt = (i) => {
+      done[i] = true;
+      let value;
+      try { value = stepValue(records[i]); } catch (error) { closeAll(others(i), true); throw error; }
+      if (value !== DONE) done[i] = false;
+      return value;
+    };
+    if (count === 0) return;
+    for (;;) {
+      const values = [];
+      for (let i = 0; i < count; i++) {
+        if (done[i]) { values.push(padding[i]); continue; }
+        const value = stepAt(i);
+        if (value !== DONE) { values.push(value); continue; }
+        if (mode === 'shortest') return closeAll(others(i), false);
+        if (mode === 'strict') {
+          if (i !== 0) { closeAll(open(), true); fail('iterables have different lengths'); }
+          for (let j = 1; j < count; j++) {
+            if (stepAt(j) !== DONE) { closeAll(open(), true); fail('iterables have different lengths'); }
+          }
+          return;
+        }
+        if (done.every(Boolean)) return;
+        values.push(padding[i]);
+      }
+      let result = values;
+      if (names !== undefined) {
+        result = create(null);
+        names.forEach((name, i) => { result[name] = values[i]; });
+      }
+      let suspended = true;
+      try { yield result; suspended = false; } finally { if (suspended) closeAll(open(), false); }
+    }
+  }
+  const zipHelper = (iterables, options, keyed) => {
+    if (!isObject(iterables)) fail('iterables must be an object');
+    if (options !== undefined && !isObject(options)) fail('options must be an object');
+    let mode = options === undefined ? undefined : options.mode;
+    if (mode === undefined) mode = 'shortest';
+    if (mode !== 'shortest' && mode !== 'longest' && mode !== 'strict') fail('invalid zip mode');
+    let paddingOption;
+    if (mode === 'longest' && options !== undefined) {
+      paddingOption = options.padding;
+      if (paddingOption !== undefined && !isObject(paddingOption)) fail('padding must be an object');
+    }
+    const records = [];
+    const names = keyed ? [] : undefined;
+    const padding = [];
+    try {
+      if (keyed) {
+        for (const key of Reflect.ownKeys(iterables)) {
+          const descriptor = Reflect.getOwnPropertyDescriptor(iterables, key);
+          if (descriptor === undefined || !descriptor.enumerable) continue;
+          const value = iterables[key];
+          if (value === undefined) continue;
+          records.push(getIteratorFlattenable(value, false));
+          names.push(key);
+        }
+      } else {
+        const outer = getIterator(iterables);
+        for (let item; (item = stepValue(outer)) !== DONE; ) {
+          try { records.push(getIteratorFlattenable(item, false)); } catch (error) {
+            closeAll([outer], true);
+            throw error;
+          }
+        }
+      }
+      for (let i = 0; i < records.length; i++) padding.push(undefined);
+      if (paddingOption !== undefined && keyed) {
+        names.forEach((name, i) => { padding[i] = paddingOption[name]; });
+      } else if (paddingOption !== undefined) {
+        const source = getIterator(paddingOption);
+        let using = true;
+        for (let i = 0; i < records.length && using; i++) {
+          const value = stepValue(source);
+          if (value === DONE) using = false; else padding[i] = value;
+        }
+        if (using) close(source.iterator);
+      }
+    } catch (error) {
+      closeAll(records, true);
+      throw error;
+    }
+    return helper(closer(records), () => zipBody(records, mode, padding, names));
+  };
+  define(Iterator, {
+    concat(...items) {
+      const sources = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!isObject(item)) fail('Iterator.concat argument is not an object');
+        const method = item[Symbol.iterator];
+        if (typeof method !== 'function') fail('Iterator.concat argument is not iterable');
+        sources.push({ item, method });
+      }
+      return helper(closer([]), function* () {
+        for (const { item, method } of sources) {
+          const iterator = apply(method, item, []);
+          if (!isObject(iterator)) fail('iterator is not an object');
+          const record = { iterator, next: iterator.next };
+          for (let value; (value = stepValue(record)) !== DONE; ) {
+            let suspended = true;
+            try { yield value; suspended = false; } finally { if (suspended) close(record.iterator); }
+          }
+        }
+      });
+    },
+    zip(iterables) { return zipHelper(iterables, arguments[1], false); },
+    zipKeyed(iterables) { return zipHelper(iterables, arguments[1], true); },
   });
 
   define(IteratorPrototype, {
