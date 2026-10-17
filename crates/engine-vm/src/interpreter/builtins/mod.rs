@@ -89,6 +89,7 @@ pub(crate) enum Intrinsic {
     SharedArrayBufferPrototype,
     DataViewPrototype,
     TypedArrayPrototype,
+    Eval,
     Int8Array,
     Uint8Array,
     Uint8ClampedArray,

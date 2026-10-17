@@ -102,9 +102,18 @@ impl ErrorKind {
 
 pub(crate) type JsResult<T> = Result<T, Abrupt>;
 
-/// Compiles script source at run time (`Function`, indirect `eval`); `Err` is the
-/// SyntaxError message. Supplied by the embedder that owns the compiler.
-pub type CompileHook = Rc<dyn Fn(&str) -> Result<Rc<FunctionCode>, String>>;
+/// What a `CompileHook` compiles the source text as.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompileGoal {
+    /// The `(function anonymous(...) {...})` script of CreateDynamicFunction.
+    Function,
+    /// Indirect `eval`: global eval code, whose var and function globals are configurable.
+    IndirectEval,
+}
+
+/// Compiles source at run time (`Function`, indirect `eval`); `Err` is a `"<Kind>: <message>"`
+/// error (SyntaxError default). Supplied by the embedder that owns the compiler.
+pub type CompileHook = Rc<dyn Fn(&str, CompileGoal) -> Result<Rc<FunctionCode>, String>>;
 
 pub struct Interpreter {
     pub(crate) realm: Realm,

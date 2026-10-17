@@ -209,6 +209,16 @@ impl Interpreter {
                     .call_from_loop(&f, &Value::Undefined, &args)
                     .map(Self::call_outcome);
             }
+            I::CallDirectEval { callee, args, site } => {
+                let (f, args) = (self.reg(*callee).clone(), self.reg_range(*args));
+                let eval = self.intrinsic(super::builtins::Intrinsic::Eval);
+                if self.as_object(&f) != Some(eval) {
+                    return self
+                        .call_from_loop(&f, &Value::Undefined, &args)
+                        .map(Self::call_outcome);
+                }
+                self.state.acc = self.direct_eval(info, *site, args.first())?;
+            }
             I::CallSpread { callee, this, args } => {
                 let (f, this) = (self.reg(*callee).clone(), self.reg(*this).clone());
                 let args = self.array_elements(self.reg(*args).clone())?;

@@ -34,7 +34,7 @@ use oxc_parser::{ParseOptions, Parser};
 use oxc_semantic::{AstNodes, SemanticBuilder};
 use oxc_span::SourceType;
 use velyr_engine_api::JsException;
-use velyr_engine_vm::bytecode::FunctionCode;
+use velyr_engine_vm::bytecode::{Constant, FunctionCode};
 use velyr_engine_vm::exception::Script;
 
 use crate::compiler::{JsResult, throw};
@@ -51,6 +51,19 @@ pub fn compile_named_script(name: &str, text: &str) -> JsResult<Rc<FunctionCode>
         let script = Rc::new(Script::new(name, text));
         function::compile_program(program, analysis, script)
     })
+}
+
+/// Compiles the text of an indirect eval: global eval code whose var and function
+/// declarations become configurable global properties (19.2.1.3 step 17-18).
+// shortcut: indirect eval lexicals leak to the global lexical scope, fixed by eval root mode in L19
+pub fn compile_indirect_eval(text: &str) -> JsResult<Rc<FunctionCode>> {
+    let mut code = Rc::unwrap_or_clone(compile_named_script("<eval>", text)?);
+    for constant in &mut code.constants {
+        if let Constant::GlobalDeclarations(declarations) = constant {
+            Rc::make_mut(declarations).configurable = true;
+        }
+    }
+    Ok(Rc::new(code))
 }
 
 /// Parses `text` (as a module with `module`), reports its early errors when `check`, and

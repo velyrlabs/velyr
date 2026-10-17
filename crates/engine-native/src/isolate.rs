@@ -9,10 +9,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use velyr_engine_api::*;
 use velyr_engine_vm::Value as Val;
-use velyr_engine_vm::interpreter::{Abrupt, ErrorKind, Interpreter, NativeFn, PromiseStatus};
+use velyr_engine_vm::interpreter::{
+    Abrupt, CompileGoal, ErrorKind, Interpreter, NativeFn, PromiseStatus,
+};
 use velyr_runtime_errors::{ErrorCode, VelyrError};
 
-use crate::bytecode_compiler::compile_named_script;
+use crate::bytecode_compiler::{compile_indirect_eval, compile_named_script};
 use crate::compiler::{JsResult, compile, throw};
 use crate::modules::{DYNAMIC_IMPORT_OP, ModuleGraph};
 use crate::value_bridge::{export, import};
@@ -32,8 +34,12 @@ impl NativeIsolate {
     pub(crate) fn new() -> Self {
         let mut vm = Interpreter::new();
         // `Function(...)` and indirect `eval` compile their source text through this hook.
-        vm.set_compile_hook(Rc::new(|source: &str| {
-            compile_named_script("<anonymous>", source).map_err(|error| error.message)
+        vm.set_compile_hook(Rc::new(|source: &str, goal| {
+            let code = match goal {
+                CompileGoal::Function => compile_named_script("<anonymous>", source),
+                CompileGoal::IndirectEval => compile_indirect_eval(source),
+            };
+            code.map_err(|error| error.message)
         }));
         crate::iterator_helpers::install(&mut vm).expect("the iterator helpers prelude runs");
         crate::prelude::install_lazy_stubs(&mut vm).expect("the lazy stubs prelude runs");

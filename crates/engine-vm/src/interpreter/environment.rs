@@ -151,6 +151,7 @@ impl Interpreter {
             }
         }
         self.check_global_var_declarations(declarations)?;
+        let configurable = declarations.configurable;
         for name in declarations.vars.iter().chain(&declarations.functions) {
             let key = self.string_key(name);
             let own = self
@@ -158,7 +159,7 @@ impl Interpreter {
                 .get_own_property(global, key)
                 .map_err(|e| self.object_error(e))?;
             if own.is_none() {
-                let desc = PropertyDescriptor::data(Value::Undefined, true, true, false);
+                let desc = PropertyDescriptor::data(Value::Undefined, true, true, configurable);
                 self.define_property(global, key, &desc)?;
             }
         }
@@ -167,7 +168,7 @@ impl Interpreter {
             let key = self.string_key(name);
             let own = self.own_property(global, key)?;
             if own.is_none() && extensible && !self.state.lexicals.contains_key(name) {
-                let desc = PropertyDescriptor::data(Value::Undefined, true, true, false);
+                let desc = PropertyDescriptor::data(Value::Undefined, true, true, configurable);
                 self.define_property(global, key, &desc)?;
             }
         }

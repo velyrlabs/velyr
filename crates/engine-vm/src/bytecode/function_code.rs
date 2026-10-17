@@ -25,6 +25,8 @@ pub struct GlobalDeclarations {
     pub consts: Vec<JsStr>,
     /// Annex B.3.2.2 block-function names, declared as `var` unless a lexical or var-scoped name exists.
     pub annex_b: Vec<JsStr>,
+    /// Eval code (19.2.1.3 step 17-18): vars and functions are deletable global properties.
+    pub configurable: bool,
 }
 
 #[derive(Clone)]
@@ -35,6 +37,8 @@ pub enum Constant {
     Function(Rc<FunctionCode>),
     TemplateObject(Rc<TemplateObject>),
     GlobalDeclarations(Rc<GlobalDeclarations>),
+    /// Operand of `CallDirectEval`: compiles the eval text in the caller's static scope.
+    EvalSite(Rc<dyn EvalCode>),
 }
 
 impl Constant {
@@ -59,6 +63,12 @@ pub struct SourcePosition {
     pub offset: u32,
     pub start: u32,
     pub end: u32,
+}
+
+/// The compiler side of a direct eval call site (PerformEval with `direct` true).
+pub trait EvalCode {
+    /// The code of the eval text; `Err` is a `"<Kind>: <message>"` error (SyntaxError default).
+    fn compile(&self, source: &str) -> Result<FunctionCode, String>;
 }
 
 /// The body of a lazily compiled function, compiled by its engine on the first call.
@@ -170,8 +180,13 @@ impl fmt::Debug for Constant {
                     names(&g.lets),
                     names(&g.consts),
                     names(&g.annex_b)
-                )
+                )?;
+                match g.configurable {
+                    true => write!(f, " configurable"),
+                    false => Ok(()),
+                }
             }
+            Constant::EvalSite(_) => write!(f, "eval site"),
         }
     }
 }

@@ -151,7 +151,7 @@ impl Interpreter {
         let coroutine = info.coroutine.map(|(kind, _)| kind);
         let frame = self.top();
         let env = match code.kind {
-            FunctionKind::Arrow => frame.env.clone(),
+            FunctionKind::Arrow | FunctionKind::Eval => frame.env.clone(),
             _ => FunctionEnv::new(Value::Undefined),
         };
         let closure = Closure {
@@ -406,7 +406,9 @@ impl Interpreter {
     ) -> FunctionEnv {
         let code = &closure.info.code;
         let this = match code.kind {
-            FunctionKind::Arrow | FunctionKind::Script => return closure.env.clone(),
+            FunctionKind::Arrow | FunctionKind::Script | FunctionKind::Eval => {
+                return closure.env.clone();
+            }
             FunctionKind::DerivedConstructor => Value::Undefined,
             _ if code.is_strict => this.clone(),
             _ if matches!(this, Value::Undefined | Value::Null) => {

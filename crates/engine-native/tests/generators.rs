@@ -9,7 +9,7 @@ use velyr_engine_vm::interpreter::{Abrupt, Interpreter};
 /// A VM with the iterator helpers prelude and the dynamic-code hook, like `NativeIsolate`.
 fn new_vm() -> Interpreter {
     let mut vm = Interpreter::new();
-    vm.set_compile_hook(Rc::new(|s: &str| compile_script(s).map_err(|e| e.message)));
+    vm.set_compile_hook(Rc::new(|s: &str, _| compile_script(s).map_err(|e| e.message)));
     iterator_helpers::install(&mut vm).expect("iterator helpers install");
     vm
 }

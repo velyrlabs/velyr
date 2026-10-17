@@ -16,7 +16,7 @@
 mod function_code;
 
 pub use function_code::{
-    Constant, FunctionCode, GlobalDeclarations, HandlerEntry, LazyBody, SourcePosition,
+    Constant, EvalCode, FunctionCode, GlobalDeclarations, HandlerEntry, LazyBody, SourcePosition,
     TemplateObject,
 };
 
@@ -258,6 +258,13 @@ pub enum Instruction {
         callee: Reg,
         args: RegRange,
     },
+    /// A call named `eval`: when `callee` is %eval%, a direct eval through the `EvalSite`
+    /// constant `site`; otherwise `CallUndefinedReceiver`.
+    CallDirectEval {
+        callee: Reg,
+        args: RegRange,
+        site: ConstIndex,
+    },
     /// `args` holds an array of the arguments.
     CallSpread {
         callee: Reg,
@@ -433,6 +440,8 @@ pub enum FunctionKind {
     DerivedConstructor,
     /// Field initializer: called with the instance as `this`, returns the field value.
     ClassField,
+    /// Direct eval code: shares `this`, `new.target` and the home object of its caller.
+    Eval,
 }
 
 /// What a `CreateGenerator` prologue makes of its function.

@@ -8,7 +8,7 @@ use velyr_engine_vm::interpreter::Interpreter;
 
 fn run(source: &str) -> String {
     let mut vm = Interpreter::new();
-    vm.set_compile_hook(Rc::new(|s: &str| compile_script(s).map_err(|e| e.message)));
+    vm.set_compile_hook(Rc::new(|s: &str, _| compile_script(s).map_err(|e| e.message)));
     let code = compile_script(source).expect("compiles");
     let value = vm.run_script(&code).expect("runs");
     vm.to_js_string(&value).expect("string").to_string_lossy()

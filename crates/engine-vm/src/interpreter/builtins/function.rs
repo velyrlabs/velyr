@@ -1,11 +1,15 @@
 //! The `Function` constructor and `Function.prototype` (ECMA-262 §20.2), plus
-//! %ThrowTypeError%, `eval` (indirect only) and OrdinaryHasInstance.
+//! %ThrowTypeError%, `eval` (%eval%; direct calls go through `CallDirectEval`) and
+//! OrdinaryHasInstance.
 
 use std::rc::Rc;
 
 use super::symbol::SYMBOL_HAS_INSTANCE;
 use super::{Interpreter, Intrinsic, JsResult, arg};
-use crate::interpreter::function::Callable;
+use crate::bytecode::{ConstIndex, Constant, FunctionCode};
+use crate::interpreter::function::{Callable, Closure};
+use crate::interpreter::state::CodeInfo;
+use crate::interpreter::{Abrupt, CompileGoal, ErrorKind};
 use crate::{JsStr, ObjectKey, PropertyDescriptor, Value};
 
 pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
@@ -23,7 +27,10 @@ pub(super) fn install(vm: &mut Interpreter) -> JsResult<()> {
     vm.define_property(proto, ObjectKey::Symbol(SYMBOL_HAS_INSTANCE), &desc)?;
     install_throw_type_error(vm)?;
     let global = vm.state.intrinsics.global;
-    vm.method(global, "eval", 1, global_eval)
+    let eval = vm.new_builtin("eval", 1, global_eval)?;
+    let eval_object = vm.as_object(&eval).expect("functions are objects");
+    vm.set_intrinsic(Intrinsic::Eval, eval_object);
+    vm.define_method(global, "eval", eval)
 }
 
 /// %ThrowTypeError% and the restricted `caller`/`arguments` of `Function.prototype`.
@@ -56,16 +63,62 @@ fn throw_type_error(vm: &mut Interpreter, _: &Value, _: &[Value]) -> JsResult<Va
 }
 
 impl Interpreter {
-    /// Compiles `source` with the embedder's hook and runs it as a script.
-    fn run_dynamic(&mut self, source: &str) -> JsResult<Value> {
+    /// Compiles `source` as `goal` with the embedder's hook and runs it as a script.
+    fn run_dynamic(&mut self, source: &str, goal: CompileGoal) -> JsResult<Value> {
         let Some(compile) = self.compile.clone() else {
             let message = "dynamic code evaluation is not available";
-            return Err(self.error(crate::interpreter::ErrorKind::Syntax, message));
+            return Err(self.error(ErrorKind::Syntax, message));
         };
-        match compile(source) {
+        match compile(source, goal) {
             Ok(code) => self.run_script(&code),
-            Err(message) => Err(self.error(crate::interpreter::ErrorKind::Syntax, &message)),
+            Err(message) => Err(self.compile_error(&message)),
         }
+    }
+
+    /// PerformEval for a direct call of %eval% with `source` from the `site` of `info`.
+    pub(crate) fn direct_eval(
+        &mut self,
+        info: &CodeInfo,
+        site: ConstIndex,
+        source: Option<&Value>,
+    ) -> JsResult<Value> {
+        let Some(Value::String(text)) = source else {
+            return Ok(source.cloned().unwrap_or(Value::Undefined));
+        };
+        let Constant::EvalSite(site) = &info.code.constants[site.0 as usize] else {
+            return Err(self.internal("CallDirectEval expects an eval site"));
+        };
+        match site.compile(&text.to_string_lossy()) {
+            Ok(code) => self.run_eval(code),
+            Err(message) => Err(self.compile_error(&message)),
+        }
+    }
+
+    /// Runs eval code in the running frame's context with its `this`, `new.target` and
+    /// home object; its completion value is the result.
+    fn run_eval(&mut self, code: FunctionCode) -> JsResult<Value> {
+        let frame = self.top();
+        let closure = Closure {
+            // Not cached in `code_infos`: every eval compiles a fresh code object.
+            info: Rc::new(CodeInfo::new(Rc::new(code))),
+            context: frame.context.clone(),
+            env: frame.env.clone(),
+            home: Value::Undefined,
+            elements: None,
+            _charge: Closure::charge(),
+        };
+        let env = closure.env.clone();
+        self.run_closure(&closure, &Value::Undefined, env, &[], None)
+    }
+
+    /// The error a compiler reports as `"<Kind>: <message>"`; SyntaxError without a known kind.
+    pub(crate) fn compile_error(&mut self, message: &str) -> Abrupt {
+        let named = ErrorKind::ALL.into_iter().find_map(|kind| {
+            let rest = message.strip_prefix(kind.name())?.strip_prefix(": ")?;
+            Some((kind, rest))
+        });
+        let (kind, message) = named.unwrap_or((ErrorKind::Syntax, message));
+        self.error(kind, message)
     }
 
     /// OrdinaryHasInstance(C, O).
@@ -138,13 +191,10 @@ pub(crate) fn create_dynamic_function(
         .rfind("/*")
         .is_some_and(|open| !parameters[open + 2..].contains("*/"));
     if unclosed_comment {
-        return Err(vm.error(
-            crate::interpreter::ErrorKind::Syntax,
-            "Unexpected token in parameters",
-        ));
+        return Err(vm.error(ErrorKind::Syntax, "Unexpected token in parameters"));
     }
     let source = format!("({keyword} anonymous({parameters}\n) {{\n{body}\n}})");
-    let function = vm.run_dynamic(&source)?;
+    let function = vm.run_dynamic(&source, CompileGoal::Function)?;
     if !matches!(new_target, Value::Undefined) {
         let object = vm.as_object(&function).expect("functions are objects");
         let proto = vm.proto_from_constructor(&new_target, fallback)?;
@@ -155,7 +205,9 @@ pub(crate) fn create_dynamic_function(
 
 fn global_eval(vm: &mut Interpreter, _: &Value, args: &[Value]) -> JsResult<Value> {
     match arg(args, 0) {
-        Value::String(source) => vm.run_dynamic(&source.to_string_lossy()),
+        Value::String(source) => {
+            vm.run_dynamic(&source.to_string_lossy(), CompileGoal::IndirectEval)
+        }
         other => Ok(other),
     }
 }
