@@ -39,12 +39,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
         "fields" => Ok(time_fields!(time(a, 0)?)),
         "add" => time(a, 0)?.add(&duration(a, 1)?).and_then(text),
         "subtract" => time(a, 0)?.subtract(&duration(a, 1)?).and_then(text),
-        "until" => Ok(time(a, 0)?
-            .until(&time(a, 1)?, difference(a, 2)?)?
-            .to_string()),
-        "since" => Ok(time(a, 0)?
-            .since(&time(a, 1)?, difference(a, 2)?)?
-            .to_string()),
+        "until" => time(a, 0)?
+            .until(&time(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
+        "since" => time(a, 0)?
+            .since(&time(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
         "round" => time(a, 0)?.round(rounding(a, 1)?).and_then(text),
         "compare" => ordering(key(&time(a, 0)?).cmp(&key(&time(a, 1)?))),
         "toString" => time(a, 0)?.to_ixdtf_string(text_options(a, 1)?),

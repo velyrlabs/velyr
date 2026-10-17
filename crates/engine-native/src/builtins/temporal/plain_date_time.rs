@@ -59,12 +59,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
         "subtract" => datetime(a, 0)?
             .subtract(&duration(a, 1)?, overflow(a, 2)?)
             .and_then(text),
-        "until" => Ok(datetime(a, 0)?
-            .until(&datetime(a, 1)?, difference(a, 2)?)?
-            .to_string()),
-        "since" => Ok(datetime(a, 0)?
-            .since(&datetime(a, 1)?, difference(a, 2)?)?
-            .to_string()),
+        "until" => datetime(a, 0)?
+            .until(&datetime(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
+        "since" => datetime(a, 0)?
+            .since(&datetime(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
         "round" => datetime(a, 0)?.round(rounding(a, 1)?).and_then(text),
         "compare" => ordering(datetime(a, 0)?.compare_iso(&datetime(a, 1)?)),
         "toString" => datetime(a, 0)?.to_ixdtf_string(text_options(a, 1)?, DisplayCalendar::Auto),

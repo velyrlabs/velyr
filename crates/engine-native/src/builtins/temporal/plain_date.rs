@@ -36,12 +36,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
         "subtract" => date(a, 0)?
             .subtract(&duration(a, 1)?, overflow(a, 2)?)
             .map(text),
-        "until" => Ok(date(a, 0)?
-            .until(&date(a, 1)?, difference(a, 2)?)?
-            .to_string()),
-        "since" => Ok(date(a, 0)?
-            .since(&date(a, 1)?, difference(a, 2)?)?
-            .to_string()),
+        "until" => date(a, 0)?
+            .until(&date(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
+        "since" => date(a, 0)?
+            .since(&date(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
         "compare" => ordering(date(a, 0)?.compare_iso(&date(a, 1)?)),
         "toZoned" => {
             let time = match arg(a, 2) {

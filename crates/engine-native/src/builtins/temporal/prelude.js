@@ -187,107 +187,207 @@
   };
 
   // ---- Duration ----
+  // A Duration slot keeps `fields` (ten comma-separated integers, exact above 999 sub-second
+  // units); `str` is the ISO form other classes feed to their native ops, built on demand.
   const DURATION_UNITS = [
     'years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds',
     'milliseconds', 'microseconds', 'nanoseconds',
   ];
-  const wrapDuration = (str) => wrap(Temporal.Duration.prototype, 'Duration', str);
-  // Integers can exceed 2 ** 53 for the sub-second units, so go through BigInt.
-  const durationInt = (value, name) => BigInt(toInt(value, name)).toString();
-  const durationFromBag = (bag) => {
-    const given = readBag(bag, DURATION_UNITS);
-    if (Object.keys(given).length === 0) throw new TypeError('Duration needs at least one unit');
-    return op('Duration', 'create', ...DURATION_UNITS.map((unit) => durationInt(given[unit] ?? 0, unit)));
+  const DURATION_BAG_ORDER = [...DURATION_UNITS].sort();
+  const RELATIVE_TO_FIELDS = [
+    'calendar', 'day', 'hour', 'microsecond', 'millisecond', 'minute', 'month', 'monthCode',
+    'nanosecond', 'offset', 'second', 'timeZone', 'year',
+  ];
+  // Fields hold float64-representable integers (the spec stores Numbers), so results round.
+  const roundToDoubles = (fields) =>
+    fields.split(',').map((field) => BigInt(Number(field)).toString()).join(',');
+  const wrapDuration = (result) => {
+    const fields = roundToDoubles(/^[+-]?P/i.test(result) ? op('Duration', 'parseExact', result) : result);
+    const object = Object.create(Temporal.Duration.prototype);
+    slots.set(object, { cls: 'Duration', fields, get str() { return op('Duration', 'iso', fields); } });
+    return object;
   };
-  const durationStr = (value) => {
-    if (typeof value === 'string') return op('Duration', 'parse', value);
+  const durationFields = (value) => {
     const slot = slotOf(value);
-    if (slot !== undefined && slot.cls === 'Duration') return slot.str;
-    if (typeof value === 'object' && value !== null) return durationFromBag(value);
-    throw new TypeError('Invalid duration');
+    if (slot === undefined || slot.cls !== 'Duration') throw new TypeError('Receiver is not a Temporal.Duration');
+    return slot.fields;
   };
+  // ToIntegerIfIntegral as an exact decimal string; `+` rejects Symbol and BigInt.
+  const durationInt = (value, name) => {
+    const n = +value;
+    if (n !== n) return '0';
+    if (n - n !== 0 || Math.trunc(n) !== n) throw new RangeError(`${name} must be an integer`);
+    return BigInt(n).toString();
+  };
+  const durationFromParts = (parts) => op('Duration', 'createExact', ...parts);
+  // ToTemporalPartialDurationRecord: alphabetical reads, each converted right away.
+  const partialDuration = (bag) => {
+    const given = {};
+    for (const name of DURATION_BAG_ORDER) {
+      const value = bag[name];
+      if (value !== undefined) given[name] = durationInt(value, name);
+    }
+    if (Object.keys(given).length === 0) throw new TypeError('Duration needs at least one unit');
+    return given;
+  };
+  const toDurationFields = (value) => {
+    if (typeof value === 'string') return op('Duration', 'parseExact', value);
+    if (typeof value !== 'object' || value === null) throw new TypeError('Invalid duration');
+    const slot = slotOf(value);
+    if (slot !== undefined && slot.cls === 'Duration') return slot.fields;
+    const given = partialDuration(value);
+    return durationFromParts(DURATION_UNITS.map((unit) => given[unit] ?? '0'));
+  };
+  const durationStr = (value) => op('Duration', 'iso', toDurationFields(value));
+  const relativeToField = (name, value) => {
+    if (name === 'timeZone' || name === 'calendar') {
+      if (typeof value !== 'string') throw new TypeError(`${name} must be a string`);
+      return value;
+    }
+    if (name === 'monthCode' || name === 'offset') {
+      const text = typeof value === 'object' && value !== null ? `${value}` : value;
+      if (typeof text !== 'string') throw new TypeError(`${name} must be a string`);
+      return text;
+    }
+    const n = +value;
+    if (n !== n || n - n !== 0) throw new RangeError(`${name} must be a finite number`);
+    return Math.trunc(n) + 0;
+  };
+  // GetTemporalRelativeToOption: the text handed to the native op, or undefined.
   const relativeToArg = (value) => {
     if (value === undefined || typeof value === 'string') return value;
+    if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
+      throw new TypeError('Invalid relativeTo');
+    }
     const slot = slotOf(value);
-    if (slot !== undefined) return slot.str;
-    if (typeof value !== 'object' || value === null) throw new TypeError('Invalid relativeTo');
-    const zoned = value.timeZone !== undefined;
-    return strOf((zoned ? Temporal.ZonedDateTime : Temporal.PlainDate).from(value), zoned ? 'ZonedDateTime' : 'PlainDate');
+    if (slot !== undefined && ['ZonedDateTime', 'PlainDate', 'PlainDateTime'].includes(slot.cls)) return slot.str;
+    const bag = {};
+    for (const name of RELATIVE_TO_FIELDS) {
+      const field = value[name];
+      if (field !== undefined) bag[name] = relativeToField(name, field);
+    }
+    if (bag.timeZone === undefined) return strOf(Temporal.PlainDate.from(bag), 'PlainDate');
+    return strOf(Temporal.ZonedDateTime.from(bag, { offset: 'reject' }), 'ZonedDateTime');
   };
+  // `{ [key]: shorthand }` without Object.prototype lookups, or the options object itself.
+  const shorthandOptions = (value, key, name) => {
+    if (value === undefined) throw new TypeError(`${name} is required`);
+    if (typeof value !== 'string') return optionsOf(value);
+    const options = Object.create(null);
+    options[key] = value;
+    return options;
+  };
+  const roundingIncrementText = (options) => {
+    const value = options.roundingIncrement;
+    if (value === undefined) return undefined;
+    const n = +value;
+    if (n !== n || n - n !== 0) throw new RangeError('roundingIncrement must be a finite number');
+    const increment = Math.trunc(n);
+    if (increment < 1 || increment > 1e9) throw new RangeError('roundingIncrement is out of range');
+    return `${increment}`;
+  };
+  // fractionalSecondDigits, smallestUnit, roundingMode in the order of the native op.
+  const durationStringArgs = (options) => {
+    const o = optionsOf(options);
+    let digits = o.fractionalSecondDigits;
+    if (typeof digits === 'number') {
+      if (digits !== digits || digits - digits !== 0) throw new RangeError('fractionalSecondDigits must be finite');
+      digits = Math.floor(digits);
+      if (digits < 0 || digits > 9) throw new RangeError('fractionalSecondDigits is out of range');
+    } else if (digits !== undefined) {
+      if (`${digits}` !== 'auto') throw new RangeError('fractionalSecondDigits must be auto or a number');
+      digits = 'auto';
+    }
+    const mode = optionText(o, 'roundingMode');
+    return [digits, optionText(o, 'smallestUnit'), mode];
+  };
+  const durationText = (duration, options) =>
+    op('Duration', 'toString', durationFields(duration), ...durationStringArgs(options));
 
   class Duration {
-    constructor(years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds) {
-      const values = [years, months, weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds];
-      const str = op('Duration', 'create', ...values.map((v, i) => durationInt(v ?? 0, DURATION_UNITS[i])));
-      slots.set(this, { cls: 'Duration', str });
+    constructor(...values) {
+      const parts = DURATION_UNITS.map((unit, i) => (values[i] === undefined ? '0' : durationInt(values[i], unit)));
+      const fields = durationFromParts(parts);
+      slots.set(this, { cls: 'Duration', fields, get str() { return op('Duration', 'iso', fields); } });
     }
 
     static from(item) {
-      return wrapDuration(durationStr(item));
+      return wrapDuration(toDurationFields(item));
     }
 
     static compare(one, two, options) {
+      const first = toDurationFields(one);
+      const second = toDurationFields(two);
       const relativeTo = relativeToArg(optionsOf(options).relativeTo);
-      return Number(op('Duration', 'compare', durationStr(one), durationStr(two), relativeTo));
+      return Number(op('Duration', 'compare', first, second, relativeTo));
     }
 
     get sign() {
-      const str = strOf(this, 'Duration');
-      return this.blank ? 0 : str.startsWith('-') ? -1 : 1;
+      const first = durationFields(this).split(',').find((field) => field !== '0');
+      return first === undefined ? 0 : first.startsWith('-') ? -1 : 1;
     }
 
     get blank() {
-      return fieldsOf(this, 'Duration').every((field) => field === '0');
+      return durationFields(this).split(',').every((field) => field === '0');
     }
 
     negated() {
-      return wrapDuration(op('Duration', 'negated', strOf(this, 'Duration')));
+      return wrapDuration(op('Duration', 'negated', durationFields(this)));
     }
 
     abs() {
-      return wrapDuration(op('Duration', 'abs', strOf(this, 'Duration')));
+      return wrapDuration(op('Duration', 'abs', durationFields(this)));
     }
 
     add(other) {
-      return wrapDuration(op('Duration', 'add', strOf(this, 'Duration'), durationStr(other)));
+      const fields = durationFields(this);
+      return wrapDuration(op('Duration', 'add', fields, toDurationFields(other)));
     }
 
     subtract(other) {
-      return wrapDuration(op('Duration', 'subtract', strOf(this, 'Duration'), durationStr(other)));
+      const fields = durationFields(this);
+      return wrapDuration(op('Duration', 'subtract', fields, toDurationFields(other)));
     }
 
     with(bag) {
-      const current = fieldsOf(this, 'Duration');
-      const given = readBag(optionsOf(bag), DURATION_UNITS);
-      if (Object.keys(given).length === 0) throw new TypeError('Duration.with needs at least one unit');
-      const values = DURATION_UNITS.map((unit, i) => durationInt(given[unit] ?? current[i], unit));
-      return wrapDuration(op('Duration', 'create', ...values));
+      const current = durationFields(this).split(',');
+      const given = partialDuration(optionsOf(bag));
+      return wrapDuration(durationFromParts(DURATION_UNITS.map((unit, i) => given[unit] ?? current[i])));
     }
 
     round(roundTo) {
-      if (roundTo === undefined) throw new TypeError('roundTo is required');
-      const options = typeof roundTo === 'string' ? { smallestUnit: roundTo } : optionsOf(roundTo);
-      const args = roundArgs(options);
-      return wrapDuration(op('Duration', 'round', strOf(this, 'Duration'), ...args, relativeToArg(options.relativeTo)));
+      const fields = durationFields(this);
+      const options = shorthandOptions(roundTo, 'smallestUnit', 'roundTo');
+      const largest = optionText(options, 'largestUnit');
+      const relativeTo = relativeToArg(options.relativeTo);
+      const increment = roundingIncrementText(options);
+      const mode = optionText(options, 'roundingMode');
+      const smallest = optionText(options, 'smallestUnit');
+      if (smallest === undefined && largest === undefined) {
+        throw new RangeError('smallestUnit or largestUnit is required');
+      }
+      return wrapDuration(op('Duration', 'round', fields, largest, smallest, mode, increment, relativeTo));
     }
 
     total(totalOf) {
-      if (totalOf === undefined) throw new TypeError('totalOf is required');
-      const options = typeof totalOf === 'string' ? { unit: totalOf } : optionsOf(totalOf);
-      if (options.unit === undefined) throw new RangeError('unit is required');
-      return Number(op('Duration', 'total', strOf(this, 'Duration'), options.unit, relativeToArg(options.relativeTo)));
+      const fields = durationFields(this);
+      const options = shorthandOptions(totalOf, 'unit', 'totalOf');
+      const relativeTo = relativeToArg(options.relativeTo);
+      const unit = optionText(options, 'unit');
+      if (unit === undefined) throw new RangeError('unit is required');
+      return Number(op('Duration', 'total', fields, unit, relativeTo));
     }
 
     toString(options) {
-      return op('Duration', 'toString', strOf(this, 'Duration'), ...stringArgs(options));
+      return durationText(this, options);
     }
 
     toJSON() {
-      return this.toString();
+      return durationText(this, undefined);
     }
 
     toLocaleString() {
-      return this.toString();
+      return durationText(this, undefined);
     }
 
     valueOf() {
@@ -295,8 +395,10 @@
     }
   }
   DURATION_UNITS.forEach((unit, i) => {
-    defineProperty(Duration.prototype, unit, { get() { return Number(fieldsOf(this, 'Duration')[i]); }, configurable: true });
+    defineProperty(Duration.prototype, unit, { get() { return Number(durationFields(this).split(',')[i]); }, configurable: true });
   });
+  defineProperty(Duration.compare, 'length', { value: 2, configurable: true });
+  defineProperty(Duration.prototype.toString, 'length', { value: 0, configurable: true });
   tag(Duration.prototype, 'Temporal.Duration');
   define(Temporal, { Duration });
 

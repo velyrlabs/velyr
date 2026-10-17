@@ -31,12 +31,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
         "epochMilliseconds" => Ok(instant(a, 0)?.epoch_milliseconds().to_string()),
         "add" => text(&instant(a, 0)?.add(&duration(a, 1)?)?),
         "subtract" => text(&instant(a, 0)?.subtract(&duration(a, 1)?)?),
-        "until" => Ok(instant(a, 0)?
-            .until(&instant(a, 1)?, difference(a, 2)?)?
-            .to_string()),
-        "since" => Ok(instant(a, 0)?
-            .since(&instant(a, 1)?, difference(a, 2)?)?
-            .to_string()),
+        "until" => instant(a, 0)?
+            .until(&instant(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
+        "since" => instant(a, 0)?
+            .since(&instant(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
         "round" => text(&instant(a, 0)?.round(rounding(a, 1)?)?),
         "compare" => ordering(instant(a, 0)?.as_i128().cmp(&instant(a, 1)?.as_i128())),
         "toString" => {

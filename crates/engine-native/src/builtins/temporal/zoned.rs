@@ -63,12 +63,12 @@ pub(super) fn run(method: &str, a: Args) -> Res {
         "subtract" => zoned(a, 0)?
             .subtract(&duration(a, 1)?, overflow(a, 2)?)
             .map(text),
-        "until" => Ok(zoned(a, 0)?
-            .until(&zoned(a, 1)?, difference(a, 2)?)?
-            .to_string()),
-        "since" => Ok(zoned(a, 0)?
-            .since(&zoned(a, 1)?, difference(a, 2)?)?
-            .to_string()),
+        "until" => zoned(a, 0)?
+            .until(&zoned(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
+        "since" => zoned(a, 0)?
+            .since(&zoned(a, 1)?, difference(a, 2)?)
+            .map(|d| super::duration::exact(&d)),
         "round" => zoned(a, 0)?.round(rounding(a, 1)?).map(text),
         "startOfDay" => zoned(a, 0)?.start_of_day().map(text),
         // time text, or "" for the start of the day
