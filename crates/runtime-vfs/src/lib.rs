@@ -7,11 +7,14 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
 
 use sha2::{Digest, Sha256};
 
 mod loader;
+mod resolver;
 pub use loader::VfsLoader;
+pub use resolver::VfsResolver;
 
 pub const MAGIC: &[u8; 8] = b"VELYRVFS";
 const HASH_LEN: usize = 32;
@@ -53,6 +56,14 @@ pub struct Payload {
     pub permission_args: Vec<String>,
     /// Virtual path -> bytes: transformed modules, node_modules files and assets.
     pub files: BTreeMap<String, Vec<u8>>,
+    /// Import edges recorded at compile time: [`edge_key`] (referrer, specifier) -> virtual path of
+    /// the module the real resolver picked. The compiled executable never resolves on its own.
+    pub edges: BTreeMap<String, String>,
+}
+
+/// Key of an import edge: virtual path of the importing module and the specifier as written.
+pub fn edge_key(referrer: &str, specifier: &str) -> String {
+    format!("{referrer}\0{specifier}")
 }
 
 impl Payload {
@@ -68,6 +79,11 @@ impl Payload {
             put_bytes(&mut out, path.as_bytes());
             put_bytes(&mut out, data);
         }
+        put_len(&mut out, self.edges.len());
+        for (key, target) in &self.edges {
+            put_bytes(&mut out, key.as_bytes());
+            put_bytes(&mut out, target.as_bytes());
+        }
         out
     }
 
@@ -81,10 +97,20 @@ impl Payload {
             let path = take_string(&mut buf)?;
             files.insert(path, take_bytes(&mut buf)?.to_vec());
         }
+        let mut edges = BTreeMap::new();
+        for _ in 0..take_len(&mut buf)? {
+            let key = take_string(&mut buf)?;
+            edges.insert(key, take_string(&mut buf)?);
+        }
         if !buf.is_empty() {
             return Err(VfsError::Corrupt("trailing bytes"));
         }
-        Ok(Self { entry, permission_args, files })
+        Ok(Self {
+            entry,
+            permission_args,
+            files,
+            edges,
+        })
     }
 
     /// Returns `host_exe` followed by this payload and its trailer.
@@ -130,11 +156,29 @@ impl Payload {
 #[derive(Debug, Clone)]
 pub struct Vfs {
     files: BTreeMap<String, Vec<u8>>,
+    edges: BTreeMap<String, String>,
 }
 
 impl Vfs {
     pub fn new(files: BTreeMap<String, Vec<u8>>) -> Self {
-        Self { files }
+        Self {
+            files,
+            edges: BTreeMap::new(),
+        }
+    }
+
+    pub fn from_payload(payload: Payload) -> Self {
+        Self {
+            files: payload.files,
+            edges: payload.edges,
+        }
+    }
+
+    /// Virtual path the compile-time resolver picked for `specifier` imported by `referrer`.
+    pub fn edge(&self, referrer: &str, specifier: &str) -> Option<&str> {
+        self.edges
+            .get(&edge_key(referrer, specifier))
+            .map(String::as_str)
     }
 
     pub fn read(&self, path: &str) -> Option<&[u8]> {
@@ -144,6 +188,37 @@ impl Vfs {
     pub fn exists(&self, path: &str) -> bool {
         self.files.contains_key(path)
     }
+
+    /// Whether some embedded file lives under `path`.
+    pub fn is_dir(&self, path: &str) -> bool {
+        let prefix = format!("{}/", path.trim_end_matches('/'));
+        self.files
+            .range(prefix.clone()..)
+            .next()
+            .is_some_and(|(key, _)| key.starts_with(&prefix))
+    }
+}
+
+/// Every embedded path lives under this directory; nothing under it is ever read from the disk.
+pub const ROOT: &str = "/$velyr/";
+
+static EMBEDDED: OnceLock<Arc<Vfs>> = OnceLock::new();
+
+/// Registers the process's payload, once. A compiled executable is one process with one payload,
+/// so the file readers (`require`, `Velyr.readFile`) find it here instead of being handed a handle.
+pub fn install(vfs: Arc<Vfs>) -> bool {
+    EMBEDDED.set(vfs).is_ok()
+}
+
+pub fn installed() -> Option<&'static Arc<Vfs>> {
+    EMBEDDED.get()
+}
+
+/// The installed payload when `path` is under [`ROOT`]. File readers ask this before the disk and
+/// answer from the returned [`Vfs`] alone (a missing file is "not found", not a disk lookup).
+pub fn covering(path: &Path) -> Option<&'static Vfs> {
+    let vfs = EMBEDDED.get()?;
+    path.to_str()?.starts_with(ROOT).then_some(vfs.as_ref())
 }
 
 fn put_len(out: &mut Vec<u8>, len: usize) {
@@ -156,7 +231,9 @@ fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
 }
 
 fn take_len(buf: &mut &[u8]) -> Result<usize, VfsError> {
-    let (head, rest) = buf.split_at_checked(8).ok_or(VfsError::Corrupt("truncated length"))?;
+    let (head, rest) = buf
+        .split_at_checked(8)
+        .ok_or(VfsError::Corrupt("truncated length"))?;
     *buf = rest;
     usize::try_from(u64::from_le_bytes(head.try_into().expect("8 bytes")))
         .map_err(|_| VfsError::Corrupt("length overflow"))
@@ -164,7 +241,9 @@ fn take_len(buf: &mut &[u8]) -> Result<usize, VfsError> {
 
 fn take_bytes<'a>(buf: &mut &'a [u8]) -> Result<&'a [u8], VfsError> {
     let len = take_len(buf)?;
-    let (head, rest) = buf.split_at_checked(len).ok_or(VfsError::Corrupt("truncated data"))?;
+    let (head, rest) = buf
+        .split_at_checked(len)
+        .ok_or(VfsError::Corrupt("truncated data"))?;
     *buf = rest;
     Ok(head)
 }
@@ -185,6 +264,7 @@ mod tests {
                 ("/app/main.js".into(), b"console.log(1)".to_vec()),
                 ("/app/assets/a.txt".into(), vec![0, 255, 1]),
             ]),
+            edges: BTreeMap::from([(edge_key("/app/main.js", "./a"), "/app/a.js".into())]),
         }
     }
 
@@ -223,13 +303,20 @@ mod tests {
         let at = bytes.len() - MAGIC.len() - 8;
         bytes[at..at + 8].copy_from_slice(&u64::MAX.to_le_bytes());
         let (_d, path) = write_exe(&bytes);
-        assert!(matches!(Payload::read_from(&path), Err(VfsError::Corrupt(_))));
+        assert!(matches!(
+            Payload::read_from(&path),
+            Err(VfsError::Corrupt(_))
+        ));
     }
 
     #[test]
     fn vfs_is_read_only_lookup() {
-        let vfs = Vfs::new(sample().files);
+        let vfs = Vfs::from_payload(sample());
         assert_eq!(vfs.read("/app/main.js"), Some(&b"console.log(1)"[..]));
         assert!(!vfs.exists("/nope"));
+        assert!(vfs.is_dir("/app") && vfs.is_dir("/app/assets/") && !vfs.is_dir("/ap"));
+        assert!(!vfs.is_dir("/app/main.js"));
+        assert_eq!(vfs.edge("/app/main.js", "./a"), Some("/app/a.js"));
+        assert_eq!(vfs.edge("/app/main.js", "./b"), None);
     }
 }

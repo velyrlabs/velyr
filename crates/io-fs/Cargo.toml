@@ -11,6 +11,7 @@ velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-vfs = { path = "../runtime-vfs" }
 notify = "8"
 notify-debouncer-full = "0.5"
 serde_json.workspace = true

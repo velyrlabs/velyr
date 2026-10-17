@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+velyr-compat-napi = { path = "../compat-napi" }
 velyr-compat-npm = { path = "../compat-npm" }
 velyr-engine-api = { path = "../engine-api" }
 velyr-runtime-errors = { path = "../runtime-errors" }
@@ -12,6 +13,7 @@ velyr-runtime-modules = { path = "../runtime-modules" }
 velyr-runtime-core = { path = "../runtime-core" }
 velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
+velyr-runtime-vfs = { path = "../runtime-vfs" }
 # Every oxc_* crate must share this exact version (ADR-012).
 oxc_allocator = "=0.154.0"
 oxc_ast = "=0.154.0"

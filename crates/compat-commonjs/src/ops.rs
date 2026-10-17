@@ -1,7 +1,6 @@
 //! The `op_cjs_*` host functions behind `require`. Both are synchronous (`require` is), so they
 //! read with `std::fs` after the same `ImportLocal`/`FsRead` check `ModuleHost::load` makes.
 
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -14,6 +13,7 @@ use velyr_runtime_permissions::CapabilitySet;
 
 use crate::analysis::{analyze, rewrite_dynamic_imports};
 use crate::format::{Format, detect};
+use crate::fscache;
 use crate::resolve::resolve;
 
 /// Isolate slot the ops read.
@@ -65,7 +65,7 @@ fn state(ctx: &mut dyn CallContext) -> Result<(Arc<CapabilitySet>, Vec<String>),
 }
 
 fn read_text(path: &Path) -> Result<String, VelyrError> {
-    fs::read_to_string(path).map_err(|err| match err.kind() {
+    fscache::read_to_string(path).map_err(|err| match err.kind() {
         std::io::ErrorKind::NotFound => VelyrError::not_found("module not found"),
         _ => VelyrError::invalid_data("module is not readable UTF-8 text").with_cause(err),
     })
@@ -82,7 +82,7 @@ fn op_cjs_resolve(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Ho
     let (permissions, conditions) = state(ctx)?;
     let path = resolve(&request, Path::new(&parent), &conditions)?;
     authorize_path(&path, &permissions)?;
-    let format = detect(&path, || fs::read_to_string(&path).ok());
+    let format = detect(&path, || fscache::read_to_string(&path).ok());
     let path = path.to_string_lossy();
     Ok(text(
         serde_json::json!({ "path": path, "format": format.as_str() }).to_string(),

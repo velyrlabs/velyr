@@ -8,7 +8,6 @@ use tokio_util::sync::CancellationToken;
 use velyr_engine_api::{Engine, Isolate, Source};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RunError, RuntimeConfig, run_file, run_module_file};
-use velyr_runtime_ops::BOOTSTRAP_JS;
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::QuotaConfig;
 #[cfg(feature = "web")]
@@ -82,7 +81,8 @@ pub struct Prepared {
 
 /// Loads `velyr.json`, merges the permission flags and prints the warnings.
 pub fn prepare(file: &Path, flags: Permissions) -> Result<Prepared, String> {
-    let loaded = load_config()?;
+    // A compiled executable's permissions are baked in; a velyr.json next to the cwd is not its own.
+    let loaded = if crate::commands::compile::is_embedded() { None } else { load_config()? };
     let cwd = working_dir()?;
     let built =
         permissions::build(flags, loaded.as_ref(), &cwd, file).map_err(|e| e.to_string())?;
@@ -123,7 +123,7 @@ pub fn run_prepared(
     match engine {
         EngineKind::V8 => {
             let init = Some(V8Engine::init_platform as fn());
-            run_on(V8Engine::new(), init, file, prepared, after_install, worker)
+            run_on(profiles::v8_engine(), init, file, prepared, after_install, worker)
         }
         #[cfg(feature = "engine-native")]
         EngineKind::Native => {
@@ -145,20 +145,12 @@ pub(crate) fn run_on<E: Engine + Send + 'static>(
 ) -> Result<(), String> {
     let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
     let config = runtime_config(prepared, platform_init, worker.shutdown);
-    let features = engine.features();
+    let boot = profiles::Boot::of(&engine);
     #[cfg(feature = "web")]
     let mut inbox = worker.inbox;
     let entry = file.to_path_buf();
     let install = move |isolate: &mut _, sender, timers| {
-        profiles::install(
-            isolate,
-            sender,
-            timers,
-            permissions,
-            quotas,
-            features,
-            &entry,
-        );
+        profiles::install(isolate, sender, timers, permissions, quotas, boot, &entry);
         #[cfg(feature = "web")]
         if let Some(inbox) = inbox.take() {
             isolate.set_slot(inbox);
@@ -173,11 +165,11 @@ pub(crate) fn run_on<E: Engine + Send + 'static>(
                 .expect("the after-install script is valid JS");
         }
     };
-    let (functions, path) = (profiles::host_functions(features), file.to_path_buf());
+    let ((functions, bootstrap), path) = (boot.bootstrap(), file.to_path_buf());
     if is_module(file) {
-        run_module_file(engine, config, functions, BOOTSTRAP_JS, install, path)
+        run_module_file(engine, config, functions, bootstrap, install, path)
     } else {
-        run_file(engine, config, functions, BOOTSTRAP_JS, install, path)
+        run_file(engine, config, functions, bootstrap, install, path)
     }
     .map_err(describe)
 }
@@ -187,7 +179,7 @@ fn runtime_config(
     platform_init: Option<fn()>,
     shutdown: Option<CancellationToken>,
 ) -> RuntimeConfig {
-    RuntimeConfig {
+    let mut config = RuntimeConfig {
         platform_init,
         capabilities: Some(prepared.capabilities.clone()),
         quotas: Some(prepared.quotas.clone()),
@@ -199,7 +191,9 @@ fn runtime_config(
         )),
         shutdown,
         ..RuntimeConfig::default()
-    }
+    };
+    crate::commands::compile::install_vfs(&mut config);
+    config
 }
 
 /// ESM is the canonical entry format (TypeScript entries are stripped by the module host); other

@@ -21,7 +21,7 @@ use velyr_engine_api::{
     TerminationHandle, Value,
 };
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{ModuleResolver, SourceTransform};
+use velyr_runtime_modules::{ModuleLoader, ModuleResolver, SourceTransform};
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::{LeakEntry, QuotaConfig};
 use watchdog::Watchdog;
@@ -73,6 +73,9 @@ pub struct RuntimeConfig {
     /// Rewrites every module's text after it is read (TypeScript stripping); applies to `import`
     /// and `require(esm)`. `None` loads sources as written.
     pub source_transform: Option<Arc<dyn SourceTransform>>,
+    /// Reads module text for the entry module's graph; `None` is `FsLoader` (the disk). Single-file
+    /// executables pass a loader over their embedded files.
+    pub module_loader: Option<Arc<dyn ModuleLoader>>,
 }
 
 /// A module resolver shared across the isolate thread and its host.
@@ -113,6 +116,7 @@ impl Default for RuntimeConfig {
             shutdown: None,
             module_resolver: None,
             source_transform: None,
+            module_loader: None,
         }
     }
 }

@@ -67,10 +67,21 @@ impl EsmRequire {
         if let Some(hit) = self.loaded.lock().unwrap().get(&module.id) {
             return Ok(Arc::clone(hit));
         }
-        let text = fs::read_to_string(&module.path).map_err(|err| match err.kind() {
-            ErrorKind::NotFound => VelyrError::not_found("module not found"),
-            _ => VelyrError::invalid_data("module is not readable UTF-8 text").with_cause(err),
-        })?;
+        let text = match velyr_runtime_vfs::covering(&module.path) {
+            // A compiled executable's embedded modules are not on disk.
+            Some(vfs) => vfs
+                .read(&module.path.to_string_lossy())
+                .ok_or_else(|| VelyrError::not_found("module not found"))
+                .and_then(|bytes| {
+                    std::str::from_utf8(bytes)
+                        .map(str::to_owned)
+                        .map_err(|_| VelyrError::invalid_data("module is not readable UTF-8 text"))
+                })?,
+            None => fs::read_to_string(&module.path).map_err(|err| match err.kind() {
+                ErrorKind::NotFound => VelyrError::not_found("module not found"),
+                _ => VelyrError::invalid_data("module is not readable UTF-8 text").with_cause(err),
+            })?,
+        };
         let text = match &self.transform {
             // shortcut: source maps of modules read here are dropped; upgrade with a shared map store.
             Some(transform) => {

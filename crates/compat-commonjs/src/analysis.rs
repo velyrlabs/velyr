@@ -1,12 +1,12 @@
 //! Static analysis of CommonJS source with oxc: the names `import` can see as named exports, the
 //! `require` targets re-exported wholesale, and the `import()` calls that need a referrer.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Argument, AssignmentExpression, CallExpression, Expression, ImportExpression,
-    ObjectPropertyKind,
+    ObjectPropertyKind, VariableDeclarator,
 };
 use oxc_ast_visit::Visit;
 use oxc_parser::Parser;
@@ -15,7 +15,8 @@ use oxc_span::SourceType;
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Analysis {
     pub exports: BTreeSet<String>,
-    /// `module.exports = require("x")` and `module.exports = { ...require("x") }` targets.
+    /// `module.exports = require("x")`, `module.exports = { ...require("x") }`,
+    /// `Object.keys(x).forEach(k => exports[k] = x[k])` and `__exportStar(require("x"), exports)` targets.
     pub reexports: Vec<String>,
     /// Byte offsets of every `import(` expression.
     pub dynamic_imports: Vec<usize>,
@@ -30,7 +31,7 @@ pub fn analyze(source: &str) -> Option<Analysis> {
     }
     let mut collector = Collector::default();
     collector.visit_program(&parsed.program);
-    Some(collector.0)
+    Some(collector.found)
 }
 
 /// Whether `source` uses `import`/`export` statements or `import.meta` (Node's syntax detection).
@@ -81,13 +82,68 @@ fn require_target(expr: &Expression<'_>) -> Option<String> {
     is_ident(&call.callee, "require").then(|| target.value.to_string())
 }
 
+/// Whether a `forEach` callback assigns `exports[k] = ...` with `k` its first parameter.
+fn assigns_exports_by_key(callback: &Expression<'_>) -> bool {
+    match callback {
+        Expression::FunctionExpression(f) => f
+            .body
+            .as_ref()
+            .is_some_and(|body| find_key_assignment(&f.params, |v| v.visit_function_body(body))),
+        Expression::ArrowFunctionExpression(f) => {
+            find_key_assignment(&f.params, |v| v.visit_arrow_function_body(&f.body))
+        }
+        _ => false,
+    }
+}
+
+fn find_key_assignment<'p>(
+    params: &'p oxc_ast::ast::FormalParameters<'_>,
+    walk: impl FnOnce(&mut KeyAssignment<'p>),
+) -> bool {
+    let Some(key) = params
+        .items
+        .first()
+        .and_then(|p| p.pattern.get_identifier_name())
+    else {
+        return false;
+    };
+    let mut finder = KeyAssignment {
+        key: key.as_str(),
+        found: false,
+    };
+    walk(&mut finder);
+    finder.found
+}
+
+struct KeyAssignment<'k> {
+    key: &'k str,
+    found: bool,
+}
+
+impl<'a> Visit<'a> for KeyAssignment<'_> {
+    fn visit_assignment_expression(&mut self, it: &AssignmentExpression<'a>) {
+        if let Some(member) = it.left.as_member_expression()
+            && is_exports_object(member.object())
+            && let oxc_ast::ast::MemberExpression::ComputedMemberExpression(computed) = member
+            && is_ident(&computed.expression, self.key)
+        {
+            self.found = true;
+        }
+        oxc_ast_visit::walk::walk_assignment_expression(self, it);
+    }
+}
+
 #[derive(Default)]
-struct Collector(Analysis);
+struct Collector {
+    found: Analysis,
+    /// Variables initialized with `require("literal")`, for the `Object.keys(x).forEach` reexport.
+    required: HashMap<String, String>,
+}
 
 impl Collector {
     fn module_exports_value(&mut self, value: &Expression<'_>) {
         if let Some(target) = require_target(value) {
-            self.0.reexports.push(target);
+            self.found.reexports.push(target);
         }
         let Expression::ObjectExpression(object) = value else {
             return;
@@ -96,12 +152,12 @@ impl Collector {
             match property {
                 ObjectPropertyKind::ObjectProperty(property) if !property.computed => {
                     if let Some(name) = property.key.static_name() {
-                        self.0.exports.insert(name.into_owned());
+                        self.found.exports.insert(name.into_owned());
                     }
                 }
                 ObjectPropertyKind::SpreadProperty(spread) => {
                     if let Some(target) = require_target(&spread.argument) {
-                        self.0.reexports.push(target);
+                        self.found.reexports.push(target);
                     }
                 }
                 ObjectPropertyKind::ObjectProperty(_) => {}
@@ -110,14 +166,69 @@ impl Collector {
     }
 }
 
+impl Collector {
+    /// `Object.keys(x).forEach(function (k) { exports[k] = x[k] })` with `x = require("t")`.
+    fn keys_foreach_reexport(&mut self, it: &CallExpression<'_>) {
+        let Some(foreach) = it.callee.as_member_expression() else {
+            return;
+        };
+        if foreach.static_property_name() != Some("forEach") {
+            return;
+        }
+        let Expression::CallExpression(keys) = foreach.object() else {
+            return;
+        };
+        let (Some(callee), [Argument::Identifier(var)]) = (
+            keys.callee.as_member_expression(),
+            keys.arguments.as_slice(),
+        ) else {
+            return;
+        };
+        if is_ident(callee.object(), "Object")
+            && callee.static_property_name() == Some("keys")
+            && let Some(target) = self.required.get(var.name.as_str())
+            && let [callback] = it.arguments.as_slice()
+            && callback.as_expression().is_some_and(assigns_exports_by_key)
+        {
+            self.found.reexports.push(target.clone());
+        }
+    }
+
+    /// `__exportStar(require("t"), exports)`, also as `tslib.__exportStar(...)`.
+    fn export_star_reexport(&mut self, it: &CallExpression<'_>) {
+        let helper = match &it.callee {
+            Expression::Identifier(id) => Some(id.name.as_str()),
+            callee => callee
+                .as_member_expression()
+                .and_then(|m| m.static_property_name()),
+        };
+        if helper == Some("__exportStar")
+            && let [first, second] = it.arguments.as_slice()
+            && second.as_expression().is_some_and(is_exports_object)
+            && let Some(target) = first.as_expression().and_then(require_target)
+        {
+            self.found.reexports.push(target);
+        }
+    }
+}
+
 impl<'a> Visit<'a> for Collector {
+    fn visit_variable_declarator(&mut self, it: &VariableDeclarator<'a>) {
+        if let Some(name) = it.id.get_identifier_name()
+            && let Some(target) = it.init.as_ref().and_then(require_target)
+        {
+            self.required.insert(name.to_string(), target);
+        }
+        oxc_ast_visit::walk::walk_variable_declarator(self, it);
+    }
+
     fn visit_assignment_expression(&mut self, it: &AssignmentExpression<'a>) {
         if it.operator.is_assign()
             && let Some(member) = it.left.as_member_expression()
             && let Some(name) = member.static_property_name()
         {
             if is_exports_object(member.object()) {
-                self.0.exports.insert(name.to_string());
+                self.found.exports.insert(name.to_string());
             } else if name == "exports" && is_ident(member.object(), "module") {
                 self.module_exports_value(&it.right);
             }
@@ -126,6 +237,8 @@ impl<'a> Visit<'a> for Collector {
     }
 
     fn visit_call_expression(&mut self, it: &CallExpression<'a>) {
+        self.keys_foreach_reexport(it);
+        self.export_star_reexport(it);
         // Object.defineProperty(exports, "name", ...)
         if let Some(callee) = it.callee.as_member_expression()
             && is_ident(callee.object(), "Object")
@@ -140,13 +253,13 @@ impl<'a> Visit<'a> for Collector {
             && let Some(target) = it.arguments[0].as_expression()
             && is_exports_object(target)
         {
-            self.0.exports.insert(name.value.to_string());
+            self.found.exports.insert(name.value.to_string());
         }
         oxc_ast_visit::walk::walk_call_expression(self, it);
     }
 
     fn visit_import_expression(&mut self, it: &ImportExpression<'a>) {
-        self.0.dynamic_imports.push(it.span.start as usize);
+        self.found.dynamic_imports.push(it.span.start as usize);
         oxc_ast_visit::walk::walk_import_expression(self, it);
     }
 }
@@ -183,6 +296,23 @@ mod tests {
             names("other.exports.a = 1; exports.b += 1; const f = () => { exports.c = 1 };")
                 == ["c"]
         );
+    }
+
+    #[test]
+    fn follows_keys_foreach_and_export_star_reexports() {
+        let found = analyze(
+            "var a = require('./a'); Object.keys(a).forEach(function (k) { if (k !== 'default') exports[k] = a[k]; });\n\
+             const b = require('./b'); Object.keys(b).forEach(k => { exports[k] = b[k]; });\n\
+             __exportStar(require('./c'), exports); tslib.__exportStar(require('./d'), module.exports);",
+        )
+        .unwrap();
+        assert_eq!(found.reexports, ["./a", "./b", "./c", "./d"]);
+        let none = analyze(
+            "var a = require('./a'); Object.keys(a).forEach(function (k) { log(k); });\n\
+             Object.keys(unknown).forEach(k => { exports[k] = 1; });",
+        )
+        .unwrap();
+        assert!(none.reexports.is_empty());
     }
 
     #[test]

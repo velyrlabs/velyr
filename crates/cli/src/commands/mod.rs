@@ -3,6 +3,7 @@ pub mod add;
 pub mod bench;
 pub mod check;
 pub mod compat;
+pub mod compile;
 #[cfg(feature = "npm")]
 pub mod install;
 #[cfg(feature = "npm")]

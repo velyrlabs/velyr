@@ -11,6 +11,7 @@ velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-modules = { path = "../runtime-modules" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-vfs = { path = "../runtime-vfs" }
 memory-stats = "1"
 serde_json.workspace = true
 tokio.workspace = true

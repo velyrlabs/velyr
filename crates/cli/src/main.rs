@@ -96,6 +96,8 @@ enum Command {
     Check(commands::check::CheckArgs),
     /// Report which Node APIs and packages the project uses and how Velyr supports them.
     Compat(commands::compat::CompatArgs),
+    /// Bundle a module, its imports and extra files into a single executable.
+    Compile(commands::compile::CompileArgs),
     /// Serve the module's `export default { fetch }` over HTTP.
     Serve {
         /// Path to the module.
@@ -162,6 +164,10 @@ enum Command {
 }
 
 fn main() -> ExitCode {
+    // A binary produced by `velyr compile` runs its embedded program and ignores the velyr CLI.
+    if let Some(code) = commands::compile::run_embedded() {
+        return code;
+    }
     let cli = Cli::parse();
     telemetry::init(cli.log_format);
     let code = real_main(cli);
@@ -204,6 +210,7 @@ fn real_main(cli: Cli) -> ExitCode {
         Some(Command::Bench(args)) => commands::bench::bench(args),
         Some(Command::Check(args)) => commands::check::check(args),
         Some(Command::Compat(args)) => commands::compat::compat(args),
+        Some(Command::Compile(args)) => commands::compile::compile(args),
         Some(Command::Serve {
             file,
             hostname,

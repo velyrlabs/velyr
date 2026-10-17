@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -34,10 +35,15 @@ impl FsCache {
             return *hit;
         }
         self.syscalls.fetch_add(1, Ordering::Relaxed);
-        let kind = match fs::metadata(path) {
-            Ok(meta) if meta.is_dir() => Kind::Dir,
-            Ok(meta) if meta.is_file() => Kind::File,
-            _ => Kind::Missing,
+        let kind = match (velyr_runtime_vfs::covering(path), path.to_str()) {
+            (Some(vfs), Some(key)) if vfs.exists(key) => Kind::File,
+            (Some(vfs), Some(key)) if vfs.is_dir(key) => Kind::Dir,
+            (Some(_), _) => Kind::Missing,
+            (None, _) => match fs::metadata(path) {
+                Ok(meta) if meta.is_dir() => Kind::Dir,
+                Ok(meta) if meta.is_file() => Kind::File,
+                _ => Kind::Missing,
+            },
         };
         self.kinds.lock().unwrap().insert(path.to_owned(), kind);
         kind
@@ -49,7 +55,7 @@ impl FsCache {
             return hit.clone();
         }
         self.syscalls.fetch_add(1, Ordering::Relaxed);
-        let parsed = fs::read_to_string(dir.join("package.json"))
+        let parsed = read_to_string(&dir.join("package.json"))
             .ok()
             .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
             .map(Arc::new);
@@ -69,6 +75,19 @@ impl FsCache {
     fn syscalls(&self) -> usize {
         self.syscalls.load(Ordering::Relaxed)
     }
+}
+
+/// `fs::read_to_string`, except that a file under the compiled executable's virtual root is read
+/// from its payload (and a missing one is "not found" without touching the disk).
+pub(crate) fn read_to_string(path: &Path) -> io::Result<String> {
+    let Some(vfs) = velyr_runtime_vfs::covering(path) else {
+        return fs::read_to_string(path);
+    };
+    let bytes = path
+        .to_str()
+        .and_then(|key| vfs.read(key))
+        .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?;
+    String::from_utf8(bytes.to_vec()).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 pub(crate) fn global() -> &'static FsCache {

@@ -137,16 +137,32 @@ fn flag(args: &[Value], index: usize, op: &str) -> Result<bool, HostError> {
 /// when `text` is false.
 fn op_fs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let _span = tracing::debug_span!("velyr.ops.fs_read").entered();
-    let path = authorized_path(ctx, "op_fs_read", args, false)?;
     let text = flag(args, 1, "op_fs_read")?;
+    if let Some(Value::String(raw)) = args.first() {
+        let raw = raw.to_string_lossy();
+        // A compiled executable's embedded files: same FsRead check, read from the payload.
+        if let Some(vfs) = velyr_runtime_vfs::covering(Path::new(&raw)) {
+            authorize(ctx, "op_fs_read", Request::FsRead(&raw))?;
+            let embedded = vfs.read(&raw).map(<[u8]>::to_vec);
+            return op_async(ctx, |_token| async move {
+                let bytes = embedded.ok_or_else(|| io_error(io::ErrorKind::NotFound.into()))?;
+                Ok(read_value(bytes, text))
+            });
+        }
+    }
+    let path = authorized_path(ctx, "op_fs_read", args, false)?;
     op_async(ctx, |_token| async move {
         let bytes = tokio::fs::read(path).await.map_err(io_error)?;
-        Ok(if text {
-            CompletionValue::String(String::from_utf8_lossy(&bytes).into_owned())
-        } else {
-            CompletionValue::Bytes(bytes)
-        })
+        Ok(read_value(bytes, text))
     })
+}
+
+fn read_value(bytes: Vec<u8>, text: bool) -> CompletionValue {
+    if text {
+        CompletionValue::String(String::from_utf8_lossy(&bytes).into_owned())
+    } else {
+        CompletionValue::Bytes(bytes)
+    }
 }
 
 /// `op_fs_write(path, data, text) -> Promise<undefined>`; `data` is UTF-16 text, or an

@@ -17,7 +17,8 @@ use std::path::PathBuf;
 
 use velyr_engine_api::{CallContext, HostError, HostFunctionDef, Value};
 use velyr_io_fs::sync_ops::{
-    Access, FsError, PathMode, authorize_path, close_fd, file_for_fd, insert_file, verify_unchanged,
+    Access, FsError, PathMode, authorize_path, close_fd, deny_nested_in_tree, file_for_fd,
+    insert_file, verify_unchanged,
 };
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::CompletionValue;
@@ -169,7 +170,24 @@ fn prepare(
         }
         "readFile" => {
             let raw = arg(a, 0)?;
-            let path = authorize(ctx, guards, "open", &raw, Follow, read)?;
+            let authorized = authorize(ctx, guards, "open", &raw, Follow, read);
+            // A compiled executable's embedded files are not on disk: `authorize` checks the raw
+            // path first and fails with ENOENT only once the grant allowed it.
+            if let Some(vfs) = velyr_runtime_vfs::covering(std::path::Path::new(&raw)) {
+                if let Err(err) = authorized
+                    && err.code != "ENOENT"
+                {
+                    return Err(err);
+                }
+                let embedded = vfs.read(&raw).map(<[u8]>::to_vec);
+                return Ok(job(move || {
+                    let missing = std::io::ErrorKind::NotFound.into();
+                    let data =
+                        embedded.ok_or_else(|| FsError::from_io(&missing, "open", Some(&raw)))?;
+                    Ok(vec![data])
+                }));
+            }
+            let path = authorized?;
             Ok(job(move || jobs::read_all(&path, raw)))
         }
         "writeFile" => {
@@ -192,7 +210,13 @@ fn prepare(
         }
         "rm" => {
             let (raw, recursive, force) = (arg(a, 0)?, flag(a, 1)?, flag(a, 2)?);
-            match authorize(ctx, guards, "rm", &raw, Entry, write) {
+            let authorized = authorize(ctx, guards, "rm", &raw, Entry, write).and_then(|path| {
+                if recursive {
+                    deny_nested_in_tree(ctx, "rm", &raw, &path, write)?;
+                }
+                Ok(path)
+            });
+            match authorized {
                 Ok(path) => Ok(job(move || jobs::remove(&path, raw, recursive, force))),
                 Err(err) if force && err.code == "ENOENT" => done(),
                 Err(err) => Err(err),
@@ -221,6 +245,7 @@ fn prepare(
                 .with_dest(&to_raw)
             };
             let from = authorize(ctx, guards, "rename", &from_raw, Entry, write).map_err(both)?;
+            deny_nested_in_tree(ctx, "rename", &from_raw, &from, write).map_err(both)?;
             let to = authorize(ctx, guards, "rename", &to_raw, Entry, write).map_err(both)?;
             Ok(job(move || {
                 let fail = |err: std::io::Error| {
@@ -244,6 +269,12 @@ fn prepare(
             let from =
                 authorize(ctx, guards, syscall, &from_raw, source_mode, read).map_err(both)?;
             let to = authorize(ctx, guards, syscall, &to_raw, Create, write).map_err(both)?;
+            if name == "cp" && flag(a, 2)? {
+                // The copy duplicates whatever is below the root, so a nested deny of either kind blocks it.
+                for access in [read, write] {
+                    deny_nested_in_tree(ctx, syscall, &from_raw, &from, access).map_err(both)?;
+                }
+            }
             let raw = (from_raw, to_raw);
             if name == "cp" {
                 let (recursive, force, error_on_exist) = (flag(a, 2)?, flag(a, 3)?, flag(a, 4)?);

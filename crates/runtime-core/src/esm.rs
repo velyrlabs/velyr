@@ -26,8 +26,8 @@ use velyr_engine_api::{
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_event_loop::{CompletionSender, EventLoop, OpGuard};
 use velyr_runtime_modules::{
-    FsLoader, FsResolver, LoadContext, ModuleHost, ModuleId, ModuleSource, ResolveContext,
-    ResolvedModule, SharedCache, SourceTransform,
+    FsLoader, FsResolver, LoadContext, ModuleHost, ModuleId, ModuleLoader, ModuleSource,
+    ResolveContext, ResolvedModule, SharedCache, SourceTransform,
 };
 use velyr_runtime_permissions::CapabilitySet;
 
@@ -326,6 +326,7 @@ pub(crate) async fn run<I: Isolate>(
     capabilities: Option<Arc<CapabilitySet>>,
     resolver: Option<ModuleResolverHandle>,
     source_transform: Option<Arc<dyn SourceTransform>>,
+    loader: Option<Arc<dyn ModuleLoader>>,
     path: &Path,
 ) -> Result<(), RunError> {
     let (jobs, requests) = unbounded_channel();
@@ -340,7 +341,7 @@ pub(crate) async fn run<I: Isolate>(
         .ok_or_else(|| RunError::Load(VelyrError::invalid_data("entry path is not absolute")))?;
     let permissions = capabilities.unwrap_or_default();
     let mut require = EsmRequire::new(resolver.clone(), Arc::clone(&permissions));
-    let mut host = ModuleHost::new(Arc::new(FsLoader));
+    let mut host = ModuleHost::new(loader.unwrap_or_else(|| Arc::new(FsLoader)));
     let shared = SharedCache::global();
     if let Some(shared) = &shared {
         host = host.with_shared(Arc::clone(shared));

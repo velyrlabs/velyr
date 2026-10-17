@@ -253,6 +253,34 @@ fn esm_imports_commonjs_with_detected_named_exports() {
 }
 
 #[test]
+fn esm_imports_names_from_keys_foreach_and_export_star_reexports() {
+    let files = [
+        ("base.cjs", "exports.a = 1; exports.b = 2;"),
+        (
+            "keys.cjs",
+            "var base = require('./base.cjs');\nObject.keys(base).forEach(function (k) {\n  if (k !== 'default' && !Object.prototype.hasOwnProperty.call(exports, k)) exports[k] = base[k];\n});",
+        ),
+        (
+            "arrow.cjs",
+            "const base = require('./base.cjs'); Object.keys(base).forEach(k => { exports[k] = base[k]; });",
+        ),
+        (
+            "star.cjs",
+            "function __exportStar(m, e) { for (var p in m) if (p !== 'default') e[p] = m[p]; } __exportStar(require('./base.cjs'), exports);",
+        ),
+        (
+            "main.mjs",
+            "import { a } from './keys.cjs';\nimport { b } from './arrow.cjs';\nimport { a as sa, b as sb } from './star.cjs';\n\
+             globalThis.out = { a, b, sa, sb };",
+        ),
+    ];
+    assert_eq!(
+        run_out(&files, "main.mjs"),
+        r#"{"a":1,"b":2,"sa":1,"sb":2}"#
+    );
+}
+
+#[test]
 fn undetected_named_import_is_a_link_error() {
     let files = [
         (
