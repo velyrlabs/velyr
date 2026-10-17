@@ -26,6 +26,7 @@ mod outer;
 mod pattern;
 mod scope;
 mod statement;
+mod using;
 mod variable;
 
 use std::rc::Rc;

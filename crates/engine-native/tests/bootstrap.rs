@@ -103,8 +103,8 @@ fn class_evaluates() {
 #[test]
 fn unsupported_expression_is_syntax_error() {
     assert_eq!(
-        error_message("{ using x = null; }"),
-        "SyntaxError: unsupported: using declaration"
+        error_message("class C { accessor x = 1; }"),
+        "SyntaxError: unsupported: auto-accessor"
     );
 }
 

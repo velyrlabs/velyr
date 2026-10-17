@@ -10,6 +10,7 @@ use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 use super::control::{Breakable, BreakableKind, Control};
 use super::emitter::Label;
 use super::function::{FunctionCompiler, binding_name};
+use super::using::using_kind;
 use crate::compiler::JsResult;
 
 impl FunctionCompiler<'_> {
@@ -39,6 +40,15 @@ impl FunctionCompiler<'_> {
     }
 
     pub fn for_statement(&mut self, statement: &ForStatement, labels: Vec<String>) -> JsResult<()> {
+        match &statement.init {
+            Some(ForStatementInit::VariableDeclaration(d)) if d.kind.is_using() => {
+                self.dispose_scope(d.kind.is_await(), |this| this.for_loop(statement, labels))
+            }
+            _ => self.for_loop(statement, labels),
+        }
+    }
+
+    fn for_loop(&mut self, statement: &ForStatement, labels: Vec<String>) -> JsResult<()> {
         self.reset_completion();
         let scope = statement.scope_id();
         let saved = self.enter_scope(scope);
@@ -222,9 +232,16 @@ impl FunctionCompiler<'_> {
             iterator: iteration.iterator,
         }));
         let saved = self.enter_scope(scope);
-        let result = self
-            .bind_loop_head(left, value)
-            .and_then(|()| self.statement(body));
+        let iterate = |this: &mut Self| {
+            this.bind_loop_head(left, value)?;
+            this.statement(body)
+        };
+        let result = match left {
+            ForStatementLeft::VariableDeclaration(d) if d.kind.is_using() => {
+                self.dispose_scope(d.kind.is_await(), iterate)
+            }
+            _ => iterate(self),
+        };
         self.exit_scope(saved);
         self.control.pop();
         self.e.release(mark);
@@ -235,6 +252,7 @@ impl FunctionCompiler<'_> {
         match left {
             ForStatementLeft::VariableDeclaration(declaration) => {
                 self.e.emit(I::Ldar(value));
+                self.add_disposable(declaration.kind)?;
                 self.bind_pattern(&declaration.declarations[0].id)
             }
             target => self.assign_from_register(target.to_assignment_target(), value),
@@ -252,6 +270,26 @@ impl FunctionCompiler<'_> {
         for case in &statement.cases {
             self.hoist_functions(&case.consequent)?;
         }
+        let cases = |this: &mut Self| this.switch_cases(statement, discriminant, labels);
+        let using = statement
+            .cases
+            .iter()
+            .filter_map(|case| using_kind(&case.consequent));
+        match using.reduce(|any_async, is_async| any_async || is_async) {
+            Some(is_async) => self.dispose_scope(is_async, cases)?,
+            None => cases(self)?,
+        }
+        self.exit_scope(saved);
+        Ok(())
+    }
+
+    /// The case tests and bodies of a switch, in its block scope.
+    fn switch_cases(
+        &mut self,
+        statement: &SwitchStatement,
+        discriminant: Reg,
+        labels: Vec<String>,
+    ) -> JsResult<()> {
         let case_labels: Vec<Label> = statement.cases.iter().map(|_| self.e.new_label()).collect();
         for (case, &label) in statement.cases.iter().zip(&case_labels) {
             if let Some(test) = &case.test {
@@ -282,7 +320,6 @@ impl FunctionCompiler<'_> {
         self.control.pop();
         result?;
         self.e.bind(end);
-        self.exit_scope(saved);
         Ok(())
     }
 }

@@ -305,9 +305,7 @@ impl<'s> FunctionCompiler<'s> {
             Body::Statements(statements) => {
                 self.hoist_functions(statements)?;
                 self.start_coroutine(source.coroutine, false);
-                for statement in statements {
-                    self.statement(statement)?;
-                }
+                self.statement_list(statements)?;
                 // A derived constructor's `undefined` becomes its `this` (VM return check).
                 self.e.emit(I::LdaUndefined);
             }

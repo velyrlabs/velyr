@@ -14,7 +14,7 @@ use super::function::FunctionCompiler;
 use crate::compiler::{JsResult, throw};
 
 const TOKEN_FALLTHROUGH: i32 = 0;
-const TOKEN_THROW: i32 = 1;
+pub(super) const TOKEN_THROW: i32 = 1;
 const FIRST_JUMP_TOKEN: i32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +46,8 @@ pub enum Control {
     Context(Reg),
     Breakable(Breakable),
     Finally(Finally),
+    /// The dispose stack of a statement list declaring `using` resources.
+    Disposal(Reg),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -74,7 +76,7 @@ impl FunctionCompiler<'_> {
         let needs_unwind = self.control.iter().any(|entry| match entry {
             Control::Finally(_) => true,
             Control::Breakable(breakable) => breakable.iterator.is_some(),
-            Control::Context(_) => false,
+            Control::Context(_) | Control::Disposal(_) => false,
         });
         if !needs_unwind {
             self.e.emit(I::Return);
@@ -144,6 +146,7 @@ impl FunctionCompiler<'_> {
                     self.e.jump(I::Jump, entry);
                     return;
                 }
+                Control::Disposal(_) => {}
             }
         }
         if let Jump::Return(register) = jump {
@@ -203,6 +206,25 @@ impl FunctionCompiler<'_> {
         let Some(finalizer) = &statement.finalizer else {
             return self.try_catch(statement);
         };
+        self.with_finally(
+            |this| this.try_catch(statement),
+            |this, _, _| {
+                // A normally completing finally block keeps the try/catch completion value.
+                let completion = this.completion.take();
+                let result = this.block(finalizer);
+                this.completion = completion;
+                result
+            },
+        )
+    }
+
+    /// `try { body } finally { finalizer }`; the finalizer gets the completion token and
+    /// value registers (`TOKEN_THROW` with the exception, a jump token, or fallthrough).
+    pub fn with_finally(
+        &mut self,
+        body: impl FnOnce(&mut Self) -> JsResult<()>,
+        finalizer: impl FnOnce(&mut Self, Reg, Reg) -> JsResult<()>,
+    ) -> JsResult<()> {
         let token = self.e.alloc();
         let value = self.e.alloc();
         let context = self.save_context_for_handler();
@@ -214,7 +236,7 @@ impl FunctionCompiler<'_> {
             jumps: Vec::new(),
         }));
         let start = self.e.bound_label();
-        let protected = self.try_catch(statement);
+        let protected = body(self);
         let end = self.e.bound_label();
         let Some(Control::Finally(finally)) = self.control.pop() else {
             unreachable!("finally entry pushed above");
@@ -229,11 +251,7 @@ impl FunctionCompiler<'_> {
         self.e.emit(I::LdaSmi(TOKEN_THROW));
         self.e.emit(I::Star(token));
         self.e.bind(entry);
-        // A normally completing finally block keeps the try/catch completion value.
-        let completion = self.completion.take();
-        let result = self.block(finalizer);
-        self.completion = completion;
-        result?;
+        finalizer(self, token, value)?;
         self.finally_dispatch(token, value, &finally.jumps);
         Ok(())
     }

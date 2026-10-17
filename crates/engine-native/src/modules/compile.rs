@@ -22,6 +22,7 @@ use velyr_engine_vm::interpreter::{ExportTarget, ImportName, ModuleCode, ModuleI
 use super::function::FunctionCompiler;
 use super::scope::{self, DEFAULT_SLOT, Location, META_SLOT, ScopeAnalysis};
 use super::unsupported;
+use super::using::using_kind;
 use crate::compiler::{JsResult, throw};
 
 pub fn compile_module(name: &str, text: &str) -> JsResult<ModuleCode> {
@@ -283,8 +284,13 @@ fn body_code(
     let mut compiler = module_compiler(program, analysis, script);
     compiler.assign_local_registers();
     let async_body = compiler.start_coroutine(coroutine, true);
-    for statement in &program.body {
-        compiler.module_statement(statement)?;
+    let body = |this: &mut FunctionCompiler| {
+        let mut statements = program.body.iter();
+        statements.try_for_each(|statement| this.module_statement(statement))
+    };
+    match using_kind(&program.body) {
+        Some(is_async) => compiler.dispose_scope(is_async, body)?,
+        None => body(&mut compiler)?,
     }
     compiler.e.emit(I::LdaUndefined);
     compiler.e.emit(I::Return);

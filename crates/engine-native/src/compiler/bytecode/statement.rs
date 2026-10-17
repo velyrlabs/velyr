@@ -99,9 +99,7 @@ impl FunctionCompiler<'_> {
         let mark = self.e.mark();
         let saved = self.enter_scope(block.scope_id());
         self.hoist_functions(&block.body)?;
-        for statement in &block.body {
-            self.statement(statement)?;
-        }
+        self.statement_list(&block.body)?;
         self.exit_scope(saved);
         self.e.release(mark);
         Ok(())
@@ -172,12 +170,6 @@ impl FunctionCompiler<'_> {
     }
 
     pub fn variable_declaration(&mut self, declaration: &VariableDeclaration) -> JsResult<()> {
-        if matches!(
-            declaration.kind,
-            VariableDeclarationKind::Using | VariableDeclarationKind::AwaitUsing
-        ) {
-            return Err(unsupported("using declaration"));
-        }
         for declarator in &declaration.declarations {
             let with_place = match &declarator.init {
                 Some(_) => self.var_in_with_place(&declarator.id),
@@ -188,6 +180,7 @@ impl FunctionCompiler<'_> {
                 None if declaration.kind == VariableDeclarationKind::Var => continue,
                 None => self.e.emit(I::LdaUndefined),
             }
+            self.add_disposable(declaration.kind)?;
             match with_place {
                 Some(place) => self.store_place(&place)?,
                 None => self.bind_pattern(&declarator.id)?,
