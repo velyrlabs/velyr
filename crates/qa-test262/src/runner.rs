@@ -15,6 +15,7 @@ use velyr_engine_api::{
 use velyr_runtime_errors::VelyrError;
 
 use crate::frontmatter::{self, Meta};
+use crate::host262::{self, ParsePhase};
 use crate::report::{Outcome, retry_timeout};
 
 const HEAP_LIMIT_BYTES: usize = 1 << 30;
@@ -23,18 +24,12 @@ const ASYNC_FAILURE: &str = "Test262:AsyncTestFailure:";
 const DEFAULT_INCLUDES: [&str; 2] = ["assert.js", "sta.js"];
 const DONE_INCLUDE: &str = "doneprintHandle.js";
 // `transfer` is captured before a test can replace it; a detached buffer reports `byteLength` 0.
-const PRELUDE: &str = "var $262 = { global: this, detachArrayBuffer: (function (transfer) { return function (b) { if (!b.detached) transfer.call(b); return null; }; })(ArrayBuffer.prototype.transfer) };";
+const PRELUDE: &str = "var $262 = { global: this, detachArrayBuffer: (function (transfer) { return function (b) { if (!b.detached) transfer.call(b); return null; }; })(ArrayBuffer.prototype.transfer) }; $262.evalScript = __evalScript; $262.gc = __gc;";
 const DESCRIBE: &str = "(function (value) { return String(value); })";
 
-/// `$262` capabilities engine-api cannot provide: no eval, gc, realm, agent or
-/// [[IsHTMLDDA]] access from host functions. Tests that use them are skipped, not run against a lie.
-const UNSUPPORTED_HOST_APIS: [&str; 5] = [
-    "$262.evalScript",
-    "$262.gc",
-    "$262.createRealm",
-    "$262.agent",
-    "$262.IsHTMLDDA",
-];
+/// `$262` capabilities engine-api cannot provide: no realm, agent or [[IsHTMLDDA]]
+/// access from host functions. Tests that use them are skipped, not run against a lie.
+const UNSUPPORTED_HOST_APIS: [&str; 3] = ["$262.createRealm", "$262.agent", "$262.IsHTMLDDA"];
 
 /// `harness/*.js` by file name.
 pub struct Harness(HashMap<String, String>);
@@ -181,6 +176,8 @@ fn run_variant<E: Engine>(
     let hosts = [
         ("print", print as velyr_engine_api::HostFn),
         ("op_module_import", import_op),
+        ("__evalScript", host262::eval_script_op),
+        ("__gc", host262::gc_op),
     ];
     for (name, callback) in hosts {
         let def = HostFunctionDef {
@@ -205,6 +202,23 @@ fn run_variant<E: Engine>(
             }
         })
     };
+    if !meta.module {
+        let Ok(harness_text) = harness.source_for(meta) else {
+            return Outcome::Fail("missing harness file".to_owned());
+        };
+        let script = script_source(&harness_text, case, strict);
+        match host262::check_parse_phase(&mut isolate, meta, &script) {
+            ParsePhase::NotApplicable => {}
+            ParsePhase::Unavailable => {
+                return Outcome::Skip(
+                    "check_script is not available through engine-api".to_owned(),
+                );
+            }
+            ParsePhase::Done(verdict) => {
+                return verdict.map_or_else(Outcome::Fail, |()| Outcome::Pass);
+            }
+        }
+    }
     let result = execute(&mut isolate, harness, case, meta, strict);
     drop(done);
     let _ = watchdog.join();
@@ -234,26 +248,27 @@ fn execute<I: Isolate>(
     let run = if meta.module {
         run_module(isolate, &harness_text, case)
     } else {
-        let directive = if strict { "\"use strict\";\n" } else { "" };
-        let text = format!("{directive}{harness_text}{}", case.text);
-        let name = case.abs_path.to_string_lossy().into_owned();
         isolate
-            .eval_script(&Source { name, text })
+            .eval_script(&script_source(&harness_text, case, strict))
             .map(drop)
             .map_err(|exception| exception.message)
             .and_then(|()| serve_imports(isolate))
     };
-    // shortcut: `eval_script` fuses parse and run, so `negative.phase` is not enforced (a runtime
-    // error of the right type passes a parse-phase test); upgrade when engine-api splits compile from run.
     match (&meta.negative, run) {
-        (Some(negative), Err(message)) if message.starts_with(&negative.error_type) => Ok(()),
-        (Some(negative), Err(message)) => {
-            Err(format!("expected {}, got {message}", negative.error_type))
-        }
+        (Some(negative), Err(message)) => host262::judge_negative(&negative.error_type, &message),
         (Some(negative), Ok(())) => Err(format!("expected {}, got success", negative.error_type)),
         (None, Err(message)) => Err(message),
         (None, Ok(())) if meta.is_async => check_async(isolate),
         (None, Ok(())) => Ok(()),
+    }
+}
+
+/// Directive + harness + test body, exactly what a script test evaluates.
+fn script_source(harness_text: &str, case: &TestCase, strict: bool) -> Source {
+    let directive = if strict { "\"use strict\";\n" } else { "" };
+    Source {
+        name: case.abs_path.to_string_lossy().into_owned(),
+        text: format!("{directive}{harness_text}{}", case.text),
     }
 }
 
@@ -567,7 +582,30 @@ mod tests {
 
     #[test]
     fn unsupported_host_api_is_skipped() {
-        assert!(matches!(run("$262.evalScript('1');", ""), Outcome::Skip(_)));
+        assert!(matches!(run("$262.createRealm();", ""), Outcome::Skip(_)));
+    }
+
+    #[test]
+    fn eval_script_runs_in_same_realm() {
+        assert_eq!(
+            run("$262.evalScript('var q = 3;'); assert.sameValue(q, 3);", ""),
+            Outcome::Pass
+        );
+    }
+
+    #[test]
+    fn parse_negative_does_not_run_code() {
+        let meta = "negative:\n  phase: parse\n  type: SyntaxError";
+        assert!(matches!(
+            run("$DONOTEVALUATE(); let a; let a;", meta),
+            Outcome::Pass
+        ));
+        let case = TestCase {
+            abs_path: PathBuf::from("/virtual/n.js"),
+            text: format!("/*---\n{meta}\n---*/\nwith ({{}}) {{}}"),
+        };
+        let outcome = run_test(&NativeEngine, &harness(), &case, TIMEOUT);
+        assert!(matches!(outcome, Outcome::Fail(_)), "{outcome:?}");
     }
 
     #[test]

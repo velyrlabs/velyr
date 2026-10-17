@@ -2,6 +2,7 @@
 //! with the committed expectation manifest (ADR-015).
 
 mod frontmatter;
+mod host262;
 mod report;
 mod runner;
 mod shard;
