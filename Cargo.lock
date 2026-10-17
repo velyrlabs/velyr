@@ -5287,6 +5287,7 @@ dependencies = [
  "velyr-runtime-errors",
  "velyr-runtime-modules",
  "velyr-runtime-permissions",
+ "velyr-tooling-tsconfig",
 ]
 
 [[package]]

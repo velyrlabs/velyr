@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-modules = { path = "../runtime-modules" }
+velyr-tooling-tsconfig = { path = "../tooling-tsconfig" }
 # Every oxc_* crate must share this exact version (ADR-012).
 oxc_allocator = "=0.154.0"
 oxc_codegen = "=0.154.0"

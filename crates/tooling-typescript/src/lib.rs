@@ -3,8 +3,10 @@
 //! Register with `ModuleHost::with_transform(Arc::new(TypeScriptTransform::with_platform_cache()))`.
 
 mod cache;
+mod options;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use oxc_allocator::Allocator;
@@ -12,11 +14,13 @@ use oxc_codegen::{Codegen, CodegenOptions};
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
-use oxc_transformer::{EnvOptions, Module, TransformOptions, Transformer};
+use oxc_transformer::Transformer;
 use velyr_runtime_errors::VelyrError;
 use velyr_runtime_modules::{MediaType, Result, SourceTransform, Transformed};
+use velyr_tooling_tsconfig::{TsConfig, TsconfigLoader};
 
 pub use cache::platform_cache_dir;
+pub use options::{transform_options, warn_once};
 
 /// Must match the `=x.y.z` of every `oxc_*` dependency: output can change between versions.
 const OXC_VERSION: &str = "0.154.0";
@@ -24,6 +28,7 @@ const OXC_VERSION: &str = "0.154.0";
 pub struct TypeScriptTransform {
     cache_dir: Option<PathBuf>,
     hits: AtomicU64,
+    loader: Option<Arc<TsconfigLoader>>,
 }
 
 impl TypeScriptTransform {
@@ -32,7 +37,14 @@ impl TypeScriptTransform {
         Self {
             cache_dir,
             hits: AtomicU64::new(0),
+            loader: None,
         }
+    }
+
+    /// Derives per-file transform options from the nearest `tsconfig.json`.
+    pub fn with_tsconfig(mut self, loader: Arc<TsconfigLoader>) -> Self {
+        self.loader = Some(loader);
+        self
     }
 
     /// Caches under [`platform_cache_dir`].
@@ -75,7 +87,12 @@ fn failure(specifier: &str, source: &str, message: &str, offset: Option<usize>) 
     VelyrError::invalid_data(format!("{specifier}:{line}:{column}: {message}"))
 }
 
-fn strip(specifier: &str, source: &str, media_type: MediaType) -> Result<Transformed> {
+fn strip(
+    specifier: &str,
+    source: &str,
+    media_type: MediaType,
+    config: Option<&TsConfig>,
+) -> Result<Transformed> {
     let allocator = Allocator::default();
     let parsed = Parser::new(&allocator, source, source_type(media_type)).parse();
     if let Some(first) = parsed.diagnostics.first() {
@@ -95,7 +112,7 @@ fn strip(specifier: &str, source: &str, media_type: MediaType) -> Result<Transfo
         .with_enum_eval(true)
         .build(&program);
     let path = Path::new(specifier);
-    let transformed = Transformer::new(&allocator, path, &options(media_type))
+    let transformed = Transformer::new(&allocator, path, &transform_options(media_type, config))
         .build_with_scoping(semantic.semantic.into_scoping(), &mut program);
     if let Some(first) = transformed.diagnostics.first() {
         return Err(failure(
@@ -120,24 +137,6 @@ fn strip(specifier: &str, source: &str, media_type: MediaType) -> Result<Transfo
     })
 }
 
-/// Types are stripped, nothing is downleveled (the engine runs modern JavaScript).
-/// `.cts` is CommonJS (`export =` becomes `module.exports`); everything else is ESM, where oxc
-/// reports `export =` and `import x = require()` as diagnostics.
-fn options(media_type: MediaType) -> TransformOptions {
-    let module = if media_type == MediaType::Cts {
-        Module::CommonJS
-    } else {
-        Module::Esm
-    };
-    TransformOptions {
-        env: EnvOptions {
-            module,
-            ..EnvOptions::default()
-        },
-        ..TransformOptions::default()
-    }
-}
-
 impl SourceTransform for TypeScriptTransform {
     fn handles(&self, media_type: MediaType) -> bool {
         media_type.is_typescript()
@@ -155,7 +154,11 @@ impl SourceTransform for TypeScriptTransform {
                 source_map: None,
             });
         }
-        let options = format!("{:?}", options(media_type));
+        let config = self
+            .loader
+            .as_ref()
+            .and_then(|l| warn_once(l.for_file(Path::new(specifier)), specifier));
+        let options = format!("{:?}", transform_options(media_type, config.as_deref()));
         let key = cache::key(&[
             env!("CARGO_PKG_NAME").as_bytes(),
             env!("CARGO_PKG_VERSION").as_bytes(),
@@ -173,7 +176,7 @@ impl SourceTransform for TypeScriptTransform {
             self.hits.fetch_add(1, Ordering::Relaxed);
             return Ok(hit);
         }
-        let done = strip(specifier, source, media_type)?;
+        let done = strip(specifier, source, media_type, config.as_deref())?;
         if let Some(dir) = &self.cache_dir {
             cache::write(dir, &key, &done);
         }
