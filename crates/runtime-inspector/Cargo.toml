@@ -1,0 +1,14 @@
+[package]
+name = "velyr-runtime-inspector"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+base64 = "0.22"
+getrandom = { version = "0.3", features = ["std"] }
+serde_json.workspace = true
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+
+[lints]
+workspace = true

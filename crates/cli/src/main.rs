@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod inspect;
 mod metrics_server;
 #[cfg(feature = "node")]
 mod node;
@@ -65,6 +66,9 @@ enum Command {
 
         #[command(flatten)]
         permissions: Permissions,
+
+        #[command(flatten)]
+        inspect: inspect::InspectFlags,
 
         /// Arguments for the script (`process.argv`), after `--`.
         #[arg(last = true)]
@@ -160,6 +164,12 @@ enum Command {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     telemetry::init(cli.log_format);
+    let code = real_main(cli);
+    telemetry::shutdown();
+    code
+}
+
+fn real_main(cli: Cli) -> ExitCode {
     if cli.experimental_shared_code_cache {
         velyr_runtime_modules::SharedCache::enable_global();
     }
@@ -179,10 +189,11 @@ fn main() -> ExitCode {
             node_shim,
             watch,
             permissions,
+            inspect,
             args,
         }) => match watch {
             Some(paths) => watch_mode::supervise(&file, &paths),
-            None => run_script(&file, &args, node_shim, permissions, engine),
+            None => run_script(&file, &args, node_shim, permissions, inspect, engine),
         },
         Some(Command::X {
             permissions,
@@ -221,11 +232,23 @@ fn run_script(
     file: &std::path::Path,
     args: &[String],
     node_shim: bool,
-    permissions: Permissions,
+    mut permissions: Permissions,
+    inspect: inspect::InspectFlags,
     engine: run::EngineKind,
 ) -> ExitCode {
+    let inspect = match inspect::from_flags(inspect, &mut permissions) {
+        Ok(inspect) => inspect,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::FAILURE;
+        }
+    };
     if !node_shim && args.is_empty() {
-        return run::run(file, permissions, engine);
+        return run::run(file, permissions, engine, inspect);
+    }
+    if inspect.is_some() {
+        eprintln!("error: the inspector does not support script arguments or --node-shim yet");
+        return ExitCode::FAILURE;
     }
     #[cfg(feature = "node")]
     {

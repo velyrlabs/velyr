@@ -13,9 +13,9 @@ default = ["profile-full"]
 # Profiles (PRD section 11). Each adds capability features below; `cfg(feature = ...)` in the
 # sources gates on those, so a crate is linked only when some selected profile needs it.
 profile-minimal = []
-profile-web = ["profile-minimal", "web", "typescript"]
+profile-web = ["profile-minimal", "web", "typescript", "jsx"]
 profile-node = ["profile-web", "npm", "node"]
-profile-full = ["profile-node"]
+profile-full = ["profile-node", "telemetry", "inspector"]
 # fetch, WebSocket, HTTP/TLS, `velyr serve`.
 web = ["dep:velyr-web-fetch", "dep:velyr-web-websocket", "dep:velyr-io-http", "dep:velyr-io-tls"]
 # npm resolver and `velyr add|install|remove`.
@@ -23,6 +23,12 @@ npm = ["dep:velyr-compat-npm"]
 node = ["npm", "typescript", "dep:velyr-compat-commonjs", "dep:velyr-compat-node"]
 # TypeScript stripping in the module host.
 typescript = ["dep:velyr-tooling-typescript"]
+# JSX transform (.jsx and .tsx) in the module host.
+jsx = ["dep:velyr-tooling-jsx"]
+# OTLP/HTTP trace export, enabled at run time by OTEL_EXPORTER_OTLP_ENDPOINT or `telemetry` in velyr.json.
+telemetry = ["dep:velyr-runtime-telemetry", "velyr-web-fetch?/telemetry"]
+# Chrome DevTools Protocol server for `velyr run --inspect*` (V8 only).
+inspector = ["dep:velyr-runtime-inspector"]
 # Registers test-only globals such as `nativeAdd` (forwarded to velyr-runtime-ops).
 test-ops = ["velyr-runtime-ops/test-ops"]
 # `velyr run --engine native` (experimental engine, ADR-009); not part of any profile.
@@ -35,11 +41,14 @@ velyr-engine-native = { path = "../engine-native", optional = true }
 velyr-io-fs = { path = "../io-fs" }
 velyr-io-http = { path = "../io-http", optional = true }
 velyr-io-net = { path = "../io-net" }
+velyr-io-process = { path = "../io-process" }
 velyr-compat-npm = { path = "../compat-npm", optional = true }
 velyr-compat-commonjs = { path = "../compat-commonjs", optional = true }
 velyr-compat-node = { path = "../compat-node", optional = true }
 velyr-io-tls = { path = "../io-tls", optional = true }
 velyr-tooling-typescript = { path = "../tooling-typescript", optional = true }
+velyr-tooling-jsx = { path = "../tooling-jsx", optional = true }
+velyr-tooling-test = { path = "../tooling-test" }
 velyr-runtime-core = { path = "../runtime-core" }
 velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-modules = { path = "../runtime-modules" }
@@ -47,6 +56,8 @@ velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-telemetry = { path = "../runtime-telemetry", optional = true }
+velyr-runtime-inspector = { path = "../runtime-inspector", optional = true }
 velyr-runtime-workers = { path = "../runtime-workers" }
 velyr-web-core = { path = "../web-core" }
 velyr-web-crypto = { path = "../web-crypto" }
@@ -65,6 +76,12 @@ tokio = { workspace = true, features = ["signal"] }
 tokio-util.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+# Every oxc_* crate must share this exact version (ADR-012).
+oxc_allocator = "=0.154.0"
+oxc_ast = "=0.154.0"
+oxc_ast_visit = "=0.154.0"
+oxc_parser = "=0.154.0"
+oxc_span = "=0.154.0"
 jsonc-parser = { version = "0.34.0", features = ["serde"] }
 
 [dev-dependencies]
@@ -76,6 +93,7 @@ base64 = "0.22"
 flate2 = "1"
 sha2 = "0.10"
 tar = "0.4"
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 
 [lints]
 workspace = true

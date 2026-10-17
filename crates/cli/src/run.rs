@@ -26,12 +26,17 @@ pub enum EngineKind {
     Native,
 }
 
-pub fn run(file: &Path, flags: Permissions, engine: EngineKind) -> ExitCode {
+pub fn run(
+    file: &Path,
+    flags: Permissions,
+    engine: EngineKind,
+    inspect: Option<crate::inspect::Inspect>,
+) -> ExitCode {
     let _span = tracing::info_span!("velyr.cli.run").entered();
-    exit_code(
-        prepare(file, flags)
-            .and_then(|prepared| run_prepared(file, &prepared, None, Worker::default(), engine)),
-    )
+    exit_code(prepare(file, flags).and_then(|prepared| match inspect {
+        Some(inspect) => crate::inspect::run(file, &prepared, engine, inspect),
+        None => run_prepared(file, &prepared, None, Worker::default(), engine),
+    }))
 }
 
 /// Runs `file`; `after_install` is a script evaluated once the globals are installed, before
@@ -130,7 +135,7 @@ pub fn run_prepared(
     }
 }
 
-fn run_on<E: Engine + Send + 'static>(
+pub(crate) fn run_on<E: Engine + Send + 'static>(
     engine: E,
     platform_init: Option<fn()>,
     file: &Path,
@@ -189,7 +194,9 @@ fn runtime_config(
         leak_check: std::env::var_os("VELYR_LEAK_CHECK").is_some_and(|value| value == "1"),
         leak_collector: Some(velyr_runtime_ops::take_leak_report),
         module_resolver: watch_mode::recording(profiles::module_resolver()),
-        source_transform: transforms::source_transform(&prepared.capabilities),
+        source_transform: crate::inspect::source_transform(transforms::source_transform(
+            &prepared.capabilities,
+        )),
         shutdown,
         ..RuntimeConfig::default()
     }
