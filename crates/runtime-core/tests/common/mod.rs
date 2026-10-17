@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 use std::any::Any;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use velyr_engine_api::*;
 
@@ -9,6 +10,9 @@ use velyr_engine_api::*;
 pub struct MockEngine;
 
 pub struct MockIsolate;
+
+/// Calls that reached `MockIsolate::create_array_buffer_owned`.
+pub static OWNED_CALLS: AtomicUsize = AtomicUsize::new(0);
 
 impl Engine for MockEngine {
     type Isolate = MockIsolate;
@@ -61,6 +65,10 @@ impl Isolate for MockIsolate {
     }
     fn resolve(&mut self, _: ResolverId, _: Value) {}
     fn reject(&mut self, _: ResolverId, _: Value) {}
+    fn create_array_buffer_owned(&mut self, _: Vec<u8>) -> Value {
+        OWNED_CALLS.fetch_add(1, Ordering::SeqCst);
+        Value::Undefined
+    }
     fn promise_state(&mut self, _: &Value) -> Option<PromiseState> {
         None
     }

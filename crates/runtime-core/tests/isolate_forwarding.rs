@@ -1,14 +1,18 @@
 //! `LoopIsolate` must forward every defaulted `Isolate` method: the trait default would drop
 //! the call and the engine would never see it. One test per forwarded method; each probes the
-//! effect on a real V8 isolate through `with_loop_isolate`.
+//! effect on a real V8 isolate through `with_loop_isolate`, or counts calls on `common::MockIsolate`
+//! when V8 shows no observable difference.
 
+mod common;
+
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use velyr_engine_api::{
     HostError, Isolate, JsString, ModuleResolveHook, SharedSource, Source, Value,
 };
 use velyr_engine_v8::{V8Engine, V8Isolate};
-use velyr_runtime_core::{LoopIsolate, RuntimeConfig, run_module_file};
+use velyr_runtime_core::{LoopIsolate, RuntimeConfig, run_file, run_module_file};
 use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 
 /// Runs `probe` against the `LoopIsolate` that wraps the engine and returns what it produced.
@@ -128,4 +132,25 @@ fn loop_isolate_forwards_compile_module_shared() {
     });
     // The caller's two clones plus V8's keepalive; the copy default leaves it at 2.
     assert!(count >= 3, "strong count {count}");
+}
+
+#[test]
+fn loop_isolate_forwards_create_array_buffer_owned() {
+    let dir = std::env::temp_dir()
+        .join(format!("velyr-forwarding-owned-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("main.js"), "0").unwrap();
+    run_file(
+        common::MockEngine,
+        RuntimeConfig::default(),
+        Vec::new(),
+        "0",
+        |isolate, _, _| {
+            isolate.create_array_buffer_owned(vec![1, 2, 3]);
+        },
+        dir.join("main.js"),
+    )
+    .expect("run");
+    // The trait default would copy through `create_array_buffer` and never reach the mock.
+    assert_eq!(common::OWNED_CALLS.load(Ordering::SeqCst), 1);
 }

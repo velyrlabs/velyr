@@ -168,9 +168,10 @@ pub(crate) fn host_error_to_js<'s>(
 pub(crate) fn new_array_buffer(
     scope: &mut v8::PinScope<'_, '_>,
     shared: &Shared,
-    bytes: &[u8],
+    bytes: Vec<u8>,
 ) -> Value {
-    let store = v8::ArrayBuffer::new_backing_store_from_vec(bytes.to_vec()).make_shared();
+    // V8 adopts the allocation; the store's deleter frees it as a `Vec` when the buffer dies.
+    let store = v8::ArrayBuffer::new_backing_store_from_vec(bytes).make_shared();
     let buffer = v8::ArrayBuffer::with_backing_store(scope, &store);
     from_v8(scope, &mut shared.handles.borrow_mut(), buffer.into())
 }
@@ -255,7 +256,7 @@ impl CallContext for HostContext<'_, '_, '_> {
     }
 
     fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
-        new_array_buffer(self.scope, self.shared, bytes)
+        new_array_buffer(self.scope, self.shared, bytes.to_vec())
     }
 
     fn read_bytes(&mut self, value: &Value) -> Option<Vec<u8>> {

@@ -127,6 +127,11 @@ impl<I: Isolate> Isolate for LoopIsolate<I> {
         self.inner.create_array_buffer(bytes)
     }
 
+    fn create_array_buffer_owned(&mut self, bytes: Vec<u8>) -> Value {
+        self.on_owner();
+        self.inner.create_array_buffer_owned(bytes)
+    }
+
     fn create_velyr_error(&mut self, err: &VelyrError) -> Value {
         self.on_owner();
         self.inner.create_velyr_error(err)

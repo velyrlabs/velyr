@@ -465,7 +465,7 @@ impl<I: Isolate> EventLoop<I> {
             CompletionValue::Bool(b) => Value::Bool(b),
             CompletionValue::Number(n) => Value::Number(n),
             CompletionValue::String(s) => Value::String(JsString::from(s.as_str())),
-            CompletionValue::Bytes(b) => self.isolate.create_array_buffer(&b),
+            CompletionValue::Bytes(b) => self.isolate.create_array_buffer_owned(b),
         }
     }
 }

@@ -471,6 +471,11 @@ pub trait Isolate {
         Value::Undefined
     }
 
+    /// Like `create_array_buffer`, but takes ownership so engines can adopt `bytes` without a copy.
+    fn create_array_buffer_owned(&mut self, bytes: Vec<u8>) -> Value {
+        self.create_array_buffer(&bytes)
+    }
+
     /// Builds the JS `Error` for `err`, with `.code` set to its `VELYR_*` string (the same shape
     /// a failed host function throws). The default is the `"CODE: message"` string.
     fn create_velyr_error(&mut self, err: &VelyrError) -> Value {

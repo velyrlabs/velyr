@@ -341,6 +341,10 @@ impl Isolate for V8Isolate {
     }
 
     fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
+        self.enter(|scope, shared| host::new_array_buffer(scope, shared, bytes.to_vec()))
+    }
+
+    fn create_array_buffer_owned(&mut self, bytes: Vec<u8>) -> Value {
         self.enter(|scope, shared| host::new_array_buffer(scope, shared, bytes))
     }
 

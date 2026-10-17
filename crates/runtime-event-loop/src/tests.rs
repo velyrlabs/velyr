@@ -15,6 +15,8 @@ enum Event {
     Resolve(u64, ThreadId, Value),
     Reject(u64, Value),
     Buffer(Vec<u8>),
+    /// Address of a `Vec` handed over by value.
+    Owned(usize),
     Call(Value, Instant),
     Gc(Instant),
 }
@@ -29,6 +31,12 @@ impl Isolate for MockIsolate {
     fn create_array_buffer(&mut self, bytes: &[u8]) -> Value {
         self.0.borrow_mut().push(Event::Buffer(bytes.to_vec()));
         Value::Null
+    }
+    fn create_array_buffer_owned(&mut self, bytes: Vec<u8>) -> Value {
+        self.0
+            .borrow_mut()
+            .push(Event::Owned(bytes.as_ptr() as usize));
+        self.create_array_buffer(&bytes)
     }
     fn eval_script(&mut self, _: &Source) -> Result<Value, JsException> {
         unimplemented!()
@@ -224,6 +232,18 @@ fn errors_reject_and_bytes_become_buffers() {
         Value::String("VELYR_CANCELLED: operation cancelled".into())
     )));
     assert!(events.contains(&Event::Buffer(vec![1, 2, 3])));
+}
+
+#[test]
+fn completion_bytes_move_into_isolate() {
+    let (mut el, log, _) = new_loop();
+    let bytes = vec![9; 1024];
+    let address = bytes.as_ptr() as usize;
+    el.sender()
+        .begin_op()
+        .send(ok(1, CompletionValue::Bytes(bytes)));
+    el.tick();
+    assert!(log.borrow().contains(&Event::Owned(address)));
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
