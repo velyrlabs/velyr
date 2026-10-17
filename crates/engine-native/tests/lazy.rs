@@ -207,12 +207,11 @@ fn a_late_body_keeps_script_offsets_and_private_names() {
 }
 
 #[test]
-fn direct_eval_is_still_rejected_at_load() {
-    let source = "function f() { return eval('1'); }";
-    let error = velyr_engine_native::bytecode_compiler::compile_script(source)
-        .err()
-        .expect("direct eval is unsupported");
-    assert_eq!(error.message, "SyntaxError: unsupported: direct eval");
+fn direct_eval_runs_in_lazy_body() {
+    let mut iso = isolate();
+    let source =
+        "function f(a) { let b = 2; function g() { return eval('a + b'); } return g(); } f(1)";
+    assert_eq!(eval(&mut iso, source), Value::Number(3.0));
 }
 
 #[test]

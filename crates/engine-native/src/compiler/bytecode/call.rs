@@ -144,7 +144,7 @@ impl FunctionCompiler<'_> {
     }
 
     /// The callee in a register, plus the receiver for method calls.
-    fn callee(&mut self, callee: &Expression) -> JsResult<(Reg, Option<Reg>)> {
+    pub(super) fn callee(&mut self, callee: &Expression) -> JsResult<(Reg, Option<Reg>)> {
         let receiver = match callee {
             member
                 if member
@@ -199,6 +199,13 @@ impl FunctionCompiler<'_> {
             self.e.emit_at(call.span, I::SuperCall(args));
             return Ok(());
         }
+        if let Expression::Identifier(id) = &call.callee
+            && id.name == "eval"
+            && !call.optional
+            && !call.arguments.iter().any(is_spread)
+        {
+            return self.direct_eval(call, id);
+        }
         let (callee, receiver) = self.callee(&call.callee)?;
         if call.optional {
             let nullish = self.chain_label()?;
@@ -248,7 +255,7 @@ impl FunctionCompiler<'_> {
         Ok(())
     }
 
-    fn arguments_in_registers(&mut self, arguments: &[Argument]) -> JsResult<RegRange> {
+    pub(super) fn arguments_in_registers(&mut self, arguments: &[Argument]) -> JsResult<RegRange> {
         let range = self.e.alloc_range(arguments.len() as u32);
         for (index, argument) in arguments.iter().enumerate() {
             self.expression(argument.to_expression())?;

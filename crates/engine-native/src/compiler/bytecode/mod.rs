@@ -11,6 +11,7 @@ mod call;
 mod class;
 mod control;
 mod emitter;
+mod eval;
 mod expression;
 mod function;
 #[path = "../generators.rs"]
@@ -34,11 +35,13 @@ use oxc_parser::{ParseOptions, Parser};
 use oxc_semantic::{AstNodes, SemanticBuilder};
 use oxc_span::SourceType;
 use velyr_engine_api::JsException;
-use velyr_engine_vm::bytecode::{Constant, FunctionCode};
+use velyr_engine_vm::bytecode::FunctionCode;
 use velyr_engine_vm::exception::Script;
 
 use crate::compiler::{JsResult, throw};
+pub use eval::compile_indirect_eval;
 pub use module::compile_module;
+use scope::RootMode;
 
 /// Compiles a classic script into its top-level `FunctionCode`.
 pub fn compile_script(text: &str) -> JsResult<Rc<FunctionCode>> {
@@ -53,19 +56,6 @@ pub fn compile_named_script(name: &str, text: &str) -> JsResult<Rc<FunctionCode>
     })
 }
 
-/// Compiles the text of an indirect eval: global eval code whose var and function
-/// declarations become configurable global properties (19.2.1.3 step 17-18).
-// shortcut: indirect eval lexicals leak to the global lexical scope, fixed by eval root mode in L19
-pub fn compile_indirect_eval(text: &str) -> JsResult<Rc<FunctionCode>> {
-    let mut code = Rc::unwrap_or_clone(compile_named_script("<eval>", text)?);
-    for constant in &mut code.constants {
-        if let Constant::GlobalDeclarations(declarations) = constant {
-            Rc::make_mut(declarations).configurable = true;
-        }
-    }
-    Ok(Rc::new(code))
-}
-
 /// Parses `text` (as a module with `module`), reports its early errors when `check`, and
 /// hands the program, its nodes and its scope analysis to `run`. Without `check` (a lazy
 /// body, out of already checked text) parser errors are ignored too: its wrapper puts
@@ -77,29 +67,49 @@ fn analyze<R>(
     check: bool,
     run: impl FnOnce(&Program, &AstNodes, &scope::ScopeAnalysis) -> JsResult<R>,
 ) -> JsResult<R> {
+    let mode = match module {
+        true => RootMode::Module,
+        false => RootMode::Script,
+    };
+    let reject: Allow = &|_, _, _| false;
+    analyze_with(text, mode, check.then_some(reject), run)
+}
+
+/// Whether an early error (message, offset of its first label) is not one for this text.
+type Allow<'f> = &'f dyn Fn(&str, u32, &AstNodes) -> bool;
+
+/// `analyze` with the root as `mode`; with `check`, the early errors it does not allow.
+fn analyze_with<R>(
+    text: &str,
+    mode: RootMode,
+    check: Option<Allow>,
+    run: impl FnOnce(&Program, &AstNodes, &scope::ScopeAnalysis) -> JsResult<R>,
+) -> JsResult<R> {
     let allocator = Allocator::default();
     let options = ParseOptions {
         preserve_parens: false,
         ..ParseOptions::default()
     };
-    let source_type = match module {
-        true => SourceType::mjs(),
-        false => SourceType::script(),
+    let source_type = match mode {
+        RootMode::Module => SourceType::mjs(),
+        _ => SourceType::script(),
     };
     let parsed = Parser::new(&allocator, text, source_type)
         .with_options(options)
         .parse();
-    if let Some(error) = parsed.diagnostics.first()
-        && check
-    {
-        return Err(throw("SyntaxError", &error.message));
-    }
     // Node store needed by `collect_classes` (private names per class) and lazy bodies.
     let semantic = SemanticBuilder::new()
         .with_build_nodes(true)
-        .with_check_syntax_error(check)
+        .with_check_syntax_error(check.is_some())
         .build(&parsed.program);
-    if let Some(error) = semantic.diagnostics.first() {
+    let parse_errors = parsed.diagnostics.iter().filter(|_| check.is_some());
+    let allow = check.unwrap_or(&|_, _, _| false);
+    let nodes = semantic.semantic.nodes();
+    let mut errors = parse_errors.chain(&semantic.diagnostics);
+    if let Some(error) = errors.find(|error| {
+        let offset = error.labels.first().map_or(0, |label| label.offset());
+        !allow(&error.message, offset, nodes)
+    }) {
         return Err(throw("SyntaxError", &error.message));
     }
     let classes = class::collect_classes(semantic.semantic.nodes());
@@ -107,7 +117,7 @@ fn analyze<R>(
     let tdz_parameters = scope::tdz_parameters(semantic.semantic.nodes());
     let (scoping, nodes) = semantic.semantic.into_scoping_and_nodes();
     let analysis =
-        scope::ScopeAnalysis::new(&scoping, &nodes, classes, &parameters, tdz_parameters, module)?;
+        scope::ScopeAnalysis::new(&scoping, &nodes, classes, &parameters, tdz_parameters, mode)?;
     run(&parsed.program, &nodes, &analysis)
 }
 

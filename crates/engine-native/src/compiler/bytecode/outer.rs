@@ -8,7 +8,7 @@ use std::rc::Rc;
 use oxc_semantic::{ScopeId, SymbolFlags};
 
 use super::function::FunctionCompiler;
-use super::scope::{Location, ScopeAnalysis};
+use super::scope::{EvalHome, Location, ScopeAnalysis};
 
 pub struct OuterScope {
     bindings: Box<[OuterBinding]>,
@@ -17,6 +17,8 @@ pub struct OuterScope {
     arguments: Option<u32>,
     /// The module context (`import.meta`).
     module: bool,
+    /// Set when this is the context of a function (or class) containing a direct eval.
+    home: Option<EvalHome>,
     parent: Option<Rc<OuterScope>>,
 }
 
@@ -51,6 +53,7 @@ impl ScopeAnalysis<'_> {
         scope: ScopeId,
         parent: Option<Rc<OuterScope>>,
         before: Option<u32>,
+        home: Option<EvalHome>,
     ) -> Rc<OuterScope> {
         if before.is_none()
             && let Some(cached) = self.outer_cache.borrow().get(&scope)
@@ -106,6 +109,7 @@ impl ScopeAnalysis<'_> {
             privates: self.private_entries(scope).into(),
             arguments: self.arguments_slot(scope),
             module: self.module && scope == self.scoping.root_scope_id(),
+            home,
             parent,
         });
         if before.is_none() {
@@ -121,7 +125,8 @@ impl FunctionCompiler<'_> {
         let contexts = self.contexts.iter();
         contexts.fold(self.outer.clone(), |parent, &scope| {
             let before = self.parameters_end.filter(|_| scope == self.scope);
-            Some(self.analysis.outer_scope(scope, parent, before))
+            let home = self.eval_home(scope);
+            Some(self.analysis.outer_scope(scope, parent, before, home))
         })
     }
 
@@ -164,6 +169,11 @@ impl FunctionCompiler<'_> {
             let private = scope.privates.iter().find(|(n, _)| &**n == name);
             private.map(|&(_, slot)| slot)
         })
+    }
+
+    /// The home of the innermost outer function containing a direct eval.
+    pub fn outer_home(&self) -> Option<EvalHome> {
+        self.outer_find(|scope| scope.home).map(|(_, home)| home)
     }
 
     /// Depth of the module context, for `import.meta` in a lazy body.

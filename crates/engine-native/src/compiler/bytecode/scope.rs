@@ -11,6 +11,7 @@ use velyr_engine_vm::JsStr;
 use velyr_engine_vm::bytecode::GlobalDeclarations;
 
 mod annex_b;
+mod eval;
 #[cfg(test)]
 mod tests;
 
@@ -19,6 +20,7 @@ use super::unsupported;
 use crate::compiler::JsResult;
 #[allow(unused_imports)] // consumed by the Annex B emitter (L14)
 pub use annex_b::{AnnexBFunction, BlockBinding, VarTarget};
+pub use eval::{EvalHome, RootMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Location {
@@ -51,6 +53,7 @@ pub struct ScopeAnalysis<'s> {
     pub scoping: &'s Scoping,
     /// Module code: top-level bindings live in the module context instead of the global.
     pub module: bool,
+    pub mode: RootMode,
     root: ScopeId,
     slots: HashMap<SymbolId, u32>,
     context_sizes: HashMap<ScopeId, u32>,
@@ -69,6 +72,8 @@ pub struct ScopeAnalysis<'s> {
     /// the parameters, which therefore live in context slots.
     mapped_arguments: HashSet<ScopeId>,
     annex_b: annex_b::AnnexB,
+    /// Function, class and static block scopes containing a direct eval.
+    eval_homes: HashMap<ScopeId, EvalHome>,
     /// Outer chain entries handed to lazy stubs, one per context scope.
     pub(super) outer_cache: RefCell<HashMap<ScopeId, Rc<OuterScope>>>,
 }
@@ -142,20 +147,18 @@ impl<'s> ScopeAnalysis<'s> {
         classes: Vec<ClassInfo>,
         simple_parameters: &HashMap<ScopeId, Vec<SymbolId>>,
         tdz_parameters: HashSet<SymbolId>,
-        module: bool,
+        mode: RootMode,
     ) -> JsResult<Self> {
+        let module = mode == RootMode::Module;
         for scope in scoping.scope_descendants_from_root() {
-            let flags = scoping.scope_flags(scope);
-            if flags.contains(ScopeFlags::DirectEval) {
-                return Err(unsupported("direct eval"));
-            }
-            if flags.is_with() {
+            if scoping.scope_flags(scope).is_with() {
                 return Err(unsupported("with statement"));
             }
         }
         let mut analysis = Self {
             scoping,
             module,
+            mode,
             root: scoping.root_scope_id(),
             slots: HashMap::new(),
             context_sizes: HashMap::new(),
@@ -167,8 +170,10 @@ impl<'s> ScopeAnalysis<'s> {
             arguments_slots: HashMap::new(),
             mapped_arguments: HashSet::new(),
             annex_b: annex_b::AnnexB::empty(),
+            eval_homes: HashMap::new(),
             outer_cache: RefCell::default(),
         };
+        analysis.eval_homes = eval::eval_homes(scoping, nodes, &analysis.class_scopes);
         analysis.collect_arguments_users();
         // Unreferenced parameters are only observable through `arguments`: no aliasing.
         let mut aliased = HashSet::new();
@@ -269,11 +274,15 @@ impl<'s> ScopeAnalysis<'s> {
         for (_, owner) in self.arguments_references() {
             self.arguments_users.insert(owner);
         }
+        self.arguments_users.extend(self.eval_functions());
     }
 
     fn allocate_arguments_slots(&mut self) {
-        for (scope, owner) in self.arguments_references() {
-            if self.function_scope(scope) != owner && !self.arguments_slots.contains_key(&owner) {
+        let references = self.arguments_references().into_iter();
+        let captured = references.filter(|&(scope, owner)| self.function_scope(scope) != owner);
+        let owners: Vec<ScopeId> = captured.map(|(_, owner)| owner).collect();
+        for owner in owners.into_iter().chain(self.eval_functions()) {
+            if !self.arguments_slots.contains_key(&owner) {
                 let slot = self.new_slot(owner);
                 self.arguments_slots.insert(owner, slot);
             }
@@ -282,8 +291,16 @@ impl<'s> ScopeAnalysis<'s> {
 
     fn is_captured(&self, symbol: SymbolId) -> bool {
         let scope = self.scoping.symbol_scope_id(symbol);
-        if scope == self.root {
+        if scope == self.root && (self.module || self.is_global_root_binding(symbol)) {
             return self.module;
+        }
+        // Every binding a direct eval can see lives in a context.
+        if self
+            .scoping
+            .scope_flags(scope)
+            .contains(ScopeFlags::DirectEval)
+        {
+            return true;
         }
         if self.class_scopes.contains(&scope) {
             return !self.scoping.get_resolved_reference_ids(symbol).is_empty();
@@ -367,7 +384,7 @@ impl<'s> ScopeAnalysis<'s> {
 
     pub fn location(&self, symbol: SymbolId) -> Location {
         let scope = self.scoping.symbol_scope_id(symbol);
-        if scope == self.root && !self.module {
+        if scope == self.root && self.is_global_root_binding(symbol) {
             return Location::Global;
         }
         match self.slots.get(&symbol) {
@@ -445,6 +462,9 @@ impl<'s> ScopeAnalysis<'s> {
             let annex_b = self.annex_b_function(symbol);
             if annex_b.is_some_and(|info| matches!(info.block, BlockBinding::Synthetic(_))) {
                 // A block function Oxc hoisted to the root: declared through `annex_b`.
+                continue;
+            }
+            if self.location(symbol) != Location::Global {
                 continue;
             }
             let flags = self.flags(symbol);

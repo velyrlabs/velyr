@@ -499,15 +499,19 @@ impl<'s> FunctionCompiler<'s> {
 /// Whether `code` (or an arrow inside it) reads or writes a `super` property.
 pub(super) fn uses_super_property(code: &FunctionCode) -> bool {
     if code.lazy.is_some() {
-        // Not compiled yet: any `super` in its text (an unneeded [[HomeObject]] is unused).
+        // Not compiled yet: any `super` or `eval` in its text (an unneeded [[HomeObject]] is unused).
         let script = code.script.as_ref();
         let text = script.map(|s| s.slice(code.source_start, code.source_end));
-        return text.is_some_and(|text| text.contains("super"));
+        return text.is_some_and(|text| text.contains("super") || text.contains("eval"));
     }
     code.instructions.iter().any(|i| {
         matches!(
             i,
-            I::GetSuper | I::SetSuper(_) | I::GetSuperFrom(_) | I::SetSuperFrom { .. }
+            I::GetSuper
+                | I::SetSuper(_)
+                | I::GetSuperFrom(_)
+                | I::SetSuperFrom { .. }
+                | I::CallDirectEval { .. }
         )
     }) || code.constants.iter().any(|constant| {
         matches!(constant, Constant::Function(inner)
