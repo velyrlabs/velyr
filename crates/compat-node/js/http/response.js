@@ -19,6 +19,16 @@ const { OutgoingMessage, headerEntries } = require('internal/http/common');
 const NO_BODY = new Set([204, 304]);
 const MAX_UPGRADE_HEAD = 64 * 1024;
 
+/** `[[name, value], ...]` as `name\0value\0...` for the host; NUL cannot be a field byte. */
+function encodeHeaders(pairs) {
+  const flat = [];
+  for (const [name, value] of pairs) {
+    if (name.includes('\0') || value.includes('\0')) throw errors.make(TypeError, 'ERR_INVALID_CHAR', `Invalid character in header content ["${name}"]`);
+    flat.push(name, value);
+  }
+  return flat.join('\0');
+}
+
 class ServerResponse extends OutgoingMessage {
   constructor(req, options) {
     super(options);
@@ -75,7 +85,7 @@ class ServerResponse extends OutgoingMessage {
     this.headersSent = true;
     const code = this.statusCode;
     if (code < 100 || code > 599) throw errors.make(RangeError, 'ERR_HTTP_INVALID_STATUS_CODE', `Invalid status code: ${code}`);
-    ops.httpRespond(this._rid, code, JSON.stringify(this._headerPairs()), body);
+    ops.httpRespond(this._rid, code, encodeHeaders(this._headerPairs()), body);
   }
 
   _ensureHead() {
@@ -187,7 +197,7 @@ class UpgradeSocket extends Duplex {
     try {
       if (status === 101) {
         this._state = 'opening';
-        ops.httpRespond(this._rid, 101, JSON.stringify(pairs), null);
+        ops.httpRespond(this._rid, 101, encodeHeaders(pairs), null);
         ops.httpUpReady(this._rid).then(() => {
           this._state = 'open';
           if (this._wantRead) this._pump();
@@ -197,7 +207,7 @@ class UpgradeSocket extends Duplex {
         return;
       }
       this._state = 'refused';
-      ops.httpRespond(this._rid, status >= 100 && status <= 599 ? status : 400, JSON.stringify(pairs), rest.length > 0 ? rest : null);
+      ops.httpRespond(this._rid, status >= 100 && status <= 599 ? status : 400, encodeHeaders(pairs), rest.length > 0 ? rest : null);
       callback();
     } catch (error) {
       callback(error);

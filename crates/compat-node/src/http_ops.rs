@@ -5,6 +5,8 @@
 //! through `up_*`. io-http talks to the isolate only through `channel_handler`, so hyper never
 //! runs JS and a slow script only pushes back on the connections.
 
+mod head;
+
 use std::any::Any;
 use std::collections::VecDeque;
 use std::net::{IpAddr, SocketAddr};
@@ -30,6 +32,8 @@ use velyr_runtime_resources::{QuotaClass, Resource, ResourceId};
 
 const LISTEN_BACKLOG: u32 = 1024;
 const GRACE: Duration = Duration::from_secs(5);
+/// Requests one `accept` parks at most, so a burst costs one await and one `take`.
+const PARK_MAX: usize = 32;
 
 macro_rules! op {
     ($name:ident, $arity:expr) => {
@@ -268,7 +272,12 @@ fn op_node_http_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Valu
             () = token.cancelled() => Ok(CompletionValue::Null),
             next = requests.recv() => match next {
                 Some(incoming) => {
-                    server.parked.lock().expect("parked queue").push_back(incoming);
+                    let mut parked = server.parked.lock().expect("parked queue");
+                    parked.push_back(incoming);
+                    while parked.len() < PARK_MAX {
+                        let Ok(more) = requests.try_recv() else { break };
+                        parked.push_back(more);
+                    }
                     Ok(CompletionValue::Bool(true))
                 }
                 None => Ok(CompletionValue::Null),
@@ -277,29 +286,35 @@ fn op_node_http_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Valu
     })
 }
 
-/// `op_node_http_take(serverId) -> string`: adopts the oldest parked request as a resource (a
-/// `requests` unit; over quota the client gets a 503 and `id` is `null`). JSON
-/// `{id, method, uri, version, headers, remote}`.
+/// `op_node_http_take(serverId) -> Array`: adopts every parked request as a resource (a `requests`
+/// unit each) and returns their heads in order, layout in `head.rs`; over quota the client gets a
+/// 503 and the head is `[null]`.
 fn op_node_http_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let server = server_arg(ctx, args, "op_node_http_take")?;
-    let Incoming {
+    let parked: Vec<Incoming> = server.parked.lock().expect("parked queue").drain(..).collect();
+    if parked.is_empty() {
+        return Err(VelyrError::new(ErrorCode::InvalidData, "no request is waiting").into());
+    }
+    let mut heads = Vec::with_capacity(parked.len());
+    for Incoming {
         request,
         reply,
         disconnected,
-    } = server
-        .parked
-        .lock()
-        .expect("parked queue")
-        .pop_front()
-        .ok_or_else(|| VelyrError::new(ErrorCode::InvalidData, "no request is waiting"))?;
-    let HttpRequestParts {
-        remote_addr,
-        method,
-        uri,
-        version,
-        headers,
-        body,
-    } = request;
+    } in parked
+    {
+        let items = adopt(ctx, request, reply, disconnected)?;
+        heads.push(ctx.create_array(&items));
+    }
+    Ok(ctx.create_array(&heads))
+}
+
+fn adopt(
+    ctx: &mut dyn CallContext,
+    mut request: HttpRequestParts,
+    reply: Reply,
+    disconnected: CancellationToken,
+) -> Result<Vec<Value>, HostError> {
+    let body = std::mem::replace(&mut request.body, BodyReceiver::empty());
     let req = Arc::new(Req {
         cancel: CancellationToken::new(),
         disconnected,
@@ -310,32 +325,22 @@ fn op_node_http_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value,
         upgrade_rx: Mutex::new(None),
         upgraded: Upgraded::default(),
     });
-    let id = match op_context(ctx)?.resources.insert(
+    let inserted = op_context(ctx)?.resources.insert(
         Box::new(ReqRes(req.clone())),
         QuotaClass::Requests,
         None,
-    ) {
-        Ok(id) => id,
-        Err(_) => {
-            let _ = reply.send(Ok(HttpResponseParts {
-                status: 503,
-                headers: vec![("retry-after".into(), "1".into())],
-                body: BodyReceiver::empty(),
-                upgrade: None,
-            }));
-            return Ok(json_value(ctx, serde_json::json!({ "id": null })));
-        }
+    );
+    let Ok(id) = inserted else {
+        let _ = reply.send(Ok(HttpResponseParts {
+            status: 503,
+            headers: vec![("retry-after".into(), "1".into())],
+            body: BodyReceiver::empty(),
+            upgrade: None,
+        }));
+        return Ok(vec![Value::Null]);
     };
     *req.reply.lock().expect("reply slot") = Some(reply);
-    let remote = remote_addr
-        .map(|addr| serde_json::json!({"hostname": addr.ip().to_string(), "port": addr.port()}));
-    Ok(json_value(
-        ctx,
-        serde_json::json!({
-            "id": id.to_js_number(), "method": method, "uri": uri, "version": version,
-            "headers": headers, "remote": remote,
-        }),
-    ))
+    Ok(head::head_items(id.to_js_number(), &request))
 }
 
 /// `op_node_http_read(id) -> Promise<ArrayBuffer | null>`: next piece of the request body; `null`
@@ -357,7 +362,7 @@ fn op_node_http_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value,
     })
 }
 
-/// `op_node_http_respond(id, status, headersJson, body)`: `body` is `null`, bytes, or `true` for a
+/// `op_node_http_respond(id, status, headerBlob, body)`: headers as `name\0value\0...`; `body` is `null`, bytes, or `true` for a
 /// body fed through `op_node_http_write` / `op_node_http_end`. A client that already left is an
 /// error.
 fn op_node_http_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
@@ -371,8 +376,7 @@ fn op_node_http_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Val
         }
         _ => return Err(type_error(op, 1, "a status code (100-599)")),
     };
-    let headers = serde_json::from_str(&string_arg(args, 2, op)?)
-        .map_err(|_| type_error(op, 2, "a JSON header list"))?;
+    let headers = head::parse_header_blob(&string_arg(args, 2, op)?)?;
     let (body, out) = match args.get(3) {
         Some(Value::Bool(true)) => {
             let (tx, rx) = body_channel();

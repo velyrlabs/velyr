@@ -22,6 +22,14 @@ const { ServerResponse, UpgradeSocket } = require('internal/http/response');
 const { translate, unsupported } = net._internal;
 const EMPTY = Buffer.alloc(0);
 
+// Head layout (src/http_ops/head.rs): [id, method, uri, version, remoteHost|null, remotePort|null, name0, value0, ...].
+function decodeHead(head) {
+  const headers = [];
+  for (let i = 6; i < head.length; i += 2) headers.push([head[i], head[i + 1]]);
+  const remote = head[4] === null ? null : { hostname: head[4], port: head[5] };
+  return { id: head[0], method: head[1], uri: head[2], version: head[3], headers, remote };
+}
+
 function validatePort(port) {
   const number = typeof port === 'string' && port.trim() !== '' ? Number(port) : port;
   if (!Number.isInteger(number) || number < 0 || number > 65535) {
@@ -100,8 +108,7 @@ class Server extends EventEmitter {
   async _accept(id) {
     try {
       while ((await ops.httpAccept(id)) !== null) {
-        const info = JSON.parse(ops.httpTake(id));
-        if (info.id !== null) this._dispatch(info);
+        for (const head of ops.httpTake(id)) if (head[0] !== null) this._dispatch(decodeHead(head));
       }
     } catch (error) {
       process.nextTick(() => this.emit('error', error));
