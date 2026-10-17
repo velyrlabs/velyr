@@ -86,6 +86,7 @@ fn import_map_cannot_shadow_helpers() {
     let ctx = ResolveContext {
         import_map: HashMap::from([("velyr-oxc-runtime/".into(), "./evil/".into())]),
         import_map_dir: PathBuf::from("/proj"),
+        ..Default::default()
     };
     let other = ModuleId::from_path(Path::new("/elsewhere/deep/x.js")).unwrap();
     let resolved = FsResolver

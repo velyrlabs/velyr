@@ -200,6 +200,7 @@ fn caller_context_fields_survive_the_wrapper() {
     let caller = ResolveContext {
         import_map: HashMap::from([("keep".to_owned(), "./keep.ts".to_owned())]),
         import_map_dir: f.path("caller-dir"),
+        realpaths: Some(Default::default()),
     };
     let r = f.resolver(None);
     for spec in ["@/util", "./keep.ts", "keep"] {
@@ -208,11 +209,15 @@ fn caller_context_fields_survive_the_wrapper() {
     let calls = f.recording.calls.lock().unwrap();
     assert_eq!(calls.len(), 3);
     for (_, recorded) in calls.iter() {
-        // ML-03 adds realpaths: add it here
         let ResolveContext {
             import_map,
             import_map_dir,
+            realpaths,
         } = recorded.clone();
+        assert!(std::sync::Arc::ptr_eq(
+            realpaths.as_ref().unwrap(),
+            caller.realpaths.as_ref().unwrap()
+        ));
         assert_eq!(import_map, caller.import_map);
         assert_eq!(import_map_dir, caller.import_map_dir);
     }

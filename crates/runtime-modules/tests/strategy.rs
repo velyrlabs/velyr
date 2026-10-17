@@ -82,6 +82,7 @@ fn relative_and_import_map_hits_skip_the_strategy() {
     let ctx = ResolveContext {
         import_map: HashMap::from([("lib".to_owned(), "./a.js".to_owned())]),
         import_map_dir: root.clone(),
+        ..Default::default()
     };
     resolver.resolve("./a.js", &referrer(&root), &ctx).unwrap();
     resolver.resolve("lib", &referrer(&root), &ctx).unwrap();

@@ -42,7 +42,10 @@ pub(crate) fn resolve_with(
         }
         _ => path,
     };
-    let path = fs::canonicalize(&path)
+    let path = ctx
+        .realpaths
+        .as_deref()
+        .map_or_else(|| fs::canonicalize(&path), |c| c.canonicalize(&path))
         .map_err(|_| VelyrError::not_found(format!("module not found: {specifier}")))?;
     let id = ModuleId::from_path(&path)
         .ok_or_else(|| VelyrError::invalid_data("module path is not representable as a URL"))?;
@@ -281,6 +284,7 @@ mod tests {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect::<HashMap<_, _>>(),
             import_map_dir: root.to_path_buf(),
+            ..Default::default()
         }
     }
 

@@ -8,6 +8,7 @@
 
 mod embedded;
 mod host;
+mod realpath_cache;
 mod resolve;
 mod shared_cache;
 mod source_maps;
@@ -27,6 +28,7 @@ use velyr_runtime_permissions::CapabilitySet;
 
 pub use embedded::{HELPER_MODULE_NAME, OXC_HELPERS_VERSION, is_embedded};
 pub use host::{FsLoader, ModuleHost, VirtualLoader, authorize_path};
+pub use realpath_cache::RealpathCache;
 pub use resolve::FsResolver;
 pub use shared_cache::SharedCache;
 pub use source_maps::{PositionMapper, SourceMaps};
@@ -89,6 +91,8 @@ pub struct ResolveContext {
     pub import_map: HashMap<String, String>,
     /// Directory of the import map; relative values resolve against it.
     pub import_map_dir: PathBuf,
+    /// Per-epoch realpath memo; `None` canonicalizes straight from the filesystem.
+    pub realpaths: Option<Arc<RealpathCache>>,
 }
 
 #[derive(Debug, Clone)]
