@@ -21,10 +21,12 @@ pub(crate) const SYMBOL_TO_STRING_TAG: SymbolId = SymbolId(13);
 pub(crate) const SYMBOL_UNSCOPABLES: SymbolId = SymbolId(14);
 
 /// Ids 1 and 2 are retired internal ids; user symbols start after the well-known ones.
-const FIRST_USER_SYMBOL: u32 = 16;
+const FIRST_USER_SYMBOL: u32 = 18;
 
-const WELL_KNOWN: [(&str, u32); 13] = [
+const WELL_KNOWN: [(&str, u32); 15] = [
+    ("asyncDispose", 16),
     ("asyncIterator", 3),
+    ("dispose", 15),
     ("hasInstance", 4),
     ("isConcatSpreadable", 5),
     ("iterator", 0),

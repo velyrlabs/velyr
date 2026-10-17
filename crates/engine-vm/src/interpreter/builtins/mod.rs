@@ -72,7 +72,6 @@ pub(crate) enum Intrinsic {
     PromisePrototype,
     PromiseConstructor,
     AggregateErrorPrototype,
-    #[expect(dead_code, reason = "constructed by N30")]
     SuppressedErrorPrototype,
     RegExpPrototype,
     RegExpConstructor,

@@ -7,7 +7,9 @@ fn run(source: &str) -> String {
     let code = compile_script(source).expect("compiles");
     let mut vm = Interpreter::new();
     let value = vm.run_script(&code).expect("runs");
-    vm.to_js_string(&value).expect("printable").to_string_lossy()
+    vm.to_js_string(&value)
+        .expect("printable")
+        .to_string_lossy()
 }
 
 #[test]
@@ -16,7 +18,6 @@ fn uri_registered() {
 }
 
 #[test]
-#[ignore = "enabled by N30"]
 fn suppressed_error_registered() {
     assert_eq!(run("typeof SuppressedError"), "function");
 }
