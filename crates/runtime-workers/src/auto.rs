@@ -96,6 +96,12 @@ pub fn heap_limit_per_worker(budget: u64, workers: usize) -> usize {
         .clamp(HEAP_LIMIT_FLOOR_BYTES, HEAP_LIMIT_CEILING_BYTES)
 }
 
+/// Heap limit of each of `workers` isolates under the budget `decide` resolves; `None` without one.
+pub fn heap_limit(env: &Environment, memory_mb: Option<u64>, workers: usize) -> Option<usize> {
+    let (budget, _) = memory_budget(env, memory_mb);
+    budget.map(|budget| heap_limit_per_worker(budget, workers))
+}
+
 /// `quotas.memoryMb`, else the cgroup limit, else 75% of the RAM, else no budget.
 fn memory_budget(env: &Environment, memory_mb: Option<u64>) -> (Option<u64>, BudgetSource) {
     if let Some(mb) = memory_mb {

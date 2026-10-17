@@ -10,6 +10,7 @@ use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RunError, RuntimeConfig, run_file, run_module_file};
 use velyr_runtime_permissions::CapabilitySet;
 use velyr_runtime_resources::QuotaConfig;
+use velyr_runtime_workers::auto;
 #[cfg(feature = "web")]
 use velyr_web_fetch::ServeInbox;
 
@@ -77,6 +78,23 @@ fn execute(
 pub struct Prepared {
     pub capabilities: Arc<CapabilitySet>,
     pub quotas: QuotaConfig,
+    /// `quotas.memoryMb` of `velyr.json`.
+    pub memory_mb: Option<u64>,
+    /// Heap limit of each isolate under the memory budget; `velyr serve --workers` re-splits it.
+    pub heap_limit_bytes: Option<usize>,
+}
+
+impl Prepared {
+    /// Splits the memory budget across `workers` isolates.
+    #[cfg_attr(not(feature = "web"), allow(dead_code))] // read by `velyr serve`
+    pub fn for_workers(mut self, workers: usize) -> Self {
+        self.heap_limit_bytes = budget_heap_limit(self.memory_mb, workers);
+        self
+    }
+}
+
+fn budget_heap_limit(memory_mb: Option<u64>, workers: usize) -> Option<usize> {
+    auto::heap_limit(&auto::Environment::system(), memory_mb, workers)
 }
 
 /// Loads `velyr.json`, merges the permission flags and prints the warnings.
@@ -89,9 +107,14 @@ pub fn prepare(file: &Path, flags: Permissions) -> Result<Prepared, String> {
     for warning in &built.warnings {
         eprintln!("{warning}");
     }
+    let memory_mb = loaded
+        .as_ref()
+        .and_then(|loaded| loaded.config.quotas.as_ref()?.memory_mb);
     Ok(Prepared {
         capabilities: built.capabilities,
         quotas: built.quotas,
+        memory_mb,
+        heap_limit_bytes: budget_heap_limit(memory_mb, 1),
     })
 }
 
@@ -144,13 +167,22 @@ pub(crate) fn run_on<E: Engine + Send + 'static>(
     worker: Worker,
 ) -> Result<(), String> {
     let (permissions, quotas) = (prepared.capabilities.clone(), prepared.quotas.clone());
+    let heap_limit_bytes = prepared.heap_limit_bytes;
     let boot = profiles::Boot::of(&engine);
     let config = runtime_config(prepared, platform_init, worker.shutdown, boot.features);
     #[cfg(feature = "web")]
     let mut inbox = worker.inbox;
     let entry = file.to_path_buf();
     let install = move |isolate: &mut _, sender, timers| {
-        profiles::install(isolate, sender, timers, permissions, quotas, boot, &entry);
+        profiles::install(
+            isolate,
+            sender,
+            timers,
+            (permissions, quotas),
+            heap_limit_bytes,
+            boot,
+            &entry,
+        );
         #[cfg(feature = "web")]
         if let Some(inbox) = inbox.take() {
             isolate.set_slot(inbox);
@@ -195,6 +227,7 @@ fn runtime_config(
             features,
         )),
         shutdown,
+        heap_limit_bytes: prepared.heap_limit_bytes,
         ..RuntimeConfig::default()
     };
     crate::commands::compile::install_vfs(&mut config);

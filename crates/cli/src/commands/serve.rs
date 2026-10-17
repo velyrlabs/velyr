@@ -213,7 +213,7 @@ fn serve_multicore(
     deadline: Duration,
     engine: EngineKind,
 ) -> Result<ExitCode, String> {
-    let prepared = run::prepare(file, flags)?;
+    let prepared = run::prepare(file, flags)?.for_workers(count);
     let ip = velyr_web_fetch::resolve_listen_host(hostname).map_err(|err| err.to_string())?;
     // Checked once for the address; every worker runs with the same authority.
     prepared
