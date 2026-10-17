@@ -152,6 +152,11 @@ pub(crate) fn drop_empty_export(code: &str, media_type: MediaType) -> Cow<'_, st
     }
 }
 
+/// `.jsx` shares `MediaType::JavaScript` with plain `.js`, so the extension tells it apart.
+fn needs_strip(path: &Path, media_type: MediaType) -> bool {
+    media_type != MediaType::JavaScript || path.extension().is_some_and(|ext| ext == "jsx")
+}
+
 /// `raw` with its types removed when `path` is TypeScript and a `strip` step is installed.
 fn strip_types<'a>(
     strip: Option<&dyn SourceTransform>,
@@ -160,7 +165,7 @@ fn strip_types<'a>(
 ) -> Result<Cow<'a, str>, HostError> {
     let media_type = MediaType::from_path(path);
     match strip {
-        Some(strip) if media_type != MediaType::JavaScript && strip.handles(media_type) => {
+        Some(strip) if needs_strip(path, media_type) && strip.handles(media_type) => {
             let code = strip
                 .transform(&path.to_string_lossy(), raw, media_type)?
                 .code;

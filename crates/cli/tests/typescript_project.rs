@@ -58,7 +58,6 @@ fn tsx_entry_without_imports_uses_the_tsconfig_jsx_factory() {
 }
 
 #[test]
-#[ignore = "bug: import-free .jsx entry is routed to the CommonJS wrapper untransformed (Unexpected token '<')"]
 fn jsx_entry_uses_the_tsconfig_jsx_factory() {
     assert_both_engines("app.jsx", "<i/> jsx\n");
 }
