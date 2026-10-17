@@ -12,7 +12,8 @@ fn run_granting(names: &[&str], body: &str) -> String {
     for name in names {
         builder = builder.allow(Capability::SysInfo(NamePattern::new(*name)));
     }
-    let body = format!("{CHECKS}const os = globalThis[Symbol.for('velyr.node')].require('os');\n{body}");
+    let body =
+        format!("{CHECKS}const os = globalThis[Symbol.for('velyr.node')].require('os');\n{body}");
     run_with(&body, builder.build(), "")
 }
 
@@ -21,7 +22,9 @@ fn gated_apis_throw_permission_denied_without_a_grant() {
     for api in GATED {
         assert_ok(run_granting(
             &[],
-            &format!("try {{ os.{api}(); throw new Error('no throw'); }} catch (e) {{ eq(e.code, 'VELYR_PERMISSION_DENIED', '{api}'); }}"),
+            &format!(
+                "try {{ os.{api}(); throw new Error('no throw'); }} catch (e) {{ eq(e.code, 'VELYR_PERMISSION_DENIED', '{api}'); }}"
+            ),
         ));
     }
 }

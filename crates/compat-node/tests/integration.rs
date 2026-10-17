@@ -4,7 +4,9 @@
 use std::sync::Arc;
 
 use velyr_compat_commonjs::{commonjs_host_functions, install_commonjs};
-use velyr_compat_node::{BUILTINS, NodeBuiltinResolver, compat_node_host_functions, install_compat_node};
+use velyr_compat_node::{
+    BUILTINS, NodeBuiltinResolver, compat_node_host_functions, install_compat_node,
+};
 use velyr_engine_api::{Engine, Isolate, IsolateOptions, Source, Value};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RuntimeConfig, run_module_file};
@@ -184,11 +186,16 @@ fn unknown_node_specifiers_name_the_missing_builtin_instead_of_blaming_the_link(
     let resolver = NodeBuiltinResolver::new(Arc::new(FsResolver), &canonical(&facades)).unwrap();
     let referrer = ModuleId::from_path(&canonical(&facades).join("main.mjs")).unwrap();
     let err = resolver
-        .resolve("node:no_such_builtin", &referrer, &ResolveContext::default())
+        .resolve(
+            "node:no_such_builtin",
+            &referrer,
+            &ResolveContext::default(),
+        )
         .unwrap_err();
     assert_eq!(err.code(), ErrorCode::Unsupported);
     assert!(
-        err.message().contains("builtin node:no_such_builtin is not supported yet"),
+        err.message()
+            .contains("builtin node:no_such_builtin is not supported yet"),
         "{}",
         err.message()
     );

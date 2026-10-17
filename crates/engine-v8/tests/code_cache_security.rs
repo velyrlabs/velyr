@@ -3,7 +3,8 @@
 //! corruption, it is not a MAC; the trust boundary is the private cache directory.
 
 use velyr_engine_api::{
-    CodeCacheStats, Engine, Isolate, IsolateOptions, Source, Value, function_digest, seal_code_cache as seal,
+    CodeCacheStats, Engine, Isolate, IsolateOptions, Source, Value, function_digest,
+    seal_code_cache as seal,
 };
 use velyr_engine_v8::{V8Engine, V8Isolate};
 
@@ -61,7 +62,11 @@ const REJECTED: CodeCacheStats = CodeCacheStats {
 fn same_path_different_text_is_rejected() {
     let blob = blob_for("/app/a.js", "return exports * 21;", &WRAPPER);
     let (out, iso) = run("/app/a.js", "return exports * 22;", &WRAPPER, Some(&blob));
-    assert_eq!(out, Value::Number(44.0), "must run the new text, not the cached code");
+    assert_eq!(
+        out,
+        Value::Number(44.0),
+        "must run the new text, not the cached code"
+    );
     assert_eq!(stats(&iso), REJECTED);
 }
 
@@ -178,5 +183,8 @@ fn cache_reused_under_another_path_reports_the_new_path() {
     };
     let stack = stack.to_string_lossy();
     assert!(stack.contains("/new/tenant-b/f.js"), "stack: {stack}");
-    assert!(!stack.contains("tenant-a"), "stack leaks the old path: {stack}");
+    assert!(
+        !stack.contains("tenant-a"),
+        "stack leaks the old path: {stack}"
+    );
 }

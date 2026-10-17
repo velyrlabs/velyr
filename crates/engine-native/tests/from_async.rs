@@ -1,7 +1,7 @@
 //! `Array.fromAsync` on engine-native (N17).
 
 use velyr_engine_api::{
-    Engine, IsolateOptions, Isolate, JsString, MicrotaskProgress, Source, Value,
+    Engine, Isolate, IsolateOptions, JsString, MicrotaskProgress, Source, Value,
 };
 use velyr_engine_native::{NativeEngine, NativeIsolate};
 
@@ -71,7 +71,10 @@ fn consumes_async_iterables() {
 
 #[test]
 fn consumes_array_likes() {
-    assert_eq!(settle("Array.fromAsync({ length: 2, 0: 'a', 1: 'b' })"), "ok:a,b");
+    assert_eq!(
+        settle("Array.fromAsync({ length: 2, 0: 'a', 1: 'b' })"),
+        "ok:a,b"
+    );
 }
 
 #[test]

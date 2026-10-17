@@ -53,19 +53,26 @@ fn heap_sampling_is_rate_limited() {
         }
         isolate.heap_samples()
     });
-    assert!((1..=3).contains(&samples), "{samples} heap samples in 1000 turns");
+    assert!(
+        (1..=3).contains(&samples),
+        "{samples} heap samples in 1000 turns"
+    );
 }
 
 #[test]
 fn final_sample_taken_on_exit() {
     // The only turn that allocates is the entry script, inside the sampling interval.
-    run_script(WORKER_ID, "globalThis.keep = new Uint8Array(32 << 20);", |isolate| {
-        let source = Source {
-            name: "first.js".into(),
-            text: "0".into(),
-        };
-        isolate.eval_script(&source).expect("eval");
-    });
+    run_script(
+        WORKER_ID,
+        "globalThis.keep = new Uint8Array(32 << 20);",
+        |isolate| {
+            let source = Source {
+                name: "first.js".into(),
+                text: "0".into(),
+            };
+            isolate.eval_script(&source).expect("eval");
+        },
+    );
     let heap = metrics::global()
         .snapshot()
         .workers
@@ -73,5 +80,8 @@ fn final_sample_taken_on_exit() {
         .find(|w| w.id == WORKER_ID)
         .and_then(|w| w.heap)
         .expect("a heap sample");
-    assert!(heap.used_bytes + heap.external_bytes.unwrap_or(0) >= 32 << 20, "{heap:?}");
+    assert!(
+        heap.used_bytes + heap.external_bytes.unwrap_or(0) >= 32 << 20,
+        "{heap:?}"
+    );
 }

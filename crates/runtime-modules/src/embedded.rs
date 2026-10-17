@@ -40,10 +40,7 @@ const FILES: &[(&str, &str)] = &[
         include_str!("../helpers/decorateMetadata.js"),
     ),
     ("usingCtx", include_str!("../helpers/usingCtx.js")),
-    (
-        "applyDecs2311",
-        include_str!("../helpers/applyDecs2311.js"),
-    ),
+    ("applyDecs2311", include_str!("../helpers/applyDecs2311.js")),
     ("typeof", include_str!("../helpers/typeof.js")),
     ("checkInRHS", include_str!("../helpers/checkInRHS.js")),
     (
@@ -78,9 +75,8 @@ pub(crate) fn resolve(specifier: &str, referrer: &Path) -> Result<Option<PathBuf
 
 /// Single predicate for "this path is served from the binary, never from disk".
 pub fn is_embedded(path: &Path) -> bool {
-    path.to_str().is_some_and(|path| {
-        helper_text(path).is_some() || facade_name(path).is_some()
-    })
+    path.to_str()
+        .is_some_and(|path| helper_text(path).is_some() || facade_name(path).is_some())
 }
 
 fn helper_text(path: &str) -> Option<&'static str> {

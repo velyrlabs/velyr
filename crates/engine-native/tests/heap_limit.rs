@@ -96,10 +96,7 @@ fn a_huge_copy_within_fails_with_the_heap_quota() {
 
 #[test]
 fn a_huge_splice_fails_with_the_heap_quota() {
-    setup_then_fails_with_heap(
-        "globalThis.a = new Array(1 << 21).fill(0);",
-        "a.splice(0)",
-    );
+    setup_then_fails_with_heap("globalThis.a = new Array(1 << 21).fill(0);", "a.splice(0)");
 }
 
 #[test]

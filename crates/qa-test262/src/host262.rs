@@ -76,6 +76,9 @@ mod tests {
     fn parse_phase_engine_gap_is_not_expected_error() {
         let gap = judge_parse_error("SyntaxError", "SyntaxError: unsupported: with");
         assert!(gap.is_err());
-        assert_eq!(judge_parse_error("SyntaxError", "SyntaxError: unexpected token"), Ok(()));
+        assert_eq!(
+            judge_parse_error("SyntaxError", "SyntaxError: unexpected token"),
+            Ok(())
+        );
     }
 }

@@ -24,7 +24,9 @@ fn expect_true(cases: &[&str]) {
 }
 
 fn throws(kind: &str, body: &str) -> String {
-    format!("(() => {{ try {{ {body}; }} catch (e) {{ return e instanceof {kind}; }} return false; }})()")
+    format!(
+        "(() => {{ try {{ {body}; }} catch (e) {{ return e instanceof {kind}; }} return false; }})()"
+    )
 }
 
 #[test]
@@ -55,12 +57,27 @@ fn fallback_and_canonical_codes() {
 #[test]
 fn rejects_bad_input() {
     expect_true(&[
-        &throws("RangeError", "new Intl.DisplayNames('en',{type:'language'}).of('u')"),
-        &throws("RangeError", "new Intl.DisplayNames('en',{type:'region'}).of('USA')"),
-        &throws("RangeError", "new Intl.DisplayNames('en',{type:'currency'}).of('EU')"),
-        &throws("RangeError", "new Intl.DisplayNames('en',{type:'dateTimeField'}).of('foo')"),
+        &throws(
+            "RangeError",
+            "new Intl.DisplayNames('en',{type:'language'}).of('u')",
+        ),
+        &throws(
+            "RangeError",
+            "new Intl.DisplayNames('en',{type:'region'}).of('USA')",
+        ),
+        &throws(
+            "RangeError",
+            "new Intl.DisplayNames('en',{type:'currency'}).of('EU')",
+        ),
+        &throws(
+            "RangeError",
+            "new Intl.DisplayNames('en',{type:'dateTimeField'}).of('foo')",
+        ),
         &throws("TypeError", "new Intl.DisplayNames('en')"),
-        &throws("TypeError", "new Intl.DisplayNames('en',{type:'region'}).of(Symbol())"),
+        &throws(
+            "TypeError",
+            "new Intl.DisplayNames('en',{type:'region'}).of(Symbol())",
+        ),
         &throws("TypeError", "Intl.DisplayNames('en',{type:'region'})"),
         &throws("RangeError", "new Intl.DisplayNames('en',{type:'x'})"),
     ]);

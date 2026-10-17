@@ -100,7 +100,8 @@ fn if_clause_function_skips_default_parameter() {
 
 #[test]
 fn if_clause_function_skips_early_error() {
-    let source = "var after; (function() { let f = 123; if (true) function f() {} after = f; }()); after";
+    let source =
+        "var after; (function() { let f = 123; if (true) function f() {} after = f; }()); after";
     assert_eq!(run(source), "123");
 }
 

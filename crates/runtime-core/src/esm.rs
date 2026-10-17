@@ -377,8 +377,8 @@ pub(crate) async fn run<I: Isolate>(
         host = host.with_transform(transform);
     }
     let host = Arc::new(host);
-    let mut require = EsmRequire::new(resolver.clone(), Arc::clone(&permissions))
-        .with_host(Arc::clone(&host));
+    let mut require =
+        EsmRequire::new(resolver.clone(), Arc::clone(&permissions)).with_host(Arc::clone(&host));
     if let Some(shared) = &shared {
         require = require.with_shared(Arc::clone(shared));
     }

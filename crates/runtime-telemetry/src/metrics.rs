@@ -49,8 +49,16 @@ pub fn init_otlp_metrics(
         .build()
         .map_err(|e| TelemetryError::Exporter(e.to_string()))?;
     let provider = SdkMeterProvider::builder()
-        .with_reader(PeriodicReader::builder(exporter).with_interval(EXPORT_INTERVAL).build())
-        .with_resource(Resource::builder().with_service_name(service_name.to_owned()).build())
+        .with_reader(
+            PeriodicReader::builder(exporter)
+                .with_interval(EXPORT_INTERVAL)
+                .build(),
+        )
+        .with_resource(
+            Resource::builder()
+                .with_service_name(service_name.to_owned())
+                .build(),
+        )
         .build();
     install_metrics(provider, series, source);
     Ok(())
@@ -67,11 +75,20 @@ pub fn install_metrics(
     let source = Arc::new(source);
     // shortcut: every instrument asks `source` again (a few dozen cheap reads per minute);
     // share one reading per collection if it ever gets expensive.
-    for &Series { name, description, monotonic } in series {
+    for &Series {
+        name,
+        description,
+        monotonic,
+    } in series
+    {
         let source = Arc::clone(&source);
         let observe = move |observe: &dyn Fn(f64, &[KeyValue])| {
             for point in source().iter().filter(|point| point.name == name) {
-                let attrs: Vec<_> = point.attrs.iter().map(|(k, v)| KeyValue::new(*k, v.clone())).collect();
+                let attrs: Vec<_> = point
+                    .attrs
+                    .iter()
+                    .map(|(k, v)| KeyValue::new(*k, v.clone()))
+                    .collect();
                 observe(point.value, &attrs);
             }
         };

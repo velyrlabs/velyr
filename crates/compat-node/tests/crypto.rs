@@ -25,8 +25,22 @@ fn fixture(name: &str) -> Vec<u8> {
 
 fn fixtures_js() -> String {
     let text = |n: &str| String::from_utf8(fixture(n)).unwrap();
-    let hex = |n: &str| fixture(n).iter().map(|b| format!("{b:02x}")).collect::<String>();
-    let files = ["rsa-private.pem", "rsa-public.pem", "rsa-private-pkcs1.pem", "ec-private.pem", "ec-public.pem", "ec-private-sec1.pem", "ed25519-private.pem", "ed25519-public.pem"];
+    let hex = |n: &str| {
+        fixture(n)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+    let files = [
+        "rsa-private.pem",
+        "rsa-public.pem",
+        "rsa-private-pkcs1.pem",
+        "ec-private.pem",
+        "ec-public.pem",
+        "ec-private-sec1.pem",
+        "ed25519-private.pem",
+        "ed25519-public.pem",
+    ];
     let mut js = String::from("const FIX = {\n");
     for f in files {
         js.push_str(&format!("  {f:?}: {:?},\n", text(f)));
@@ -84,8 +98,7 @@ fn hmac_matches_rfc_vectors() {
 
 #[test]
 fn random_helpers() {
-    assert_ok(run(
-        r#"eq(crypto.randomBytes(16).length, 16);
+    assert_ok(run(r#"eq(crypto.randomBytes(16).length, 16);
         eq(crypto.randomBytes(0).length, 0);
         eq(Buffer.compare(crypto.randomBytes(16), crypto.randomBytes(16)) !== 0, true);
         const buf = Buffer.alloc(8);
@@ -102,14 +115,12 @@ fn random_helpers() {
         code(() => crypto.randomInt(5, 5), 'ERR_OUT_OF_RANGE');
         code(() => crypto.randomInt('a'), 'ERR_INVALID_ARG_TYPE');
         code(() => crypto.randomBytes(-1), 'ERR_OUT_OF_RANGE');
-        code(() => crypto.randomBytes(2 ** 31), 'ERR_OUT_OF_RANGE');"#,
-    ));
+        code(() => crypto.randomBytes(2 ** 31), 'ERR_OUT_OF_RANGE');"#));
 }
 
 #[test]
 fn ciphers_match_known_vectors_and_reject_tampering() {
-    assert_ok(run(
-        r#"const zero = (n) => Buffer.alloc(n);
+    assert_ok(run(r#"const zero = (n) => Buffer.alloc(n);
         // NIST GCM test cases 2 and 14 (AES-128 / AES-256, zero key, IV and block).
         for (const [alg, keyLen, ct, tag] of [
           ['aes-128-gcm', 16, '0388dace60b6a392f328c2b971b2fe78', 'ab6e47d42cec13bdf53a67b21257bddf'],
@@ -172,8 +183,7 @@ fn ciphers_match_known_vectors_and_reject_tampering() {
         code(() => crypto.createCipheriv('aes-128-cbc', Buffer.alloc(5), niv), 'ERR_CRYPTO_INVALID_KEYLEN');
         code(() => crypto.createCipheriv('aes-128-cbc', nk, Buffer.alloc(5)), 'ERR_CRYPTO_INVALID_IV');
         let unk; try { crypto.createCipheriv('rot13', nk, niv); } catch (e) { unk = e; }
-        eq(/Unknown cipher/.test(unk.message), true);"#,
-    ));
+        eq(/Unknown cipher/.test(unk.message), true);"#));
 }
 
 #[test]

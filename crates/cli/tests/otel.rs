@@ -46,24 +46,38 @@ fn read_export(mut stream: TcpStream) -> Export {
     let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
     let header = |name: &str| {
         head.lines()
-            .find_map(|l| l.to_ascii_lowercase().strip_prefix(&format!("{name}:")).map(|v| v.trim().to_owned()))
+            .find_map(|l| {
+                l.to_ascii_lowercase()
+                    .strip_prefix(&format!("{name}:"))
+                    .map(|v| v.trim().to_owned())
+            })
             .unwrap_or_default()
     };
-    let length: usize = header("content-length").parse().expect("content-length body");
+    let length: usize = header("content-length")
+        .parse()
+        .expect("content-length body");
     while buf.len() < head_end + length {
         let n = stream.read(&mut chunk).unwrap();
         buf.extend_from_slice(&chunk[..n]);
     }
-    stream.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\nconnection: close\r\n\r\n").unwrap();
+    stream
+        .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+        .unwrap();
     Export {
-        path: head.split_whitespace().nth(1).unwrap_or_default().to_owned(),
+        path: head
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or_default()
+            .to_owned(),
         content_type: header("content-type"),
         body: buf[head_end..head_end + length].to_vec(),
     }
 }
 
 fn contains(haystack: &[u8], needle: &str) -> bool {
-    haystack.windows(needle.len()).any(|w| w == needle.as_bytes())
+    haystack
+        .windows(needle.len())
+        .any(|w| w == needle.as_bytes())
 }
 
 #[test]
@@ -74,14 +88,28 @@ fn exports_server_and_client_spans_over_otlp_http() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir.path())
-        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            format!("http://127.0.0.1:{port}"),
+        )
         .env("OTEL_SERVICE_NAME", "otel-test")
-        .args(["run", "--allow-listen=127.0.0.1:0", "--allow-net=127.0.0.1", "main.js"])
+        .args([
+            "run",
+            "--allow-listen=127.0.0.1:0",
+            "--allow-net=127.0.0.1",
+            "main.js",
+        ])
         .output()
         .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let export = exports.recv_timeout(Duration::from_secs(10)).expect("an export POST arrived");
+    let export = exports
+        .recv_timeout(Duration::from_secs(10))
+        .expect("an export POST arrived");
     assert_eq!(export.path, "/v1/traces");
     assert_eq!(export.content_type, "application/x-protobuf");
     assert!(contains(&export.body, "otel-test"), "service.name");
@@ -120,26 +148,50 @@ const SERVE_SCRIPT: &str = r#"export default {
 };"#;
 
 /// Starts `velyr serve` exporting to `port`; returns the child and the port it listens on.
-fn spawn_server(dir: &std::path::Path, port: u16, deadline_ms: &str, app: &str) -> (std::process::Child, u16) {
+fn spawn_server(
+    dir: &std::path::Path,
+    port: u16,
+    deadline_ms: &str,
+    app: &str,
+) -> (std::process::Child, u16) {
     use std::io::BufRead;
     std::fs::write(dir.join("app.js"), app).unwrap();
     let mut child = Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir)
-        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            format!("http://127.0.0.1:{port}"),
+        )
         .env("VELYR_SHUTDOWN_DEADLINE_MS", deadline_ms)
-        .args(["serve", "--allow-listen=127.0.0.1", "--allow-net=127.0.0.1", "--port=0", "--hostname=127.0.0.1", "app.js"])
+        .args([
+            "serve",
+            "--allow-listen=127.0.0.1",
+            "--allow-net=127.0.0.1",
+            "--port=0",
+            "--hostname=127.0.0.1",
+            "app.js",
+        ])
         .stderr(std::process::Stdio::piped())
         .spawn()
         .unwrap();
     let mut lines = std::io::BufReader::new(child.stderr.take().unwrap()).lines();
     let line = lines.next().expect("listening line").unwrap();
-    let listen: u16 = line.rsplit(':').next().unwrap().trim_end_matches('/').parse().unwrap();
+    let listen: u16 = line
+        .rsplit(':')
+        .next()
+        .unwrap()
+        .trim_end_matches('/')
+        .parse()
+        .unwrap();
     std::thread::spawn(move || lines.for_each(drop));
     (child, listen)
 }
 
 fn interrupt(child: &std::process::Child) {
-    Command::new("kill").args(["-INT", &child.id().to_string()]).status().unwrap();
+    Command::new("kill")
+        .args(["-INT", &child.id().to_string()])
+        .status()
+        .unwrap();
 }
 
 #[cfg(unix)]
@@ -150,18 +202,22 @@ fn flushes_spans_when_a_forced_shutdown_exits_early() {
     let (mut child, listen) = spawn_server(dir.path(), port, "300", SERVE_SCRIPT);
 
     let mut conn = TcpStream::connect(("127.0.0.1", listen)).unwrap();
-    conn.write_all(b"GET /flush-me HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    conn.write_all(b"GET /flush-me HTTP/1.1\r\nhost: x\r\n\r\n")
+        .unwrap();
     let mut reply = [0u8; 512];
     assert!(conn.read(&mut reply).unwrap() > 0);
     // A request that never answers holds the drain open until the deadline forces the exit.
     let mut hung = TcpStream::connect(("127.0.0.1", listen)).unwrap();
-    hung.write_all(b"GET /hang HTTP/1.1\r\nhost: x\r\n\r\n").unwrap();
+    hung.write_all(b"GET /hang HTTP/1.1\r\nhost: x\r\n\r\n")
+        .unwrap();
     std::thread::sleep(Duration::from_millis(300));
 
     interrupt(&child);
     let status = child.wait().unwrap();
     assert!(!status.success());
-    let export = exports.recv_timeout(Duration::from_secs(10)).expect("spans flushed before exit");
+    let export = exports
+        .recv_timeout(Duration::from_secs(10))
+        .expect("spans flushed before exit");
     assert!(contains(&export.body, "/flush-me"));
 }
 
@@ -185,9 +241,19 @@ fn fields(buf: &[u8]) -> Vec<(u64, Vec<u8>)> {
         let tag = varint(buf, &mut at);
         let bytes = match tag & 7 {
             0 => varint(buf, &mut at).to_le_bytes().to_vec(),
-            1 => { at += 8; buf[at - 8..at].to_vec() }
-            2 => { let n = varint(buf, &mut at) as usize; at += n; buf[at - n..at].to_vec() }
-            5 => { at += 4; buf[at - 4..at].to_vec() }
+            1 => {
+                at += 8;
+                buf[at - 8..at].to_vec()
+            }
+            2 => {
+                let n = varint(buf, &mut at) as usize;
+                at += n;
+                buf[at - n..at].to_vec()
+            }
+            5 => {
+                at += 4;
+                buf[at - 4..at].to_vec()
+            }
             other => panic!("wire type {other}"),
         };
         out.push((tag >> 3, bytes));
@@ -206,10 +272,18 @@ struct Span {
 /// Every span in an OTLP traces export.
 fn spans(body: &[u8]) -> Vec<Span> {
     let nested = |msg: &[u8], number| -> Vec<Vec<u8>> {
-        fields(msg).into_iter().filter(|(n, _)| *n == number).map(|(_, b)| b).collect()
+        fields(msg)
+            .into_iter()
+            .filter(|(n, _)| *n == number)
+            .map(|(_, b)| b)
+            .collect()
     };
     let field = |span: &[u8], number| {
-        fields(span).into_iter().find(|(n, _)| *n == number).map(|(_, b)| b).unwrap_or_default()
+        fields(span)
+            .into_iter()
+            .find(|(n, _)| *n == number)
+            .map(|(_, b)| b)
+            .unwrap_or_default()
     };
     let fixed = |span: &[u8], number| u64::from_le_bytes(field(span, number).try_into().unwrap());
     nested(body, 1)
@@ -234,15 +308,25 @@ fn server_span_covers_a_streamed_body() {
     let (mut child, listen) = spawn_server(dir.path(), port, "5000", SERVE_SCRIPT);
 
     let mut conn = TcpStream::connect(("127.0.0.1", listen)).unwrap();
-    conn.write_all(b"GET /slow HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").unwrap();
+    conn.write_all(b"GET /slow HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n")
+        .unwrap();
     let mut reply = Vec::new();
     conn.read_to_end(&mut reply).unwrap();
     interrupt(&child);
     child.wait().unwrap();
 
-    let export = exports.recv_timeout(Duration::from_secs(10)).expect("an export");
-    let server = spans(&export.body).into_iter().find(|span| span.name == "GET").expect("the server span");
-    assert!(server.nanos >= 400_000_000, "span ended before the body did: {} ns", server.nanos);
+    let export = exports
+        .recv_timeout(Duration::from_secs(10))
+        .expect("an export");
+    let server = spans(&export.body)
+        .into_iter()
+        .find(|span| span.name == "GET")
+        .expect("the server span");
+    assert!(
+        server.nanos >= 400_000_000,
+        "span ended before the body did: {} ns",
+        server.nanos
+    );
 }
 
 #[test]
@@ -257,13 +341,22 @@ try { Velyr.telemetry.span("explode", () => { throw new Error("kaput"); }); } ca
     std::fs::write(dir.path().join("main.js"), script).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir.path())
-        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            format!("http://127.0.0.1:{port}"),
+        )
         .args(["run", "main.js"])
         .output()
         .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let export = exports.recv_timeout(Duration::from_secs(10)).expect("an export");
+    let export = exports
+        .recv_timeout(Duration::from_secs(10))
+        .expect("an export");
     assert!(contains(&export.body, "load-orders"));
     assert!(contains(&export.body, "explode"));
     assert!(contains(&export.body, "kaput"));
@@ -272,14 +365,22 @@ try { Velyr.telemetry.span("explode", () => { throw new Error("kaput"); }); } ca
 #[test]
 fn script_span_runs_the_function_without_an_exporter() {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("main.js"), "console.log(await Velyr.telemetry.span('x', async () => 'ran'));").unwrap();
+    std::fs::write(
+        dir.path().join("main.js"),
+        "console.log(await Velyr.telemetry.span('x', async () => 'ran'));",
+    )
+    .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir.path())
         .env_remove("OTEL_EXPORTER_OTLP_ENDPOINT")
         .args(["run", "main.js"])
         .output()
         .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ran");
 }
 
@@ -290,19 +391,29 @@ fn exports_runtime_metrics_over_otlp_http_on_exit() {
     std::fs::write(dir.path().join("main.js"), "console.log('hi');").unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir.path())
-        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("http://127.0.0.1:{port}"))
+        .env(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            format!("http://127.0.0.1:{port}"),
+        )
         .env("OTEL_SERVICE_NAME", "otel-metrics")
         .args(["run", "main.js"])
         .output()
         .unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let export = std::iter::from_fn(|| exports.recv_timeout(Duration::from_secs(10)).ok())
         .find(|export| export.path == "/v1/metrics")
         .expect("a metrics export arrived");
     assert_eq!(export.content_type, "application/x-protobuf");
     assert!(contains(&export.body, "otel-metrics"), "service.name");
-    assert!(contains(&export.body, "velyr_process_resident_memory_bytes"));
+    assert!(contains(
+        &export.body,
+        "velyr_process_resident_memory_bytes"
+    ));
     assert!(contains(&export.body, "velyr_http_requests_total"));
 }
 
@@ -323,12 +434,20 @@ fn https_endpoint_starts_a_tls_handshake() {
     std::fs::write(dir.path().join("main.js"), "console.log('hi');").unwrap();
     Command::new(env!("CARGO_BIN_EXE_velyr"))
         .current_dir(dir.path())
-        .env("OTEL_EXPORTER_OTLP_ENDPOINT", format!("https://127.0.0.1:{port}"))
+        .env(
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            format!("https://127.0.0.1:{port}"),
+        )
         .args(["run", "main.js"])
         .output()
         .unwrap();
     // 0x16 is the TLS handshake record type; plain HTTP would start with 'P' (POST).
-    assert_eq!(first_bytes.recv_timeout(Duration::from_secs(10)).expect("a connection"), 0x16);
+    assert_eq!(
+        first_bytes
+            .recv_timeout(Duration::from_secs(10))
+            .expect("a connection"),
+        0x16
+    );
 }
 
 #[cfg(unix)]
@@ -350,22 +469,44 @@ fn fetch_and_script_spans_inside_a_handler_are_children_of_the_server_span() {
 };"#;
     let (mut child, listen) = spawn_server(dir.path(), port, "5000", app);
     let mut conn = TcpStream::connect(("127.0.0.1", listen)).unwrap();
-    conn.write_all(format!("GET /outer HTTP/1.1\r\nhost: 127.0.0.1:{listen}\r\nconnection: close\r\n\r\n").as_bytes()).unwrap();
+    conn.write_all(
+        format!("GET /outer HTTP/1.1\r\nhost: 127.0.0.1:{listen}\r\nconnection: close\r\n\r\n")
+            .as_bytes(),
+    )
+    .unwrap();
     conn.read_to_end(&mut Vec::new()).unwrap();
     interrupt(&child);
     child.wait().unwrap();
 
-    let export = exports.recv_timeout(Duration::from_secs(10)).expect("an export");
+    let export = exports
+        .recv_timeout(Duration::from_secs(10))
+        .expect("an export");
     let mut all = spans(&export.body);
     while let Ok(more) = exports.recv_timeout(Duration::from_secs(1)) {
         if more.path == "/v1/traces" {
             all.extend(spans(&more.body));
         }
     }
-    let by_name = |name: &str, kind: u64| all.iter().find(|s| s.name == name && s.kind == kind).unwrap_or_else(|| panic!("{name} span"));
+    let by_name = |name: &str, kind: u64| {
+        all.iter()
+            .find(|s| s.name == name && s.kind == kind)
+            .unwrap_or_else(|| panic!("{name} span"))
+    };
     let (inner, client) = (by_name("inner", 1), by_name("GET", 3));
-    let server = all.iter().find(|s| s.kind == 2 && s.id == inner.parent).expect("inner is a child of a server span");
-    assert!(server.parent.is_empty(), "the outer server span is the root");
-    assert_eq!(client.parent, inner.id, "fetch is a child of the script span");
-    assert!(all.iter().any(|s| s.kind == 2 && s.parent == client.id), "leaf server span continues the fetch");
+    let server = all
+        .iter()
+        .find(|s| s.kind == 2 && s.id == inner.parent)
+        .expect("inner is a child of a server span");
+    assert!(
+        server.parent.is_empty(),
+        "the outer server span is the root"
+    );
+    assert_eq!(
+        client.parent, inner.id,
+        "fetch is a child of the script span"
+    );
+    assert!(
+        all.iter().any(|s| s.kind == 2 && s.parent == client.id),
+        "leaf server span continues the fetch"
+    );
 }

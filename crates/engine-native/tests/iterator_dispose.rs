@@ -1,8 +1,6 @@
 //! `Iterator.prototype[Symbol.dispose]` and `AsyncIterator.prototype[Symbol.asyncDispose]` (N32).
 
-use velyr_engine_api::{
-    Engine, Isolate, IsolateOptions, MicrotaskProgress, Source, Value,
-};
+use velyr_engine_api::{Engine, Isolate, IsolateOptions, MicrotaskProgress, Source, Value};
 use velyr_engine_native::{NativeEngine, NativeIsolate};
 
 fn eval(iso: &mut NativeIsolate, text: &str) -> String {
@@ -62,12 +60,16 @@ fn dispose_shape() {
 
 #[test]
 fn dispose_works_on_builtin_iterators() {
-    assert_eq!(run("var it = [1, 2][Symbol.iterator](); String(it[Symbol.dispose]())"), "undefined");
+    assert_eq!(
+        run("var it = [1, 2][Symbol.iterator](); String(it[Symbol.dispose]())"),
+        "undefined"
+    );
 }
 
 #[test]
 fn async_dispose_shape() {
-    let source = "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
+    let source =
+        "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
         var f = AIP[Symbol.asyncDispose];
         [f.length, f.name].join()";
     assert_eq!(run(source), "0,[Symbol.asyncDispose]");
@@ -75,7 +77,8 @@ fn async_dispose_shape() {
 
 #[test]
 fn async_dispose_awaits_return() {
-    let source = "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
+    let source =
+        "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
         var it = Object.create(AIP);
         it.return = function () { log.push('return'); return Promise.resolve({}); };
         var p = it[Symbol.asyncDispose]();
@@ -86,7 +89,8 @@ fn async_dispose_awaits_return() {
 
 #[test]
 fn async_dispose_without_return_resolves() {
-    let source = "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
+    let source =
+        "var AIP = Object.getPrototypeOf(Object.getPrototypeOf(async function*(){}.prototype));
         Object.create(AIP)[Symbol.asyncDispose]().then(v => log.push('done:' + v))";
     assert_eq!(log_after(source), "done:undefined");
 }

@@ -226,7 +226,8 @@ impl<I: Isolate> EventLoop<I> {
     /// Schedules `callback` (called with `this = undefined`) after `delay`; repeats if `repeat`.
     pub fn set_timer(&mut self, delay: Duration, repeat: bool, callback: Value) -> TimerId {
         let id = self.host_timers.0.borrow_mut().alloc_id();
-        self.timers.add(id, Instant::now(), delay, repeat, callback, None)
+        self.timers
+            .add(id, Instant::now(), delay, repeat, callback, None)
     }
 
     /// Handle for host functions to schedule timers from JS (see [`TimerHandle`]).
@@ -425,7 +426,8 @@ impl<I: Isolate> EventLoop<I> {
                     repeat,
                     level,
                 } => {
-                    self.timers.add(id, at, delay, repeat, Value::Undefined, level);
+                    self.timers
+                        .add(id, at, delay, repeat, Value::Undefined, level);
                 }
                 TimerCommand::Clear(id) => self.clear_timer(id),
                 TimerCommand::SetRef(id, refd) => self.set_ref(id, refd),

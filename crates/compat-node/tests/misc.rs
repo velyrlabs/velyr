@@ -10,11 +10,11 @@ use std::sync::Arc;
 use common::script::{CHECKS, assert_ok, check, run_with};
 use velyr_compat_commonjs::{commonjs_host_functions, install_commonjs};
 use velyr_compat_node::{NodeBuiltinResolver, compat_node_host_functions, install_compat_node};
-use velyr_web_core::{install_url, url_host_functions};
 use velyr_engine_v8::V8Engine;
 use velyr_runtime_core::{RuntimeConfig, run_module_file};
 use velyr_runtime_modules::FsResolver;
 use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
+use velyr_web_core::{install_url, url_host_functions};
 
 const PRELUDE: &str = r#"
 const { Buffer } = globalThis[Symbol.for('velyr.node')].require('buffer');
@@ -47,8 +47,7 @@ fn system_gzip(args: &[&str], input: &[u8]) -> Vec<u8> {
 
 #[test]
 fn os_answers_from_the_host_without_env_permission() {
-    assert_ok(run(
-        r#"const os = req('os'), proc = req('process');
+    assert_ok(run(r#"const os = req('os'), proc = req('process');
         eq(os.platform(), proc.platform); eq(os.arch(), proc.arch);
         eq(os.EOL, '\n'); eq(os.endianness(), 'LE'); eq(os.devNull, '/dev/null');
         eq(os.type(), proc.platform === 'darwin' ? 'Darwin' : 'Linux');
@@ -65,14 +64,12 @@ fn os_answers_from_the_host_without_env_permission() {
         if (os.tmpdir().length === 0 || os.homedir().length === 0) throw new Error('dirs');
         eq(typeof os.release(), 'string'); eq(typeof os.version(), 'string'); eq(typeof os.machine(), 'string');
         eq(os.constants.signals.SIGINT, 2); eq(os.constants.signals.SIGKILL, 9); eq(os.constants.errno.ENOENT, 2);
-        eq(Object.isFrozen(os.constants), true);"#,
-    ));
+        eq(Object.isFrozen(os.constants), true);"#));
 }
 
 #[test]
 fn timers_return_timeout_objects() {
-    assert_ok(run(
-        r#"const timers = req('timers');
+    assert_ok(run(r#"const timers = req('timers');
         const log = [];
         const t = timers.setTimeout((a, b) => log.push(a + b), 5, 'x', 'y');
         eq(t.constructor.name, 'Timeout'); eq(t.hasRef(), true); eq(t.unref(), t); eq(t.hasRef(), false); eq(t.ref().hasRef(), true);
@@ -96,8 +93,7 @@ fn timers_return_timeout_objects() {
         timers.clearInterval(every);
         if (ticks < 3) throw new Error('interval ticked ' + ticks);
         const seen = ticks; await sleep(30); eq(ticks, seen, 'cleared interval stays quiet');
-        code(() => timers.setTimeout('nope'), 'ERR_INVALID_ARG_TYPE');"#,
-    ));
+        code(() => timers.setTimeout('nope'), 'ERR_INVALID_ARG_TYPE');"#));
 }
 
 #[test]
@@ -141,8 +137,7 @@ fn timers_promises_resolve_iterate_and_abort() {
 
 #[test]
 fn querystring_matches_the_legacy_parser() {
-    assert_ok(run(
-        r#"const qs = req('querystring');
+    assert_ok(run(r#"const qs = req('querystring');
         same(qs.parse('a=1&b=2&a=3&c'), { a: ['1', '3'].length ? ['1', '3'] : 0, b: '2', c: '' });
         same(qs.parse('x=%20y+z&&=empty&k=%E4%BD%A0'), { x: ' y z', '': 'empty', k: '你' });
         same(qs.parse('a:1;b:2', ';', ':'), { a: '1', b: '2' });
@@ -155,8 +150,7 @@ fn querystring_matches_the_legacy_parser() {
         code(() => qs.escape('\ud800'), 'ERR_INVALID_URI');
         eq(qs.unescape('%41%zz'), 'A%zz');
         eq(qs.unescapeBuffer('a+b%41', true).toString(), 'a bA');
-        eq(qs.encode, qs.stringify); eq(qs.decode, qs.parse);"#,
-    ));
+        eq(qs.encode, qs.stringify); eq(qs.decode, qs.parse);"#));
 }
 
 #[test]
@@ -200,8 +194,7 @@ fn zlib_round_trips_every_format_sync_callback_and_stream() {
 
 #[test]
 fn zlib_unzip_reset_and_default_brotli_quality() {
-    assert_ok(run(
-        r#"const zlib = req('zlib');
+    assert_ok(run(r#"const zlib = req('zlib');
         const data = Buffer.from('unzip and reset '.repeat(500));
         for (const pack of ['gzipSync', 'deflateSync']) {
           const packed = zlib[pack](data);
@@ -226,14 +219,12 @@ fn zlib_unzip_reset_and_default_brotli_quality() {
         eq(Buffer.concat(out).toString(), 'kept');
         // The default brotli quality still round-trips and shrinks.
         const brotli = zlib.brotliCompressSync(data);
-        eq(zlib.brotliDecompressSync(brotli).equals(data), true); if (!(brotli.length < data.length / 4)) throw new Error('brotli');"#,
-    ));
+        eq(zlib.brotliDecompressSync(brotli).equals(data), true); if (!(brotli.length < data.length / 4)) throw new Error('brotli');"#));
 }
 
 #[test]
 fn zlib_dictionary_window_bits_and_params() {
-    assert_ok(run(
-        r#"const zlib = req('zlib');
+    assert_ok(run(r#"const zlib = req('zlib');
         const dictionary = Buffer.from('shared words that both sides know already');
         const data = Buffer.from('shared words that both sides know already, then news');
         for (const [pack, unpack] of [['deflate', 'inflate'], ['deflateRaw', 'inflateRaw']]) {
@@ -267,8 +258,7 @@ fn zlib_dictionary_window_bits_and_params() {
         gz.end(Buffer.alloc(5000, 2)); await new Promise((r) => gz.on('end', r));
         eq(zlib.gunzipSync(Buffer.concat(out)).length, 10000);
         code(() => zlib.createGzip().params(10, 0, () => {}), 'ERR_OUT_OF_RANGE');
-        code(() => zlib.createGunzip().params(1, 0, () => {}), 'ERR_VELYR_UNSUPPORTED');"#,
-    ));
+        code(() => zlib.createGunzip().params(1, 0, () => {}), 'ERR_VELYR_UNSUPPORTED');"#));
 }
 
 #[test]
@@ -296,13 +286,16 @@ fn zlib_interoperates_with_the_system_gzip() {
     let script = format!("{CHECKS}{PRELUDE}{body}");
     assert_ok(run_with(&script, capabilities, ""));
     let ours = std::fs::read(canonical.join("ours.gz")).unwrap();
-    assert_eq!(system_gzip(&["-dc"], &ours), plain, "gzipSync -> system gunzip");
+    assert_eq!(
+        system_gzip(&["-dc"], &ours),
+        plain,
+        "gzipSync -> system gunzip"
+    );
 }
 
 #[test]
 fn zlib_limits_output_and_reports_damaged_input() {
-    assert_ok(run(
-        r#"const zlib = req('zlib');
+    assert_ok(run(r#"const zlib = req('zlib');
         const bomb = zlib.gzipSync(Buffer.alloc(4 * 1024 * 1024));
         if (bomb.length > 10000) throw new Error('bomb is not small: ' + bomb.length);
         code(() => zlib.gunzipSync(bomb, { maxOutputLength: 65536 }), 'ERR_BUFFER_TOO_LARGE');
@@ -323,14 +316,12 @@ fn zlib_limits_output_and_reports_damaged_input() {
         code(() => zlib.gunzipSync(flipped), 'Z_DATA_ERROR');
         code(() => zlib.gzipSync(12), 'ERR_INVALID_ARG_TYPE');
         code(() => zlib.gzipSync('x', { level: 12 }), 'ERR_OUT_OF_RANGE');
-        code(() => zlib.deflateSync('x', { dictionary: 'text' }), 'ERR_INVALID_ARG_TYPE');"#,
-    ));
+        code(() => zlib.deflateSync('x', { dictionary: 'text' }), 'ERR_INVALID_ARG_TYPE');"#));
 }
 
 #[test]
 fn perf_hooks_expose_performance_and_loop_delay() {
-    assert_ok(run(
-        r#"const ph = req('perf_hooks');
+    assert_ok(run(r#"const ph = req('perf_hooks');
         // The script harness does not install web-core's performance: the getters say so clearly.
         eq(globalThis.performance, undefined);
         try { ph.performance; throw new Error('no error'); } catch (e) { eq(e.message.includes('did not install performance'), true); }
@@ -364,14 +355,12 @@ fn perf_hooks_expose_performance_and_loop_delay() {
         eq(new Box(7).v, 7); eq(timed.count, 3);
         code(() => ph.timerify('nope'), 'ERR_INVALID_ARG_TYPE');
         // An enabled monitor left running must not keep the process alive: finishing is the check.
-        ph.monitorEventLoopDelay({ resolution: 60000 }).enable();"#,
-    ));
+        ph.monitorEventLoopDelay({ resolution: 60000 }).enable();"#));
 }
 
 #[test]
 fn module_lists_builtins_and_refuses_register() {
-    assert_ok(run(
-        r#"const mod = req('module');
+    assert_ok(run(r#"const mod = req('module');
         eq(mod.isBuiltin('node:fs'), true); eq(mod.isBuiltin('fs/promises'), true); eq(mod.isBuiltin('zlib'), true);
         eq(mod.isBuiltin('node:nope'), false); eq(mod.isBuiltin(3), false);
         for (const name of ['os', 'timers/promises', 'querystring', 'zlib', 'perf_hooks', 'module', 'path']) {
@@ -382,8 +371,7 @@ fn module_lists_builtins_and_refuses_register() {
         eq(e.message.includes('register'), true);
         code(() => mod.createRequire('relative/path.js'), 'ERR_INVALID_ARG_VALUE');
         // Without the CommonJS loader there is nothing to build a require from: a clear error.
-        code(() => mod.createRequire('/tmp/x.js'), 'ERR_VELYR_UNSUPPORTED');"#,
-    ));
+        code(() => mod.createRequire('/tmp/x.js'), 'ERR_VELYR_UNSUPPORTED');"#));
 }
 
 #[test]
@@ -394,7 +382,11 @@ fn create_require_works_from_esm() {
         std::fs::canonicalize(work.path()).unwrap(),
         std::fs::canonicalize(facades.path()).unwrap(),
     );
-    std::fs::write(work.join("dep.cjs"), "module.exports = { answer: 42, here: __filename };").unwrap();
+    std::fs::write(
+        work.join("dep.cjs"),
+        "module.exports = { answer: 42, here: __filename };",
+    )
+    .unwrap();
     std::fs::write(
         work.join("main.mjs"),
         r#"import { createRequire, builtinModules, isBuiltin } from 'node:module';
@@ -413,8 +405,12 @@ if (gunzipSync(gzipSync('esm')).toString() !== 'esm' || parse('a=1').a !== '1') 
     .unwrap();
     let resolver = NodeBuiltinResolver::new(Arc::new(FsResolver), &facades).unwrap();
     let capabilities = CapabilitySet::builder()
-        .allow(Capability::ImportLocal(PathPattern::new(work.to_str().unwrap())))
-        .allow(Capability::ImportLocal(PathPattern::new(resolver.facade_dir().to_str().unwrap())))
+        .allow(Capability::ImportLocal(PathPattern::new(
+            work.to_str().unwrap(),
+        )))
+        .allow(Capability::ImportLocal(PathPattern::new(
+            resolver.facade_dir().to_str().unwrap(),
+        )))
         .build();
     let config = RuntimeConfig {
         capabilities: Some(capabilities.clone()),

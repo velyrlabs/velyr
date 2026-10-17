@@ -21,12 +21,15 @@ fn script(dir: &tempfile::TempDir, name: &str, text: &str) -> std::path::PathBuf
     path
 }
 
-const EVAL_PROBE: &str = r#"try { console.log(eval("1 + 1")); } catch (e) { console.log(e.name); }"#;
+const EVAL_PROBE: &str =
+    r#"try { console.log(eval("1 + 1")); } catch (e) { console.log(e.name); }"#;
 
 #[test]
 fn code_generation_from_strings_is_allowed_by_default() {
     let dir = tempfile::tempdir().unwrap();
-    run(&[], &script(&dir, "eval.js", EVAL_PROBE)).success().stdout("2\n");
+    run(&[], &script(&dir, "eval.js", EVAL_PROBE))
+        .success()
+        .stdout("2\n");
 }
 
 #[test]
@@ -48,7 +51,9 @@ fn frozen_intrinsics_blocks_prototype_mutation() {
 try { Object.prototype.polluted = 1; console.log("mutated"); } catch (e) { console.log(e.name); }"#,
     );
     run(&[], &file).success().stdout("mutated\n");
-    run(&["--frozen-intrinsics"], &file).success().stdout("TypeError\n");
+    run(&["--frozen-intrinsics"], &file)
+        .success()
+        .stdout("TypeError\n");
 }
 
 #[test]

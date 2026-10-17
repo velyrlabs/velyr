@@ -102,7 +102,9 @@ fn zip_keyed_builds_null_prototype_objects() {
 #[test]
 fn zip_keyed_longest_pads_by_key() {
     assert_eq!(
-        run("JSON.stringify(Iterator.zipKeyed({a:[1,2],b:[3]},{mode:'longest',padding:{b:7}}).toArray())"),
+        run(
+            "JSON.stringify(Iterator.zipKeyed({a:[1,2],b:[3]},{mode:'longest',padding:{b:7}}).toArray())"
+        ),
         r#"[{"a":1,"b":3},{"a":2,"b":7}]"#
     );
 }

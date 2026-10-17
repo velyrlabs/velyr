@@ -172,7 +172,12 @@ fn readline_and_vm_are_registered_builtins() {
 #[test]
 fn readline_and_vm_export_lists_match_the_modules() {
     for name in ["readline", "readline/promises", "vm"] {
-        let mut listed: Vec<&str> = BUILTINS.iter().find(|b| b.name == name).unwrap().exports.to_vec();
+        let mut listed: Vec<&str> = BUILTINS
+            .iter()
+            .find(|b| b.name == name)
+            .unwrap()
+            .exports
+            .to_vec();
         listed.sort_unstable();
         script(&format!(
             "eq(Object.keys(req({name:?})).sort().join(','), {:?}, {name:?});",

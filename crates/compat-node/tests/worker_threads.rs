@@ -30,8 +30,14 @@ fn run(fx: &Fixture, body: &str) -> Vec<String> {
 #[test]
 fn raw_web_worker_round_trips_in_the_harness() {
     let fx = Fixture::new();
-    fx.write("echo.mjs", "self.onmessage = (e) => self.postMessage('esm ' + e.data);");
-    fx.write("echo.cjs", "self.onmessage = (e) => self.postMessage('cjs ' + e.data);");
+    fx.write(
+        "echo.mjs",
+        "self.onmessage = (e) => self.postMessage('esm ' + e.data);",
+    );
+    fx.write(
+        "echo.cjs",
+        "self.onmessage = (e) => self.postMessage('cjs ' + e.data);",
+    );
     // No node:worker_threads here: this proves the harness before the module exists.
     fx.write(
         "main.mjs",
@@ -212,7 +218,12 @@ fn a_heap_limit_ends_the_worker_with_out_of_memory_and_the_parent_goes_on() {
     );
     assert_eq!(
         log,
-        ["limit 16", "error ERR_WORKER_OUT_OF_MEMORY", "exit 1", "alive"]
+        [
+            "limit 16",
+            "error ERR_WORKER_OUT_OF_MEMORY",
+            "exit 1",
+            "alive"
+        ]
     );
 }
 

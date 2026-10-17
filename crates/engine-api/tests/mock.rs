@@ -691,10 +691,14 @@ fn errors_convert_to_velyr_error() {
 
 #[test]
 fn continuation_context_is_unsupported_unless_an_engine_opts_in() {
-    assert!(!MockEngine
-        .features()
-        .contains(EngineFeatures::CONTINUATION_CONTEXT));
-    let mut iso = MockEngine.create_isolate(IsolateOptions::default()).unwrap();
+    assert!(
+        !MockEngine
+            .features()
+            .contains(EngineFeatures::CONTINUATION_CONTEXT)
+    );
+    let mut iso = MockEngine
+        .create_isolate(IsolateOptions::default())
+        .unwrap();
     iso.set_continuation_context(Value::Number(1.0));
     assert_eq!(iso.get_continuation_context(), Value::Undefined);
 }

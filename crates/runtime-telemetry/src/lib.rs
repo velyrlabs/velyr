@@ -48,7 +48,11 @@ pub fn init_otlp(endpoint: &str, service_name: &str) -> Result<(), TelemetryErro
         .map_err(|e| TelemetryError::Exporter(e.to_string()))?;
     let provider = SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
-        .with_resource(Resource::builder().with_service_name(service_name.to_owned()).build())
+        .with_resource(
+            Resource::builder()
+                .with_service_name(service_name.to_owned())
+                .build(),
+        )
         .build();
     install(provider);
     Ok(())
@@ -68,7 +72,11 @@ pub fn shutdown() {
     if let Some(provider) = PROVIDER.lock().expect("provider slot").take() {
         let _ = provider.shutdown();
     }
-    if let Some(provider) = metrics::METER_PROVIDER.lock().expect("meter provider slot").take() {
+    if let Some(provider) = metrics::METER_PROVIDER
+        .lock()
+        .expect("meter provider slot")
+        .take()
+    {
         let _ = provider.shutdown();
     }
 }
@@ -113,7 +121,10 @@ impl ActiveSpan {
     /// Records the HTTP status without ending the span (a streamed body is still going out).
     pub fn record_status(&self, status: u16, error_from: u16) {
         let span = self.0.span();
-        span.set_attribute(KeyValue::new("http.response.status_code", i64::from(status)));
+        span.set_attribute(KeyValue::new(
+            "http.response.status_code",
+            i64::from(status),
+        ));
         if status >= error_from {
             span.set_status(Status::error(""));
         }
@@ -138,7 +149,10 @@ pub fn server_span(method: &str, target: &str, headers: &[(String, String)]) -> 
     let parent = TraceContextPropagator::new().extract(&HeaderList(headers));
     let attributes = vec![
         KeyValue::new("http.request.method", method.to_owned()),
-        KeyValue::new("url.path", target.split(['?', '#']).next().unwrap_or("").to_owned()),
+        KeyValue::new(
+            "url.path",
+            target.split(['?', '#']).next().unwrap_or("").to_owned(),
+        ),
     ];
     Some(start(method, SpanKind::Server, attributes, &parent))
 }
@@ -200,7 +214,10 @@ struct HeaderList<'a>(&'a [(String, String)]);
 
 impl Extractor for HeaderList<'_> {
     fn get(&self, key: &str) -> Option<&str> {
-        self.0.iter().find(|(name, _)| name.eq_ignore_ascii_case(key)).map(|(_, v)| v.as_str())
+        self.0
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(key))
+            .map(|(_, v)| v.as_str())
     }
 
     fn keys(&self) -> Vec<&str> {
@@ -223,13 +240,22 @@ mod tests {
 
     #[test]
     fn redacts_credentials_and_query() {
-        assert_eq!(redact_url("https://u:p@host:8/a/b?token=1#x"), "https://host:8/a/b");
+        assert_eq!(
+            redact_url("https://u:p@host:8/a/b?token=1#x"),
+            "https://host:8/a/b"
+        );
         assert_eq!(redact_url("http://host"), "http://host");
     }
 
     #[test]
     fn appends_traces_path_once() {
-        assert_eq!(signal_url("http://c:4318/", TRACES_PATH), "http://c:4318/v1/traces");
-        assert_eq!(signal_url("http://c:4318/v1/traces", TRACES_PATH), "http://c:4318/v1/traces");
+        assert_eq!(
+            signal_url("http://c:4318/", TRACES_PATH),
+            "http://c:4318/v1/traces"
+        );
+        assert_eq!(
+            signal_url("http://c:4318/v1/traces", TRACES_PATH),
+            "http://c:4318/v1/traces"
+        );
     }
 }

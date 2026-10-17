@@ -359,8 +359,16 @@ fn external_ascii_source_matches_copied_source() {
     let mut iso = isolate();
     let cases = [
         ("ascii", "globalThis.ascii_x = 'abc'.length + 1;", true),
-        ("latin1", "globalThis.latin1_x = 'a\u{e7}\u{e3}o'.length;", false),
-        ("utf8", "globalThis.utf8_x = '\u{1f600}\u{4e2d}'.length;", false),
+        (
+            "latin1",
+            "globalThis.latin1_x = 'a\u{e7}\u{e3}o'.length;",
+            false,
+        ),
+        (
+            "utf8",
+            "globalThis.utf8_x = '\u{1f600}\u{4e2d}'.length;",
+            false,
+        ),
     ];
     for (key, text, expect_external) in cases {
         let shared: Arc<str> = Arc::from(text);
@@ -373,7 +381,11 @@ fn external_ascii_source_matches_copied_source() {
             .expect("instantiate");
         iso.evaluate_module(module).expect("evaluate");
         let from_shared = global(&mut iso, &format!("{key}_x"));
-        run(&mut iso, &src(&format!("{key}-copy.js"), text), &mut MapHook::default());
+        run(
+            &mut iso,
+            &src(&format!("{key}-copy.js"), text),
+            &mut MapHook::default(),
+        );
         assert_eq!(global(&mut iso, &format!("{key}_x")), from_shared, "{key}");
     }
     assert_eq!(global(&mut iso, "ascii_x"), Value::Number(4.0));
@@ -389,7 +401,8 @@ fn external_source_outlives_module_graph() {
         .compile_module_shared(&shared_src("a.js", &entry), None)
         .expect("compile");
     let mut hook = SharedHook(HashMap::from([("b.js".to_owned(), dep)]));
-    iso.instantiate_module(module, &mut hook).expect("instantiate");
+    iso.instantiate_module(module, &mut hook)
+        .expect("instantiate");
     drop((entry, hook));
     iso.request_gc(GcReason::Explicit);
     let promise = iso.evaluate_module(module).expect("evaluate");

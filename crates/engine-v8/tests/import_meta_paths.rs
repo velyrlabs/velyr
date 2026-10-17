@@ -9,7 +9,9 @@ struct NoImports;
 
 impl ModuleResolveHook for NoImports {
     fn resolve(&mut self, specifier: &str, _referrer: &str) -> Result<Source, HostError> {
-        Err(HostError::TypeError(format!("unexpected import `{specifier}`")))
+        Err(HostError::TypeError(format!(
+            "unexpected import `{specifier}`"
+        )))
     }
 }
 
@@ -27,7 +29,8 @@ fn run_probe(name: &str) -> Value {
             .into(),
     };
     let module = iso.compile_module(&source).expect("compile");
-    iso.instantiate_module(module, &mut NoImports).expect("link");
+    iso.instantiate_module(module, &mut NoImports)
+        .expect("link");
     iso.evaluate_module(module).expect("evaluate");
     iso.eval_script(&Source {
         name: "probe.js".into(),

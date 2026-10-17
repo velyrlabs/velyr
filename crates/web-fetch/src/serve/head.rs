@@ -40,7 +40,8 @@ impl<'a> Head<'a> {
             Slot::Text(self.version),
             host,
             port,
-            self.span_id.map_or(Slot::Null, |id| Slot::Number(id as f64)),
+            self.span_id
+                .map_or(Slot::Null, |id| Slot::Number(id as f64)),
         ];
         for (name, value) in self.headers {
             slots.push(Slot::Text(name));
@@ -67,7 +68,11 @@ pub(super) fn parse_header_blob(blob: &str) -> Result<Vec<(String, String)>, Hos
     if blob.is_empty() {
         return Ok(Vec::new());
     }
-    let fields: Vec<&str> = blob.strip_suffix('\0').unwrap_or(blob).split('\0').collect();
+    let fields: Vec<&str> = blob
+        .strip_suffix('\0')
+        .unwrap_or(blob)
+        .split('\0')
+        .collect();
     if !fields.len().is_multiple_of(2) {
         return Err(type_error("op_serve_respond", 2, "name/value header pairs"));
     }
@@ -98,7 +103,10 @@ mod tests {
 
     #[test]
     fn blob_keeps_an_empty_value() {
-        assert_eq!(parse_header_blob("a\0\0").unwrap(), [("a".into(), "".into())]);
+        assert_eq!(
+            parse_header_blob("a\0\0").unwrap(),
+            [("a".into(), "".into())]
+        );
     }
 
     #[test]

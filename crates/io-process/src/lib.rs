@@ -15,8 +15,8 @@ mod process;
 pub use blocking::{BlockingOutput, run_blocking};
 pub use gate::{GateError, Resolved, authorize_spawn};
 pub use ops::{
-    op_command_close, op_command_close_stdin, op_command_collect, op_command_kill,
-    op_command_read, op_command_spawn, op_command_wait, op_command_write,
+    op_command_close, op_command_close_stdin, op_command_collect, op_command_kill, op_command_read,
+    op_command_spawn, op_command_wait, op_command_write,
 };
 pub use options::{
     INTERNAL_ENV, SHIM_FLAGS_ENV, authorize, parse_options, pin_shim_flags, set_shim_flags,

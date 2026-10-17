@@ -23,7 +23,11 @@ fn export_equals_in_ts_is_a_diagnostic() {
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
     assert!(message.contains("Export assignment"), "{message}");
 
-    let message = transform("import fs = require(\"fs\");\nfs.readFileSync;\n", MediaType::Mts).unwrap_err();
+    let message = transform(
+        "import fs = require(\"fs\");\nfs.readFileSync;\n",
+        MediaType::Mts,
+    )
+    .unwrap_err();
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
 }
 
@@ -36,9 +40,13 @@ fn cts_keeps_export_equals() {
 
 #[test]
 fn cts_erased_type_import_leaves_no_empty_export() {
-    let source = "import type { X } from './x';\nconst v: number = 1;\nexport = { v };\n// export {};\n";
+    let source =
+        "import type { X } from './x';\nconst v: number = 1;\nexport = { v };\n// export {};\n";
     let code = transform(source, MediaType::Cts).unwrap();
-    assert!(!code.lines().any(|line| line.trim() == "export {};"), "{code}");
+    assert!(
+        !code.lines().any(|line| line.trim() == "export {};"),
+        "{code}"
+    );
     assert!(code.contains("// export {};"), "{code}");
 }
 

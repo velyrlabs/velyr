@@ -305,7 +305,11 @@ fn dropping_the_runtime_takes_the_grandchildren_too() {
         .build()
         .unwrap();
     runtime.block_on(async {
-        let process = spawn(&resolve("sh"), &spec("sh", &["-c", "sleep 7202 & wait"], &[])).unwrap();
+        let process = spawn(
+            &resolve("sh"),
+            &spec("sh", &["-c", "sleep 7202 & wait"], &[]),
+        )
+        .unwrap();
         std::mem::forget(process);
     });
     wait_alive(needle);

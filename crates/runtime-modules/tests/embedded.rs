@@ -155,7 +155,11 @@ fn helper_referrer() -> ModuleId {
 #[test]
 fn relative_import_inside_a_helper_resolves_inside_the_table() {
     let resolved = FsResolver
-        .resolve("./typeof.js", &helper_referrer(), &ResolveContext::default())
+        .resolve(
+            "./typeof.js",
+            &helper_referrer(),
+            &ResolveContext::default(),
+        )
         .unwrap();
     assert_eq!(
         resolved.path,

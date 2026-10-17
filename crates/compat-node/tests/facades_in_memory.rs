@@ -43,7 +43,11 @@ fn run(work: &Path, facades: &Path, grants: &[&Path]) -> Result<(), String> {
 fn starting_does_not_write_facade_files() {
     let (work, facades) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let (work, facades) = (canonical(&work), canonical(&facades));
-    std::fs::write(work.join("main.mjs"), "import { join } from 'node:path'; join('a');").unwrap();
+    std::fs::write(
+        work.join("main.mjs"),
+        "import { join } from 'node:path'; join('a');",
+    )
+    .unwrap();
     run(&work, &facades, &[&work]).unwrap();
     assert_eq!(std::fs::read_dir(&facades).unwrap().count(), 0);
 }
@@ -75,7 +79,11 @@ fn embedded_path_needs_no_import_grant() {
     );
     let (work, facades, outside) = (canonical(&work), canonical(&facades), canonical(&outside));
     std::fs::write(outside.join("dep.mjs"), "export const v = 1;").unwrap();
-    std::fs::write(work.join("main.mjs"), "import 'node:path'; import 'node:fs';").unwrap();
+    std::fs::write(
+        work.join("main.mjs"),
+        "import 'node:path'; import 'node:fs';",
+    )
+    .unwrap();
     run(&work, &facades, &[&work]).unwrap();
 
     let dep = outside.join("dep.mjs");
@@ -84,7 +92,10 @@ fn embedded_path_needs_no_import_grant() {
         format!("import 'node:path'; import {:?};", dep.to_str().unwrap()),
     )
     .unwrap();
-    assert!(run(&work, &facades, &[&work]).is_err(), "file outside the grant must still fail");
+    assert!(
+        run(&work, &facades, &[&work]).is_err(),
+        "file outside the grant must still fail"
+    );
 }
 
 #[test]

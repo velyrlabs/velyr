@@ -76,7 +76,9 @@ fn unicode_minus_sign_is_rejected_in_dates_and_times() {
 fn round_increment_must_divide_the_unit_evenly() {
     expect_throws(
         "RangeError",
-        &["Temporal.PlainDateTime.from({year:2020,month:1,day:1}).round({smallestUnit:'hour',roundingIncrement:5})"],
+        &[
+            "Temporal.PlainDateTime.from({year:2020,month:1,day:1}).round({smallestUnit:'hour',roundingIncrement:5})",
+        ],
     );
 }
 
@@ -123,7 +125,10 @@ fn constructors_accept_only_calendar_ids_and_spec_lengths() {
             "[Temporal.PlainDate.length, Temporal.PlainTime.length, Temporal.PlainDateTime.length].join()",
             "3,0,3",
         ),
-        ("new Temporal.PlainDate(2000, 5, 2, 'ISO8601').toString()", "2000-05-02"),
+        (
+            "new Temporal.PlainDate(2000, 5, 2, 'ISO8601').toString()",
+            "2000-05-02",
+        ),
         (
             "Temporal.PlainDate.from('2020-01-01').withCalendar('2020-01-01T00:00').toString()",
             "2020-01-01",
@@ -142,7 +147,10 @@ fn plain_date_time_gains_with_plain_time_and_days_in_week() {
             "Temporal.PlainDateTime.from('2020-01-01T10:00').withPlainTime('12:30').toString()",
             "2020-01-01T12:30:00",
         ),
-        ("String(Temporal.PlainDate.from('2020-01-01').daysInWeek)", "7"),
+        (
+            "String(Temporal.PlainDate.from('2020-01-01').daysInWeek)",
+            "7",
+        ),
     ]);
 }
 

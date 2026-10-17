@@ -97,7 +97,10 @@ fn use_validates_its_argument() {
           try { s.use(v); out.push('none'); } catch (e) { out.push(e.constructor.name); }
         }
         out.push(String(s.use(null)), String(s.use(undefined))); out.join()";
-    assert_eq!(sync(source), "TypeError,TypeError,TypeError,TypeError,null,undefined");
+    assert_eq!(
+        sync(source),
+        "TypeError,TypeError,TypeError,TypeError,null,undefined"
+    );
 }
 
 #[test]

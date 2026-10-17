@@ -14,9 +14,9 @@
 //! text; upgrade by stamping before the read if that ever matters.
 
 use std::collections::HashMap;
-use std::time::SystemTime;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::time::SystemTime;
 
 use crate::{ModuleId, ModuleSource};
 
@@ -225,7 +225,9 @@ mod tests {
         let dir = dir.canonicalize().unwrap();
         LoadContext {
             permissions: CapabilitySet::builder()
-                .allow(Capability::ImportLocal(PathPattern::new(dir.to_string_lossy())))
+                .allow(Capability::ImportLocal(PathPattern::new(
+                    dir.to_string_lossy(),
+                )))
                 .build(),
         }
     }

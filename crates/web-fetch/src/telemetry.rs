@@ -18,8 +18,12 @@ const MAX_OPEN_SPANS: usize = 10_000;
 /// Spans scripts can name by id: the ones they opened, and the server span of each request being
 /// handled. Process-wide because a request is dropped on a network thread, not the isolate's.
 #[cfg(feature = "telemetry")]
-static OPEN: std::sync::LazyLock<std::sync::Mutex<(u64, std::collections::HashMap<u64, velyr_runtime_telemetry::ActiveSpan>)>> =
-    std::sync::LazyLock::new(Default::default);
+static OPEN: std::sync::LazyLock<
+    std::sync::Mutex<(
+        u64,
+        std::collections::HashMap<u64, velyr_runtime_telemetry::ActiveSpan>,
+    )>,
+> = std::sync::LazyLock::new(Default::default);
 
 /// Makes `span` addressable; `None` when too many are open.
 #[cfg(feature = "telemetry")]

@@ -61,8 +61,10 @@ fn windows_slides_and_honors_undersized() {
 #[test]
 fn includes_uses_same_value_zero_and_skips() {
     assert_eq!(
-        run("[[1,2,3].values().includes(2), [1,2,3].values().includes(1, 1), \
-             [NaN].values().includes(NaN), [-0].values().includes(0)].join()"),
+        run(
+            "[[1,2,3].values().includes(2), [1,2,3].values().includes(1, 1), \
+             [NaN].values().includes(NaN), [-0].values().includes(0)].join()"
+        ),
         "true,false,true,true"
     );
     assert_eq!(
@@ -91,9 +93,11 @@ fn join_stringifies_and_defaults_the_separator() {
 #[test]
 fn join_closes_when_a_value_cannot_be_stringified() {
     assert_eq!(
-        run("let closed = false; const it = { next() { return { done: false, value: Symbol() }; }, \
+        run(
+            "let closed = false; const it = { next() { return { done: false, value: Symbol() }; }, \
              return() { closed = true; return {}; } }; \
-             try { Iterator.prototype.join.call(it); } catch (e) { e.constructor.name + ':' + closed }"),
+             try { Iterator.prototype.join.call(it); } catch (e) { e.constructor.name + ':' + closed }"
+        ),
         "TypeError:true"
     );
 }
@@ -101,7 +105,9 @@ fn join_closes_when_a_value_cannot_be_stringified() {
 #[test]
 fn new_methods_have_length_one() {
     assert_eq!(
-        run("['chunks','windows','includes','join'].map((n) => Iterator.prototype[n].length).join()"),
+        run(
+            "['chunks','windows','includes','join'].map((n) => Iterator.prototype[n].length).join()"
+        ),
         "1,1,1,1"
     );
 }
@@ -109,8 +115,10 @@ fn new_methods_have_length_one() {
 #[test]
 fn invalid_take_limit_closes_the_underlying_iterator() {
     assert_eq!(
-        run("let closed = false; const it = { next() { throw 1; }, return() { closed = true; return {}; } }; \
-             try { Iterator.prototype.take.call(it, -1); } catch (e) { e.constructor.name + ':' + closed }"),
+        run(
+            "let closed = false; const it = { next() { throw 1; }, return() { closed = true; return {}; } }; \
+             try { Iterator.prototype.take.call(it, -1); } catch (e) { e.constructor.name + ':' + closed }"
+        ),
         "RangeError:true"
     );
 }
@@ -118,10 +126,12 @@ fn invalid_take_limit_closes_the_underlying_iterator() {
 #[test]
 fn argument_validation_does_not_coerce_the_bad_argument() {
     assert_eq!(
-        run("const log = []; const bad = { valueOf() { log.push('valueOf'); return () => {}; } }; \
+        run(
+            "const log = []; const bad = { valueOf() { log.push('valueOf'); return () => {}; } }; \
              try { Iterator.prototype.map.call({ next() {} }, bad); } catch (e) { log.push(e.constructor.name); } \
              try { [].values().take(Number.MAX_SAFE_INTEGER + 1); } catch (e) { log.push(e.constructor.name); } \
-             log.join()"),
+             log.join()"
+        ),
         "TypeError,RangeError"
     );
 }

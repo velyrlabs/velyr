@@ -25,14 +25,12 @@ fn default_high_water_marks_follow_node() {
 
 #[test]
 fn one_mib_pipeline_copies_identical_bytes() {
-    assert_ok(run(
-        r#"const src = Buffer.alloc(1 << 20);
+    assert_ok(run(r#"const src = Buffer.alloc(1 << 20);
         for (let i = 0; i < src.length; i++) src[i] = (i * 31 + 7) & 0xff;
         const chunks = [];
         const sink = new Writable({ write(c, _e, cb) { chunks.push(c); cb(); } });
         await new Promise((resolve, reject) =>
           pipeline(Readable.from([src.subarray(0, 300000), src.subarray(300000)]), new PassThrough(), sink,
             (e) => (e ? reject(e) : resolve())));
-        same(Buffer.concat(chunks).equals(src), true);"#,
-    ));
+        same(Buffer.concat(chunks).equals(src), true);"#));
 }

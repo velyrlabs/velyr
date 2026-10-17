@@ -384,7 +384,12 @@ fn op_serve_accept(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, H
 /// laid out as documented in `head.rs`. Over quota the client gets a 503 and the head is `[null]`.
 fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let server = server_arg(ctx, args, "op_serve_take")?;
-    let batch: Vec<Incoming> = server.parked.lock().expect("parked queue").drain(..).collect();
+    let batch: Vec<Incoming> = server
+        .parked
+        .lock()
+        .expect("parked queue")
+        .drain(..)
+        .collect();
     if batch.is_empty() {
         return Err(VelyrError::new(ErrorCode::InvalidData, "no request is waiting").into());
     }

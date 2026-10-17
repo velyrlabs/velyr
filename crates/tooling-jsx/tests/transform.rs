@@ -37,18 +37,36 @@ fn classic_runtime_uses_factory_and_fragment_options() {
         &serde_json::json!({"jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Frag"}),
     )
     .unwrap();
-    let code = run(config, "/m.jsx", "export const a = <><b/></>;\n", MediaType::JavaScript);
-    assert!(code.contains("h(Frag, null, /* @__PURE__ */ h(\"b\", null))"), "{code}");
+    let code = run(
+        config,
+        "/m.jsx",
+        "export const a = <><b/></>;\n",
+        MediaType::JavaScript,
+    );
+    assert!(
+        code.contains("h(Frag, null, /* @__PURE__ */ h(\"b\", null))"),
+        "{code}"
+    );
     assert!(!code.contains("jsx-runtime"), "{code}");
 }
 
 #[test]
 fn pragmas_override_config_per_file() {
     let classic = "/** @jsx h */\nexport const a = <b/>;\n";
-    let code = run(JsxConfig::default(), "/m.jsx", &format!("/** @jsxRuntime classic */\n{classic}"), MediaType::JavaScript);
+    let code = run(
+        JsxConfig::default(),
+        "/m.jsx",
+        &format!("/** @jsxRuntime classic */\n{classic}"),
+        MediaType::JavaScript,
+    );
     assert!(code.contains("h(\"b\", null)"), "{code}");
     let source = "/** @jsxImportSource solid */\nexport const a = <b/>;\n";
-    let code = run(JsxConfig::default(), "/m.jsx", source, MediaType::JavaScript);
+    let code = run(
+        JsxConfig::default(),
+        "/m.jsx",
+        source,
+        MediaType::JavaScript,
+    );
     assert!(code.contains("solid/jsx-runtime"), "{code}");
 }
 
@@ -63,7 +81,15 @@ fn tsx_strips_types_and_transforms_jsx_in_one_pass() {
 #[test]
 fn plain_javascript_is_left_alone() {
     let source = "export const a = 1;\n";
-    assert_eq!(run(JsxConfig::default(), "/m.mjs", source, MediaType::JavaScript), source);
+    assert_eq!(
+        run(
+            JsxConfig::default(),
+            "/m.mjs",
+            source,
+            MediaType::JavaScript
+        ),
+        source
+    );
 }
 
 #[test]
@@ -100,5 +126,8 @@ fn velyr_json_wins_and_tsconfig_fills_the_gaps() {
 #[test]
 fn no_config_files_means_defaults() {
     let dir = tempfile::tempdir().unwrap();
-    assert_eq!(JsxConfig::discover(dir.path()).unwrap(), JsxConfig::default());
+    assert_eq!(
+        JsxConfig::discover(dir.path()).unwrap(),
+        JsxConfig::default()
+    );
 }

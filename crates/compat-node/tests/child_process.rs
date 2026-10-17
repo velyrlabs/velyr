@@ -489,7 +489,9 @@ fn an_unrefd_child_with_unrefd_stdio_does_not_keep_the_script_alive() {
     let started = Instant::now();
     assert_eq!(run_in_thread(&["sleep"], body, None), "ok");
     assert!(started.elapsed() < Duration::from_secs(20));
-    let _ = std::process::Command::new("/usr/bin/pkill").args(["-f", needle]).status();
+    let _ = std::process::Command::new("/usr/bin/pkill")
+        .args(["-f", needle])
+        .status();
 }
 
 #[test]
@@ -497,5 +499,8 @@ fn a_child_that_is_not_unrefd_keeps_the_script_alive_until_it_exits() {
     let body = "const child = cp.spawn('sleep', ['1']); child.ref(); child.stdout.ref();";
     let started = Instant::now();
     assert_eq!(run_in_thread(&["sleep"], body, None), "ok");
-    assert!(started.elapsed() >= Duration::from_millis(900), "the loop did not wait for the child");
+    assert!(
+        started.elapsed() >= Duration::from_millis(900),
+        "the loop did not wait for the child"
+    );
 }

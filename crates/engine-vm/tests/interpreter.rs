@@ -263,8 +263,18 @@ fn bigint_constants_parse_decimal_digits() {
 
 #[test]
 fn template_objects_are_frozen() {
-    assert_eq!(run("function t(s) { return s; } var s = t`a${1}b`; Object.isFrozen(s) && Object.isFrozen(s.raw)"), "true");
-    assert_eq!(run("'use strict'; function t(s) { return s; } try { t`a`[0] = 1; 'no' } catch (e) { e.constructor.name }"), "TypeError");
+    assert_eq!(
+        run(
+            "function t(s) { return s; } var s = t`a${1}b`; Object.isFrozen(s) && Object.isFrozen(s.raw)"
+        ),
+        "true"
+    );
+    assert_eq!(
+        run(
+            "'use strict'; function t(s) { return s; } try { t`a`[0] = 1; 'no' } catch (e) { e.constructor.name }"
+        ),
+        "TypeError"
+    );
 }
 
 /// A script that declares Annex B global `f`, then runs `InitializeAnnexBGlobal` with 7.
@@ -306,5 +316,8 @@ fn annex_b_global_yields_to_lexical_declaration() {
     assert_eq!(run_in(&mut vm, "let f = 1;"), "undefined");
     vm.run_script(&annex_b_script()).unwrap();
     assert_eq!(run_in(&mut vm, "f"), "1");
-    assert_eq!(run_in(&mut vm, "Object.getOwnPropertyDescriptor(globalThis, 'f')"), "undefined");
+    assert_eq!(
+        run_in(&mut vm, "Object.getOwnPropertyDescriptor(globalThis, 'f')"),
+        "undefined"
+    );
 }

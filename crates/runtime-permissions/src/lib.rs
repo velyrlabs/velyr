@@ -96,9 +96,17 @@ impl<'a> SpawnIdentity<'a> {
             .collect();
         let names = bare
             .into_iter()
-            .chain(paths.iter().filter_map(|p| Path::new(p).file_name()?.to_str()))
+            .chain(
+                paths
+                    .iter()
+                    .filter_map(|p| Path::new(p).file_name()?.to_str()),
+            )
             .map(path::fold)
-            .chain(canonical.iter().filter_map(|p| p.file_name().map(str::to_owned)))
+            .chain(
+                canonical
+                    .iter()
+                    .filter_map(|p| p.file_name().map(str::to_owned)),
+            )
             .collect();
         Self {
             raw: bare.into_iter().chain(paths.iter().copied()).collect(),
@@ -344,7 +352,10 @@ impl CapabilitySet {
     pub fn check_spawn(&self, name: &str, paths: &[&str]) -> Decision {
         let denied = Decision::denied("process-spawn");
         if !self.bounds.is_empty() {
-            let allowed = self.bounds.iter().all(|b| b.check_spawn(name, paths).is_allow());
+            let allowed = self
+                .bounds
+                .iter()
+                .all(|b| b.check_spawn(name, paths).is_allow());
             return if allowed { Decision::Allow } else { denied };
         }
         let spawn = SpawnIdentity::new(name, paths, self.base.as_deref());
@@ -518,7 +529,10 @@ mod tests {
     #[test]
     fn deny_by_name_also_matches_basename_of_any_path_identity() {
         let set = deny_spawn("*", "sudo");
-        assert!(!set.check_spawn("/usr/bin/sudo", &["/usr/bin/sudo"]).is_allow());
+        assert!(
+            !set.check_spawn("/usr/bin/sudo", &["/usr/bin/sudo"])
+                .is_allow()
+        );
         assert!(!set.check_spawn("./sudo", &["/tmp/nowhere/sudo"]).is_allow());
         assert!(set.check_spawn("sudoku", &["/usr/bin/sudoku"]).is_allow());
     }

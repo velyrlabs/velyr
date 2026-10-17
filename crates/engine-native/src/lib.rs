@@ -5,13 +5,13 @@
 //! in the VM (`modules/`).
 
 // `compiler.rs` is the bootstrap compiler, so the bytecode compiler lives under `compiler/`.
-#[path = "compiler/bytecode/mod.rs"]
-pub mod bytecode_compiler;
-mod compiler;
 #[path = "builtins/array_from_async.rs"]
 mod array_from_async;
 #[path = "builtins/async_disposable.rs"]
 mod async_disposable;
+#[path = "compiler/bytecode/mod.rs"]
+pub mod bytecode_compiler;
+mod compiler;
 #[path = "builtins/date.rs"]
 mod date;
 #[path = "builtins/disposable.rs"]
@@ -21,12 +21,12 @@ mod intl;
 mod isolate;
 #[path = "builtins/iterator_helpers.rs"]
 pub mod iterator_helpers;
+mod modules;
+mod number;
 #[path = "builtins/prelude.rs"]
 mod prelude;
 #[path = "builtins/temporal/mod.rs"]
 mod temporal;
-mod modules;
-mod number;
 mod value_bridge;
 mod vm;
 

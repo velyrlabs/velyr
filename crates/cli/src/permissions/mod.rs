@@ -154,7 +154,10 @@ pub fn build(
     if !effective.allow_all {
         // `--allow-all` already warns about everything it grants.
         warnings.extend(run_warning::warning(&effective.allow_run));
-        warnings.extend(run_warning::deny_warning(&effective.allow_run, &effective.deny_run));
+        warnings.extend(run_warning::deny_warning(
+            &effective.allow_run,
+            &effective.deny_run,
+        ));
     }
     if effective.allow_all {
         warnings.push(ALLOW_ALL_WARNING.to_owned());

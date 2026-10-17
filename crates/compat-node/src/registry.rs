@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use velyr_runtime_errors::VelyrError;
-use velyr_runtime_modules::{ModuleHost, ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result};
+use velyr_runtime_modules::{
+    ModuleHost, ModuleId, ModuleResolver, ResolveContext, ResolvedModule, Result,
+};
 
 use crate::registry_tables::FACTORIES;
 pub use crate::registry_tables::{BUILTINS, Builtin};

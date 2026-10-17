@@ -109,7 +109,7 @@ fn run_with_quotas(body: &str, quotas: QuotaConfig) -> (Vec<String>, usize, usiz
             any_port,
         ))
         .build();
-        let mut functions = OpRegistry::builtin().host_functions().to_vec();
+    let mut functions = OpRegistry::builtin().host_functions().to_vec();
     functions.extend(timer_host_functions());
     functions.extend(url_host_functions());
     for def in encoding_host_functions() {
@@ -283,7 +283,8 @@ fn chunks_that_arrive_later_are_not_held_back_or_reordered() {
 
 #[test]
 fn head_fields_survive_the_array_path() {
-    let (log, _) = run(r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req, info) => {
+    let (log, _) = run(
+        r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req, info) => {
              const dup = req.headers.get("x-dup");
              return new Response(`${req.method} ${new URL(req.url).pathname}${new URL(req.url).search} ${dup} ${info.remoteAddr.transport} ${info.remoteAddr.hostname} ${typeof info.remoteAddr.port}`, { headers: [["x-a", "1"], ["x-a", "2"]] });
            });
@@ -291,19 +292,32 @@ fn head_fields_survive_the_array_path() {
              const res = await fetch(`http://127.0.0.1:${server.addr.port}/a%20b?q=%C3%BC`, { method: "PATCH", headers: [["x-dup", "one"], ["x-dup", "two"]], body: "x" });
              record(await res.text());
              record(res.headers.get("x-a"));
-           } finally { await server.shutdown(); }"#);
-    assert_eq!(log, ["PATCH /a%20b?q=%C3%BC one, two tcp 127.0.0.1 number", "1, 2"]);
-    assert_eq!(JSON_TAKES.load(Ordering::SeqCst), 0, "a head still crossed as JSON");
+           } finally { await server.shutdown(); }"#,
+    );
+    assert_eq!(
+        log,
+        [
+            "PATCH /a%20b?q=%C3%BC one, two tcp 127.0.0.1 number",
+            "1, 2"
+        ]
+    );
+    assert_eq!(
+        JSON_TAKES.load(Ordering::SeqCst),
+        0,
+        "a head still crossed as JSON"
+    );
 }
 
 #[test]
 fn a_burst_is_taken_in_few_ops() {
-    let (log, _) = run(r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req) => new Response(new URL(req.url).pathname));
+    let (log, _) = run(
+        r#"const server = Velyr.serve({ hostname: "127.0.0.1", port: 0 }, (req) => new Response(new URL(req.url).pathname));
            try {
              const all = await Promise.all(Array.from({ length: 50 }, (_, i) =>
                fetch(`http://127.0.0.1:${server.addr.port}/${i}`).then((r) => r.text())));
              record(String(all.every((text, i) => text === `/${i}`)));
-           } finally { await server.shutdown(); }"#);
+           } finally { await server.shutdown(); }"#,
+    );
     assert_eq!(log, ["true"]);
     assert!(TAKES.load(Ordering::SeqCst) <= 50);
 }

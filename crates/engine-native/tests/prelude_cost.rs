@@ -4,18 +4,35 @@
 use std::time::Instant;
 
 use velyr_engine_api::{Engine, Isolate, IsolateOptions};
-use velyr_engine_native::{NativeEngine, bytecode_compiler::compile_named_script, iterator_helpers};
+use velyr_engine_native::{
+    NativeEngine, bytecode_compiler::compile_named_script, iterator_helpers,
+};
 use velyr_engine_vm::interpreter::Interpreter;
 
 const ITERATIONS: usize = 200;
 const ROUNDS: usize = 5;
 const PRELUDES: [(&str, &str); 7] = [
-    ("temporal", include_str!("../src/builtins/temporal/prelude.js")),
-    ("temporal_plain", include_str!("../src/builtins/temporal/prelude_plain.js")),
-    ("temporal_zoned", include_str!("../src/builtins/temporal/prelude_zoned.js")),
+    (
+        "temporal",
+        include_str!("../src/builtins/temporal/prelude.js"),
+    ),
+    (
+        "temporal_plain",
+        include_str!("../src/builtins/temporal/prelude_plain.js"),
+    ),
+    (
+        "temporal_zoned",
+        include_str!("../src/builtins/temporal/prelude_zoned.js"),
+    ),
     ("intl", include_str!("../src/builtins/intl/prelude.js")),
-    ("intl_number", include_str!("../src/builtins/intl/prelude_number.js")),
-    ("intl_formats", include_str!("../src/builtins/intl/prelude_formats.js")),
+    (
+        "intl_number",
+        include_str!("../src/builtins/intl/prelude_number.js"),
+    ),
+    (
+        "intl_formats",
+        include_str!("../src/builtins/intl/prelude_formats.js"),
+    ),
     ("iterator_helpers", ""),
 ];
 
@@ -39,7 +56,13 @@ fn mean_ms(mut body: impl FnMut()) -> f64 {
 #[test]
 #[ignore]
 fn prelude_cost() {
-    let full = mean_ms(|| drop(NativeEngine.create_isolate(IsolateOptions::default()).unwrap()));
+    let full = mean_ms(|| {
+        drop(
+            NativeEngine
+                .create_isolate(IsolateOptions::default())
+                .unwrap(),
+        )
+    });
     let bare = mean_ms(|| drop(Interpreter::new()));
     println!("isolate full  : {full:.3} ms (median of {ROUNDS} rounds x {ITERATIONS})");
     println!("isolate bare  : {bare:.3} ms");
@@ -57,7 +80,10 @@ fn prelude_cost() {
     for (name, source) in PRELUDES.iter().filter(|(_, source)| !source.is_empty()) {
         let compile = mean_ms(|| drop(compile_named_script("velyr:p", source).unwrap()));
         compile_total += compile;
-        println!("compile {name:<16}: {compile:.3} ms ({} bytes)", source.len());
+        println!(
+            "compile {name:<16}: {compile:.3} ms ({} bytes)",
+            source.len()
+        );
     }
     println!("compile total (6 preludes): {compile_total:.3} ms");
 
@@ -73,5 +99,9 @@ fn prelude_cost() {
     println!("heap bare            : {bare_heap} B");
     println!("heap + iter helpers  : {helpers_heap} B");
     println!("heap full isolate    : {full_heap} B");
-    println!("heap delta (full-bare): {} B ({} KiB)", full_heap - bare_heap, (full_heap - bare_heap) / 1024);
+    println!(
+        "heap delta (full-bare): {} B ({} KiB)",
+        full_heap - bare_heap,
+        (full_heap - bare_heap) / 1024
+    );
 }

@@ -100,7 +100,11 @@ fn budget_heap_limit(memory_mb: Option<u64>, workers: usize) -> Option<usize> {
 /// Loads `velyr.json`, merges the permission flags and prints the warnings.
 pub fn prepare(file: &Path, flags: Permissions) -> Result<Prepared, String> {
     // A compiled executable's permissions are baked in; a velyr.json next to the cwd is not its own.
-    let loaded = if crate::commands::compile::is_embedded() { None } else { load_config()? };
+    let loaded = if crate::commands::compile::is_embedded() {
+        None
+    } else {
+        load_config()?
+    };
     let cwd = working_dir()?;
     let built =
         permissions::build(flags, loaded.as_ref(), &cwd, file).map_err(|e| e.to_string())?;

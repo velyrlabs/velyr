@@ -11,7 +11,11 @@ fn exporter() -> &'static InMemorySpanExporter {
     static EXPORTER: OnceLock<InMemorySpanExporter> = OnceLock::new();
     EXPORTER.get_or_init(|| {
         let exporter = InMemorySpanExporter::default();
-        telemetry::install(SdkTracerProvider::builder().with_simple_exporter(exporter.clone()).build());
+        telemetry::install(
+            SdkTracerProvider::builder()
+                .with_simple_exporter(exporter.clone())
+                .build(),
+        );
         exporter
     })
 }
@@ -26,13 +30,20 @@ fn finished(path: &str) -> SpanData {
 }
 
 fn header<'a>(headers: &'a [(String, String)], name: &str) -> &'a str {
-    &headers.iter().find(|(n, _)| n == name).expect("header present").1
+    &headers
+        .iter()
+        .find(|(n, _)| n == name)
+        .expect("header present")
+        .1
 }
 
 #[test]
 fn server_span_takes_its_parent_from_traceparent() {
     exporter();
-    let headers = vec![("Traceparent".to_owned(), format!("00-{TRACE_ID}-{PARENT_ID}-01"))];
+    let headers = vec![(
+        "Traceparent".to_owned(),
+        format!("00-{TRACE_ID}-{PARENT_ID}-01"),
+    )];
 
     let span = telemetry::server_span("GET", "/orders?id=1", &headers).unwrap();
     span.finish(200, 500);
@@ -47,7 +58,9 @@ fn server_span_takes_its_parent_from_traceparent() {
 #[test]
 fn server_span_without_traceparent_is_a_root() {
     exporter();
-    telemetry::server_span("POST", "/root", &[]).unwrap().finish(503, 500);
+    telemetry::server_span("POST", "/root", &[])
+        .unwrap()
+        .finish(503, 500);
 
     let data = finished("/root");
     assert_eq!(data.parent_span_id, opentelemetry::trace::SpanId::INVALID);
@@ -59,7 +72,13 @@ fn client_span_injects_traceparent() {
     exporter();
     let mut headers = vec![("accept".to_owned(), "*/*".to_owned())];
 
-    let span = telemetry::client_span("GET", "https://user:pw@api.test/items?key=secret", &mut headers, None).unwrap();
+    let span = telemetry::client_span(
+        "GET",
+        "https://user:pw@api.test/items?key=secret",
+        &mut headers,
+        None,
+    )
+    .unwrap();
     span.finish(404, 400);
 
     let data = finished("https://api.test/items");
@@ -100,7 +119,9 @@ fn client_span_nests_under_its_parent() {
     exporter();
     let parent = telemetry::user_span("fetching-parent", None).unwrap();
     let mut headers = Vec::new();
-    telemetry::client_span("GET", "https://child.test/", &mut headers, Some(&parent)).unwrap().finish(200, 400);
+    telemetry::client_span("GET", "https://child.test/", &mut headers, Some(&parent))
+        .unwrap()
+        .finish(200, 400);
     parent.end();
 
     let (parent, child) = (named("fetching-parent"), finished("https://child.test/"));

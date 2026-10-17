@@ -23,7 +23,8 @@ fn expect_true(cases: &[&str]) {
     }
 }
 
-const THROWS: &str = "(C, f) => { try { f(); } catch (e) { return e instanceof C; } return false; }";
+const THROWS: &str =
+    "(C, f) => { try { f(); } catch (e) { return e instanceof C; } return false; }";
 
 #[test]
 fn formats_styles() {
@@ -63,13 +64,25 @@ fn parts_and_resolved_options() {
 fn rejects_bad_input() {
     let throws = |kind: &str, body: &str| format!("({THROWS})({kind}, () => {{ {body} }})");
     expect_true(&[
-        &throws("RangeError", "new Intl.DurationFormat('en').format({hours:1,minutes:-1})"),
-        &throws("RangeError", "new Intl.DurationFormat('en').format({days:1.5})"),
+        &throws(
+            "RangeError",
+            "new Intl.DurationFormat('en').format({hours:1,minutes:-1})",
+        ),
+        &throws(
+            "RangeError",
+            "new Intl.DurationFormat('en').format({days:1.5})",
+        ),
         &throws("TypeError", "new Intl.DurationFormat('en').format(1)"),
         &throws("TypeError", "new Intl.DurationFormat('en').format({foo:1})"),
         &throws("TypeError", "Intl.DurationFormat('en')"),
         &throws("RangeError", "new Intl.DurationFormat('en', {style:'x'})"),
-        &throws("RangeError", "new Intl.DurationFormat('en', {fractionalDigits:10})"),
-        &throws("RangeError", "new Intl.DurationFormat('en', {hours:'numeric', minutes:'long'})"),
+        &throws(
+            "RangeError",
+            "new Intl.DurationFormat('en', {fractionalDigits:10})",
+        ),
+        &throws(
+            "RangeError",
+            "new Intl.DurationFormat('en', {hours:'numeric', minutes:'long'})",
+        ),
     ]);
 }

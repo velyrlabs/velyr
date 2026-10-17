@@ -127,7 +127,9 @@ fn loop_isolate_forwards_compile_module_shared() {
             name: "file:///shared.mjs".into(),
             text: Arc::clone(&text),
         };
-        isolate.compile_module_shared(&source, None).expect("compile");
+        isolate
+            .compile_module_shared(&source, None)
+            .expect("compile");
         Arc::strong_count(&text)
     });
     // The caller's two clones plus V8's keepalive; the copy default leaves it at 2.
@@ -136,8 +138,7 @@ fn loop_isolate_forwards_compile_module_shared() {
 
 #[test]
 fn loop_isolate_forwards_create_array_buffer_owned() {
-    let dir = std::env::temp_dir()
-        .join(format!("velyr-forwarding-owned-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("velyr-forwarding-owned-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("main.js"), "0").unwrap();
     run_file(

@@ -114,7 +114,10 @@ fn raw_from_comment(
 ) -> Option<Raw> {
     let target = MARKERS
         .iter()
-        .filter_map(|marker| code.rfind(marker).map(|at| (at, &code[at + marker.len()..])))
+        .filter_map(|marker| {
+            code.rfind(marker)
+                .map(|at| (at, &code[at + marker.len()..]))
+        })
         .max_by_key(|(at, _)| *at)?
         .1
         .split_whitespace()
@@ -203,7 +206,8 @@ mod tests {
     fn inline_data_url_map_is_applied_with_one_based_positions() {
         let dir = tempfile::tempdir().unwrap();
         let module = module(dir.path());
-        let code = format!("a;\nb;\n//# sourceMappingURL=data:application/json;base64,{MAP_BASE64}\n");
+        let code =
+            format!("a;\nb;\n//# sourceMappingURL=data:application/json;base64,{MAP_BASE64}\n");
         let maps = SourceMaps::default();
         maps.register(&module, &code, None, &allow(dir.path()));
         assert_eq!(map_at(&maps, &module, 2), Some(("orig.ts".into(), 2, 1)));
