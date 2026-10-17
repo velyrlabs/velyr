@@ -47,27 +47,53 @@ fn read(path: &Path) -> Result<Vec<u8>, String> {
 
 pub(super) struct Graph {
     root: PathBuf,
+    allow_outside_root: bool,
     resolver: ModuleResolverHandle,
     pub files: BTreeMap<String, Vec<u8>>,
     pub edges: BTreeMap<String, String>,
 }
 
 impl Graph {
-    pub fn new(root: PathBuf) -> Self {
-        // The build reads every file it embeds, so the project wrapper may read any of them.
-        let fs_root = root.ancestors().last().unwrap_or(&root).to_string_lossy();
-        let permissions = CapabilitySet::builder()
-            .allow(Capability::ImportLocal(PathPattern::new(fs_root)))
-            .build();
+    pub fn new(root: PathBuf, allow_outside_root: bool) -> Self {
+        // The build reads every file it embeds, so the project wrapper may read exactly those.
+        let mut builder = CapabilitySet::builder();
+        for scope in grant_scopes(&root, allow_outside_root) {
+            builder = builder.allow(Capability::ImportLocal(PathPattern::new(
+                scope.to_string_lossy(),
+            )));
+        }
+        let permissions = builder.build();
         let resolver =
             crate::transforms::project_resolver(crate::profiles::module_resolver(), &permissions)
                 .unwrap_or_else(|| Arc::new(FsResolver));
         Self {
             root,
+            allow_outside_root,
             resolver,
             files: BTreeMap::new(),
             edges: BTreeMap::new(),
         }
+    }
+
+    /// Files under the root, or under a `node_modules` of the root or one of its parents; anything
+    /// else only with `--allow-outside-root`.
+    fn is_embeddable(&self, path: &Path) -> bool {
+        let real = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        self.allow_outside_root
+            || grant_scopes(&self.root, false)
+                .iter()
+                .any(|scope| real.starts_with(scope))
+    }
+
+    fn check_embeddable(&self, path: &Path) -> Result<(), String> {
+        if self.is_embeddable(path) {
+            return Ok(());
+        }
+        Err(format!(
+            "error: {} is outside the project root {}; move it under the root or pass --allow-outside-root",
+            path.display(),
+            self.root.display()
+        ))
     }
 
     /// Where `path` lives inside the executable.
@@ -89,6 +115,13 @@ impl Graph {
             let virtual_path = self.virtual_path(&path);
             if self.files.contains_key(&virtual_path) {
                 continue;
+            }
+            self.check_embeddable(&path)?;
+            if !path.starts_with(&self.root) && !is_in_node_modules(&path) {
+                eprintln!(
+                    "warning: embedding {} from outside the project root",
+                    path.display()
+                );
             }
             let bytes = read(&path)?;
             let scanned = match (is_script(&path), std::str::from_utf8(&bytes)) {
@@ -152,6 +185,9 @@ impl Graph {
         for dir in module.ancestors().skip(1) {
             let manifest = dir.join("package.json");
             if manifest.is_file() {
+                if !self.is_embeddable(&manifest) {
+                    break;
+                }
                 let key = self.virtual_path(&manifest);
                 if !self.files.contains_key(&key) {
                     self.files.insert(key, read(&manifest)?);
@@ -207,6 +243,20 @@ fn collect_files(path: &Path, out: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf
             collect_files(&entry.path(), out, seen);
         }
     }
+}
+
+/// The root plus the `node_modules` of the root and of each parent directory.
+fn grant_scopes(root: &Path, allow_outside_root: bool) -> Vec<PathBuf> {
+    if allow_outside_root {
+        return vec![root.ancestors().last().unwrap_or(root).to_path_buf()];
+    }
+    let parents = root.ancestors().map(|dir| dir.join("node_modules"));
+    std::iter::once(root.to_path_buf()).chain(parents).collect()
+}
+
+fn is_in_node_modules(path: &Path) -> bool {
+    path.components()
+        .any(|c| c == std::path::Component::Normal("node_modules".as_ref()))
 }
 
 fn is_script(path: &Path) -> bool {

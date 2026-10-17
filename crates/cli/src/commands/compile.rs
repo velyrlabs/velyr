@@ -37,6 +37,10 @@ pub struct CompileArgs {
     #[arg(long, value_delimiter = ',')]
     include: Vec<String>,
 
+    /// Embed imported files that live outside the entry's folder (other than a `node_modules`).
+    #[arg(long)]
+    allow_outside_root: bool,
+
     /// Target triple; only the host target is supported.
     #[arg(long)]
     target: Option<String>,
@@ -81,7 +85,7 @@ fn build(args: &CompileArgs) -> Result<PathBuf, String> {
         .parent()
         .ok_or("error: the entry has no parent directory")?
         .to_path_buf();
-    let mut graph = Graph::new(root);
+    let mut graph = Graph::new(root, args.allow_outside_root);
     graph.add_module(&entry)?;
     for pattern in &args.include {
         graph.add_assets(pattern)?;
