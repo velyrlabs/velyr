@@ -82,6 +82,10 @@ struct Activity {
     head_since: AtomicU64,
     bytes_read: AtomicU64,
     inflight: AtomicUsize,
+    /// When the oldest request now in flight began (h1: the only one); `NONE` when none is.
+    request_since: AtomicU64,
+    /// Since when a request body has been awaiting its next byte from the peer; `NONE` if not waiting.
+    body_waiting_since: AtomicU64,
 }
 
 enum Verdict {
@@ -100,6 +104,8 @@ impl Activity {
             head_since: AtomicU64::new(NONE),
             bytes_read: AtomicU64::new(0),
             inflight: AtomicUsize::new(0),
+            request_since: AtomicU64::new(NONE),
+            body_waiting_since: AtomicU64::new(NONE),
         }
     }
 
@@ -129,6 +135,10 @@ impl Activity {
         let over = |since: u64, limit: Duration| {
             u128::from(now.saturating_sub(since)) >= limit.as_millis()
         };
+        let since = self.body_waiting_since.load(Ordering::Relaxed);
+        if since != NONE && over(since, limits.body_idle_timeout) {
+            return Verdict::Expired;
+        }
         if h2 {
             let shaking = self.bytes_read.load(Ordering::Relaxed) < H2_HANDSHAKE_BYTES;
             return if shaking && over(0, limits.header_timeout) {
@@ -138,7 +148,12 @@ impl Activity {
             };
         }
         if self.inflight.load(Ordering::Relaxed) > 0 {
-            return Verdict::Keep;
+            let began = self.request_since.load(Ordering::Relaxed);
+            return if began != NONE && over(began, limits.request_timeout) {
+                Verdict::Expired
+            } else {
+                Verdict::Keep
+            };
         }
         match self.head_since.load(Ordering::Relaxed) {
             NONE if over(self.last_io.load(Ordering::Relaxed), limits.idle_timeout) => {
@@ -156,7 +171,11 @@ struct InFlight(Arc<Activity>);
 
 impl InFlight {
     fn begin(activity: &Arc<Activity>) -> Self {
-        activity.inflight.fetch_add(1, Ordering::Relaxed);
+        if activity.inflight.fetch_add(1, Ordering::Relaxed) == 0 {
+            activity
+                .request_since
+                .store(activity.now(), Ordering::Relaxed);
+        }
         activity.head_since.store(NONE, Ordering::Relaxed);
         Self(activity.clone())
     }
@@ -164,8 +183,53 @@ impl InFlight {
 
 impl Drop for InFlight {
     fn drop(&mut self) {
-        self.0.inflight.fetch_sub(1, Ordering::Relaxed);
+        if self.0.inflight.fetch_sub(1, Ordering::Relaxed) == 1 {
+            self.0.request_since.store(NONE, Ordering::Relaxed);
+        }
         self.0.touch();
+    }
+}
+
+/// Request body that tells the [`Activity`] while it waits on the peer for its next frame.
+struct Tracked {
+    inner: Incoming,
+    activity: Arc<Activity>,
+}
+
+impl Tracked {
+    fn stop_waiting(&self) {
+        self.activity
+            .body_waiting_since
+            .store(NONE, Ordering::Relaxed);
+    }
+}
+
+impl http_body::Body for Tracked {
+    type Data = Bytes;
+    type Error = hyper::Error;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<http_body::Frame<Bytes>, hyper::Error>>> {
+        let poll = Pin::new(&mut self.inner).poll_frame(cx);
+        if poll.is_pending() {
+            let _ = self.activity.body_waiting_since.compare_exchange(
+                NONE,
+                self.activity.now(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            );
+        } else {
+            self.stop_waiting();
+        }
+        poll
+    }
+}
+
+impl Drop for Tracked {
+    fn drop(&mut self) {
+        self.stop_waiting();
     }
 }
 
@@ -272,6 +336,10 @@ async fn answer(
     let on_upgrade = hyper::upgrade::on(&mut request);
     let (head, incoming) = request.into_parts();
     let (tx, rx) = body_channel();
+    let incoming = Tracked {
+        inner: incoming,
+        activity: activity.clone(),
+    };
     tokio::spawn(pump(incoming, tx, limits));
     let parts = HttpRequestParts {
         remote_addr: peer,
@@ -323,6 +391,9 @@ fn builder(limits: &Limits) -> auto::Builder<TokioExecutor> {
     builder
         .http2()
         .timer(TokioTimer::new())
+        .max_concurrent_streams(200)
+        .max_pending_accept_reset_streams(20)
+        .max_local_error_reset_streams(1024)
         .max_header_list_size(u32::try_from(limits.max_header_bytes).unwrap_or(u32::MAX))
         .keep_alive_interval(Some(limits.idle_timeout))
         .keep_alive_timeout(limits.idle_timeout);

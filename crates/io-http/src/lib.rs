@@ -36,6 +36,13 @@ pub struct Limits {
     pub header_timeout: Duration,
     /// Idle connection timeout (h2 keep-alive; on h1 the header timeout also bounds idle keep-alive).
     pub idle_timeout: Duration,
+    /// Server: longest a handler may take to produce a response (h1 only); the connection is closed
+    /// past it. Time spent streaming a response counts, so raise it or set `Duration::MAX` to opt
+    /// out for long-lived SSE or long-poll endpoints.
+    pub request_timeout: Duration,
+    /// Server: longest the request body may sit without delivering a byte before the connection is
+    /// closed. Waiting on the handler to consume the body does not count. `Duration::MAX` opts out.
+    pub body_idle_timeout: Duration,
     /// When set, body bytes in flight are reserved against the `body_bytes` quota.
     pub quotas: Option<Arc<QuotaContext>>,
 }
@@ -43,10 +50,12 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_header_bytes: 64 * 1024,
+            max_header_bytes: 16 * 1024,
             max_body_bytes: 16 * 1024 * 1024,
             header_timeout: Duration::from_secs(30),
             idle_timeout: Duration::from_secs(60),
+            request_timeout: Duration::from_secs(300),
+            body_idle_timeout: Duration::from_secs(30),
             quotas: None,
         }
     }

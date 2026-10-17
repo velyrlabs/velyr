@@ -101,6 +101,8 @@ const BIG_HEADER_LIMITS: Limits = Limits {
     max_body_bytes: 16 * 1024 * 1024,
     header_timeout: Duration::from_secs(30),
     idle_timeout: Duration::from_secs(60),
+    request_timeout: Duration::from_secs(300),
+    body_idle_timeout: Duration::from_secs(30),
     quotas: None,
 };
 

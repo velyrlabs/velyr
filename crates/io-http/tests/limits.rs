@@ -1,4 +1,4 @@
-//! HTTP/2 rapid-reset bound (pinned) and the slow-body gap in `Activity::verdict` (RT-06 closes it).
+//! HTTP/2 rapid-reset bound (pinned), slow-body and stalled-handler cuts, and the 16 KiB head cap.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -81,6 +81,8 @@ async fn start(limits: Limits, handler: Handler) -> (u16, CancellationToken) {
 fn short_idle_limits() -> Limits {
     Limits {
         idle_timeout: Duration::from_secs(1),
+        request_timeout: Duration::from_secs(2),
+        body_idle_timeout: Duration::from_secs(1),
         ..Limits::default()
     }
 }
@@ -158,7 +160,6 @@ async fn time_to_cut(mut socket: TcpStream, trickle: bool, within: Duration) -> 
 }
 
 #[tokio::test]
-#[ignore = "RT-06: Activity::verdict returns Keep while a request is in flight"]
 async fn h1_slow_body_is_cut() {
     let (port, _stop) = start(short_idle_limits(), body_reading_handler()).await;
     let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
@@ -176,7 +177,6 @@ async fn h1_slow_body_is_cut() {
 }
 
 #[tokio::test]
-#[ignore = "RT-06: Activity::verdict returns Keep while a request is in flight"]
 async fn stalled_handler_is_cut() {
     let limits = short_idle_limits();
     let budget = limits.idle_timeout + Duration::from_secs(2);
@@ -192,5 +192,25 @@ async fn stalled_handler_is_cut() {
     assert!(
         cut.is_some(),
         "stalled handler kept the connection open past {budget:?}"
+    );
+}
+
+#[tokio::test]
+async fn header_over_16k_gets_431() {
+    let (port, _stop) = start(Limits::default(), ok_handler()).await;
+    let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let head = format!(
+        "GET / HTTP/1.1\r\nhost: x\r\nx-big: {}\r\n\r\n",
+        "a".repeat(17 * 1024)
+    );
+    let _ = socket.write_all(head.as_bytes()).await;
+
+    let mut reply = Vec::new();
+    let _ = tokio::time::timeout(Duration::from_secs(3), socket.read_to_end(&mut reply)).await;
+
+    assert!(
+        reply.starts_with(b"HTTP/1.1 431"),
+        "got {:?}",
+        String::from_utf8_lossy(&reply[..reply.len().min(40)])
     );
 }
