@@ -6,6 +6,7 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use clap::{Parser, Subcommand};
+#[cfg(unix)]
 use nix::sys::resource::{UsageWho, getrusage};
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
@@ -190,11 +191,7 @@ fn run(
     let cpu_total = children_cpu_seconds()? - cpu_before;
     // shortcut: cumulative max over every child of this process (rustc, git, earlier A/B legs),
     // used only where no per-child RSS exists (Linux, server mode); upgrade with wait4 per run.
-    let fallback_rss_mb = max_rss_mb(
-        getrusage(UsageWho::RUSAGE_CHILDREN)
-            .map_err(|e| e.to_string())?
-            .max_rss(),
-    );
+    let fallback_rss_mb = max_rss_mb(children_max_rss()?);
     // Server mode runs a load driver per iteration; it is instrumented only for counters, never just for RSS.
     let wanted: Vec<&str> = COUNTER_METRICS
         .iter()
@@ -420,10 +417,29 @@ fn spawn_once(cmd: &[String]) -> Result<(), String> {
         .ok_or_else(|| format!("`{}` exited with {status}", cmd[0]))
 }
 
+#[cfg(unix)]
 fn children_cpu_seconds() -> Result<f64, String> {
     let usage = getrusage(UsageWho::RUSAGE_CHILDREN).map_err(|e| e.to_string())?;
     let secs = |t: nix::sys::time::TimeVal| t.tv_sec() as f64 + t.tv_usec() as f64 / 1e6;
     Ok(secs(usage.user_time()) + secs(usage.system_time()))
+}
+
+#[cfg(unix)]
+fn children_max_rss() -> Result<i64, String> {
+    Ok(getrusage(UsageWho::RUSAGE_CHILDREN)
+        .map_err(|e| e.to_string())?
+        .max_rss())
+}
+
+// velyr-bench measures children with getrusage, which only exists on unix hosts.
+#[cfg(not(unix))]
+fn children_cpu_seconds() -> Result<f64, String> {
+    Err("velyr-bench requires a unix host".into())
+}
+
+#[cfg(not(unix))]
+fn children_max_rss() -> Result<i64, String> {
+    Err("velyr-bench requires a unix host".into())
 }
 
 /// ru_maxrss is bytes on macOS and KiB elsewhere; it is a high-water mark over all children.

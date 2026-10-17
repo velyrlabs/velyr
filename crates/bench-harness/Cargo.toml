@@ -13,8 +13,10 @@ clap = { workspace = true, features = ["env"] }
 serde.workspace = true
 serde_json.workspace = true
 toml = "0.9"
-nix = { version = "0.30", default-features = false, features = ["resource"] }
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.30", default-features = false, features = ["resource"] }
 
 [dev-dependencies]
 assert_cmd = "2.2"

@@ -260,8 +260,35 @@ fn only_json(dir: &Path) -> serde_json::Value {
     serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()
 }
 
+/// CI VMs often expose no hardware counters; the counter tests skip there instead of failing.
+fn hardware_counters_available() -> bool {
+    let probe = if cfg!(target_os = "macos") {
+        std::process::Command::new("/usr/bin/time")
+            .args(["-l", "true"])
+            .output()
+    } else {
+        std::process::Command::new("perf")
+            .args(["stat", "-x,", "-e", "instructions", "--", "true"])
+            .output()
+    };
+    let Ok(out) = probe else { return false };
+    out.status.success()
+        && String::from_utf8_lossy(&out.stderr).lines().any(|line| {
+            line.contains("instructions")
+                && line
+                    .split([',', ' '])
+                    .find(|t| !t.is_empty())
+                    .and_then(|t| t.parse::<u64>().ok())
+                    .is_some_and(|n| n > 0)
+        })
+}
+
 #[test]
 fn startup_run_records_commit_load_average_and_instructions() {
+    if !hardware_counters_available() {
+        eprintln!("skipped: no hardware performance counters on this host");
+        return;
+    }
     let out = tempdir("startup");
     let bin = assert_cmd::cargo::cargo_bin("velyr-bench");
     bench()
@@ -308,6 +335,10 @@ fn compare_exits_1_when_instructions_regress_5_percent() {
 
 #[test]
 fn ab_runs_both_binaries_in_one_session_and_records_the_base_commit() {
+    if !hardware_counters_available() {
+        eprintln!("skipped: no hardware performance counters on this host");
+        return;
+    }
     let out = tempdir("ab");
     let bin = assert_cmd::cargo::cargo_bin("velyr-bench");
     let run = bench()
