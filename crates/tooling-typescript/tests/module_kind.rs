@@ -23,7 +23,7 @@ fn export_equals_in_ts_is_a_diagnostic() {
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
     assert!(message.contains("Export assignment"), "{message}");
 
-    let message = transform("import fs = require(\"fs\");\n", MediaType::Mts).unwrap_err();
+    let message = transform("import fs = require(\"fs\");\nfs.readFileSync;\n", MediaType::Mts).unwrap_err();
     assert!(message.contains("/virtual/file.ts:1:1"), "{message}");
 }
 

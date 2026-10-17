@@ -9,8 +9,8 @@ use std::thread;
 use std::time::Duration;
 
 use velyr_engine_api::{
-    CallContext, Engine, HostError, HostFunctionDef, Isolate, IsolateOptions, MicrotaskProgress,
-    ModuleResolveHook, PromiseState, Source, Value,
+    CallContext, Engine, HostError, HostFunctionDef, Isolate, IsolateOptions, JsException,
+    MicrotaskProgress, ModuleResolveHook, PromiseState, ResolverId, Source, Value,
 };
 use velyr_runtime_errors::VelyrError;
 
@@ -22,18 +22,17 @@ const ASYNC_COMPLETE: &str = "Test262:AsyncTestComplete";
 const ASYNC_FAILURE: &str = "Test262:AsyncTestFailure:";
 const DEFAULT_INCLUDES: [&str; 2] = ["assert.js", "sta.js"];
 const DONE_INCLUDE: &str = "doneprintHandle.js";
-const PRELUDE: &str = "var $262 = { global: this };";
+// `transfer` is captured before a test can replace it; a detached buffer reports `byteLength` 0.
+const PRELUDE: &str = "var $262 = { global: this, detachArrayBuffer: (function (transfer) { return function (b) { if (!b.detached) transfer.call(b); return null; }; })(ArrayBuffer.prototype.transfer) };";
 const DESCRIBE: &str = "(function (value) { return String(value); })";
 
-/// `$262` capabilities engine-api cannot provide: no eval, gc, realm, agent, buffer-detach or
+/// `$262` capabilities engine-api cannot provide: no eval, gc, realm, agent or
 /// [[IsHTMLDDA]] access from host functions. Tests that use them are skipped, not run against a lie.
-const UNSUPPORTED_HOST_APIS: [&str; 7] = [
+const UNSUPPORTED_HOST_APIS: [&str; 5] = [
     "$262.evalScript",
     "$262.gc",
     "$262.createRealm",
     "$262.agent",
-    "$262.detachArrayBuffer",
-    "detachArrayBuffer.js",
     "$262.IsHTMLDDA",
 ];
 
@@ -106,6 +105,26 @@ thread_local! {
     // One isolate runs at a time per worker thread, and `HostFn` is a plain `fn`, so `print`
     // output goes through a thread-local that each variant clears.
     static PRINTED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    // `import()` requests queued by `op_module_import`: (specifier, referrer, resolver id).
+    static IMPORTS: RefCell<Vec<(String, String, u64)>> = const { RefCell::new(Vec::new()) };
+}
+
+fn import_op(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
+    if let (
+        Some(Value::String(specifier)),
+        Some(Value::String(referrer)),
+        Some(Value::Number(id)),
+    ) = (args.first(), args.get(1), args.get(2))
+    {
+        IMPORTS.with_borrow_mut(|queue| {
+            queue.push((
+                specifier.to_string_lossy(),
+                referrer.to_string_lossy(),
+                *id as u64,
+            ));
+        });
+    }
+    Ok(Value::Undefined)
 }
 
 fn print(_: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
@@ -158,13 +177,20 @@ fn run_variant<E: Engine>(
         Err(err) => return Outcome::Crash(format!("create_isolate: {err}")),
     };
     PRINTED.with_borrow_mut(Vec::clear);
-    let registered = isolate.register_host_function(HostFunctionDef {
-        name: "print",
-        arity: 1,
-        callback: print,
-    });
-    if let Err(err) = registered {
-        return Outcome::Crash(format!("register print: {err}"));
+    IMPORTS.with_borrow_mut(Vec::clear);
+    let hosts = [
+        ("print", print as velyr_engine_api::HostFn),
+        ("op_module_import", import_op),
+    ];
+    for (name, callback) in hosts {
+        let def = HostFunctionDef {
+            name,
+            arity: 1,
+            callback,
+        };
+        if let Err(err) = isolate.register_host_function(def) {
+            return Outcome::Crash(format!("register {name}: {err}"));
+        }
     }
 
     let timed_out = Arc::new(AtomicBool::new(false));
@@ -215,6 +241,7 @@ fn execute<I: Isolate>(
             .eval_script(&Source { name, text })
             .map(drop)
             .map_err(|exception| exception.message)
+            .and_then(|()| serve_imports(isolate))
     };
     // shortcut: `eval_script` fuses parse and run, so `negative.phase` is not enforced (a runtime
     // error of the right type passes a parse-phase test); upgrade when engine-api splits compile from run.
@@ -272,12 +299,85 @@ fn run_module<I: Isolate>(
         .instantiate_module(module, &mut FsHook)
         .map_err(|e| e.message)?;
     let promise = isolate.evaluate_module(module).map_err(|e| e.message)?;
-    drain_microtasks(isolate);
+    serve_imports(isolate)?;
     match isolate.promise_state(&promise) {
         Some(PromiseState::Fulfilled(_)) => Ok(()),
         Some(PromiseState::Rejected(reason)) => Err(describe(isolate, &reason)),
         _ => Err("module evaluation never settled".to_owned()),
     }
+}
+
+/// Drains microtasks and serves queued `import()` requests until both are quiet.
+fn serve_imports<I: Isolate>(isolate: &mut I) -> Result<(), String> {
+    loop {
+        drain_microtasks(isolate);
+        let requests = IMPORTS.with_borrow_mut(std::mem::take);
+        if requests.is_empty() {
+            return Ok(());
+        }
+        for (specifier, referrer, id) in requests {
+            let resolver = ResolverId(id);
+            match import_module(isolate, &specifier, &referrer) {
+                Ok(name) => isolate.resolve(resolver, Value::String(name.as_str().into())),
+                Err(reason) => {
+                    let reason = rejection_value(isolate, reason);
+                    isolate.reject(resolver, reason);
+                }
+            }
+        }
+    }
+}
+
+/// Compiles, links and evaluates the module; its name is what the engine settles the import from.
+fn import_module<I: Isolate>(
+    isolate: &mut I,
+    specifier: &str,
+    referrer: &str,
+) -> Result<String, ImportError> {
+    let source = FsHook.resolve(specifier, referrer).map_err(|err| {
+        ImportError::Js(JsException {
+            message: err.to_string(),
+            stack: None,
+            value: None,
+        })
+    })?;
+    let module = isolate
+        .compile_module(&source)
+        .map_err(ImportError::Syntax)?;
+    isolate
+        .instantiate_module(module, &mut FsHook)
+        .map_err(ImportError::Js)?;
+    let promise = isolate.evaluate_module(module).map_err(ImportError::Js)?;
+    drain_microtasks(isolate);
+    match isolate.promise_state(&promise) {
+        Some(PromiseState::Rejected(reason)) => Err(ImportError::Js(JsException {
+            message: String::new(),
+            stack: None,
+            value: Some(reason),
+        })),
+        _ => Ok(source.name),
+    }
+}
+
+enum ImportError {
+    Syntax(JsException),
+    Js(JsException),
+}
+
+fn rejection_value<I: Isolate>(isolate: &mut I, error: ImportError) -> Value {
+    let (exception, constructor) = match error {
+        ImportError::Syntax(e) => (e, "SyntaxError"),
+        ImportError::Js(e) => (e, "Error"),
+    };
+    if let Some(value) = exception.value {
+        return value;
+    }
+    let build = format!("(m => new {constructor}(m))");
+    let message = Value::String(exception.message.as_str().into());
+    isolate
+        .eval_script(&source("import-error", build))
+        .and_then(|func| isolate.call(&func, &Value::Undefined, &[message.clone()]))
+        .unwrap_or(message)
 }
 
 fn describe<I: Isolate>(isolate: &mut I, value: &Value) -> String {
@@ -359,6 +459,38 @@ mod tests {
             text,
         };
         run_test(&V8Engine::new(), &harness(), &case, TIMEOUT)
+    }
+
+    fn run_with_files(body: &str, frontmatter: &str, files: &[(&str, &str)]) -> [Outcome; 2] {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for (name, text) in files {
+            std::fs::write(dir.path().join(name), text).expect("write fixture");
+        }
+        let text = format!("/*---\n{frontmatter}\n---*/\n{body}");
+        let case = TestCase {
+            abs_path: dir.path().join("test.js"),
+            text,
+        };
+        [
+            run_test(&V8Engine::new(), &harness(), &case, TIMEOUT),
+            run_test(&NativeEngine, &harness(), &case, TIMEOUT),
+        ]
+    }
+
+    #[test]
+    fn dynamic_import_resolves_namespace() {
+        let outcomes = run_with_files(
+            "import('./dep_FIXTURE.js').then(ns => { assert.sameValue(ns.x, 1); }).then($DONE, $DONE);",
+            "flags: [async]",
+            &[("dep_FIXTURE.js", "export var x = 1;")],
+        );
+        assert_eq!(outcomes, [Outcome::Pass, Outcome::Pass]);
+    }
+
+    #[test]
+    fn detach_array_buffer_is_available() {
+        let body = "var b = new ArrayBuffer(8); $262.detachArrayBuffer(b); assert.sameValue(b.byteLength, 0);";
+        assert_eq!(run(body, ""), Outcome::Pass);
     }
 
     #[test]
