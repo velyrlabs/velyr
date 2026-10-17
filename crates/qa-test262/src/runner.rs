@@ -391,7 +391,7 @@ fn rejection_value<I: Isolate>(isolate: &mut I, error: ImportError) -> Value {
     let message = Value::String(exception.message.as_str().into());
     isolate
         .eval_script(&source("import-error", build))
-        .and_then(|func| isolate.call(&func, &Value::Undefined, &[message.clone()]))
+        .and_then(|func| isolate.call(&func, &Value::Undefined, std::slice::from_ref(&message)))
         .unwrap_or(message)
 }
 

@@ -1,6 +1,7 @@
 //! The files a compiled executable embeds: the entry's module graph, the `--include` assets and the
 //! `package.json` files that module resolution reads at run time.
 
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
@@ -189,8 +190,8 @@ impl Graph {
                     break;
                 }
                 let key = self.virtual_path(&manifest);
-                if !self.files.contains_key(&key) {
-                    self.files.insert(key, read(&manifest)?);
+                if let Entry::Vacant(slot) = self.files.entry(key) {
+                    slot.insert(read(&manifest)?);
                 }
                 break;
             }

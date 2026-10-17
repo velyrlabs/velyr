@@ -40,8 +40,7 @@ fn with_loop_isolate<T: Send + 'static>(
         dir.join("main.mjs"),
     )
     .expect("run");
-    let value = out.lock().unwrap().take().expect("probe ran");
-    value
+    out.lock().unwrap().take().expect("probe ran")
 }
 
 fn eval(isolate: &mut LoopIsolate<V8Isolate>, text: &str) -> Value {

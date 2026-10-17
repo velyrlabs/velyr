@@ -568,6 +568,17 @@ pub(crate) fn promise_state(
     })
 }
 
+fn write_latin1_as_utf8(bytes: &[u8], out: &mut Vec<u8>) {
+    if bytes.is_ascii() {
+        out.extend_from_slice(bytes);
+        return;
+    }
+    let mut utf8 = [0u8; 2];
+    for &byte in bytes {
+        out.extend_from_slice(char::from(byte).encode_utf8(&mut utf8).as_bytes());
+    }
+}
+
 #[cfg(test)]
 #[allow(unsafe_code)]
 mod tests {
@@ -652,16 +663,5 @@ mod tests {
         assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 0);
         drop(isolate);
         assert_eq!(TEARDOWNS.load(Ordering::SeqCst), 1);
-    }
-}
-
-fn write_latin1_as_utf8(bytes: &[u8], out: &mut Vec<u8>) {
-    if bytes.is_ascii() {
-        out.extend_from_slice(bytes);
-        return;
-    }
-    let mut utf8 = [0u8; 2];
-    for &byte in bytes {
-        out.extend_from_slice(char::from(byte).encode_utf8(&mut utf8).as_bytes());
     }
 }

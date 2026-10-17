@@ -30,5 +30,9 @@ velyr-tooling-typescript = { path = "../tooling-typescript" }
 [features]
 test-counters = []
 
+[[test]]
+name = "single_read"
+required-features = ["test-counters"]
+
 [lints]
 workspace = true

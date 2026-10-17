@@ -37,8 +37,7 @@ fn run_script<T: Send + 'static>(
     );
     std::fs::remove_file(&path).unwrap();
     result.unwrap();
-    let value = out.lock().unwrap().take().expect("probe ran");
-    value
+    out.lock().unwrap().take().expect("probe ran")
 }
 
 #[test]
