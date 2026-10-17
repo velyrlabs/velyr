@@ -398,7 +398,7 @@ test/annexB/language/eval-code/direct/global-switch-dflt-eval-global-skip-early-
 test/annexB/language/eval-code/direct/global-switch-dflt-eval-global-skip-early-err-try.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/global-switch-dflt-eval-global-skip-early-err.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/global-switch-dflt-eval-global-update.js # SyntaxError: unsupported: direct eval
-test/annexB/language/eval-code/direct/script-decl-lex-no-collision.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/eval-code/direct/script-decl-lex-no-collision.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/switch-case-decl-nostrict.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/switch-dflt-decl-nostrict.js # SyntaxError: unsupported: direct eval
 test/annexB/language/eval-code/direct/var-env-lower-lex-catch-non-strict.js # SyntaxError: unsupported: direct eval
@@ -710,8 +710,8 @@ test/annexB/language/global-code/block-decl-global-existing-block-fn-no-init.js 
 test/annexB/language/global-code/block-decl-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/block-decl-global-existing-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/block-decl-global-existing-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
-test/annexB/language/global-code/block-decl-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/block-decl-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/block-decl-global-existing-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
+test/annexB/language/global-code/block-decl-global-existing-non-enumerable-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/block-decl-global-existing-var-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/block-decl-global-existing-var-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/block-decl-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
@@ -728,8 +728,7 @@ test/annexB/language/global-code/if-decl-else-decl-a-global-block-scoping.js # T
 test/annexB/language/global-code/if-decl-else-decl-a-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-decl-a-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-decl-a-global-existing-fn-update.js # Test262Error: Expected SameValue(«"outer declaration"», «"inner declaration"») to be true
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/if-decl-else-decl-a-global-existing-non-enumerable-global-init.js # TypeError: "x" is not a function
 test/annexB/language/global-code/if-decl-else-decl-a-global-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-decl-a-global-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"object"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -744,8 +743,7 @@ test/annexB/language/global-code/if-decl-else-decl-b-global-block-scoping.js # T
 test/annexB/language/global-code/if-decl-else-decl-b-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-decl-b-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-decl-b-global-existing-fn-update.js # Test262Error: Expected SameValue(«"outer declaration"», «"inner declaration"») to be true
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/if-decl-else-decl-b-global-existing-non-enumerable-global-init.js # TypeError: "x" is not a function
 test/annexB/language/global-code/if-decl-else-decl-b-global-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-decl-b-global-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"object"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -760,8 +758,7 @@ test/annexB/language/global-code/if-decl-else-stmt-global-block-scoping.js # Typ
 test/annexB/language/global-code/if-decl-else-stmt-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-stmt-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-else-stmt-global-existing-fn-update.js # Test262Error: Expected SameValue(«"outer declaration"», «"inner declaration"») to be true
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/if-decl-else-stmt-global-existing-non-enumerable-global-init.js # TypeError: "x" is not a function
 test/annexB/language/global-code/if-decl-else-stmt-global-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-stmt-global-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"object"», «"function"») to be true
 test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -776,8 +773,7 @@ test/annexB/language/global-code/if-decl-no-else-global-block-scoping.js # TypeE
 test/annexB/language/global-code/if-decl-no-else-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-no-else-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-decl-no-else-global-existing-fn-update.js # Test262Error: Expected SameValue(«"outer declaration"», «"inner declaration"») to be true
-test/annexB/language/global-code/if-decl-no-else-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-no-else-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/if-decl-no-else-global-existing-non-enumerable-global-init.js # TypeError: "x" is not a function
 test/annexB/language/global-code/if-decl-no-else-global-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/global-code/if-decl-no-else-global-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"object"», «"function"») to be true
 test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -792,8 +788,7 @@ test/annexB/language/global-code/if-stmt-else-decl-global-block-scoping.js # Typ
 test/annexB/language/global-code/if-stmt-else-decl-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-stmt-else-decl-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/if-stmt-else-decl-global-existing-fn-update.js # Test262Error: Expected SameValue(«"outer declaration"», «"inner declaration"») to be true
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/if-stmt-else-decl-global-existing-non-enumerable-global-init.js # TypeError: "x" is not a function
 test/annexB/language/global-code/if-stmt-else-decl-global-existing-var-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
 test/annexB/language/global-code/if-stmt-else-decl-global-no-skip-try.js # Test262Error: binding value is updated following evaluation Expected SameValue(«"object"», «"function"») to be true
 test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-block.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
@@ -804,14 +799,14 @@ test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-switch.
 test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-try.js # Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all
 test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err.js # Error: internal error: lexical global was not declared
 test/annexB/language/global-code/if-stmt-else-decl-global-update.js # Test262Error: Expected SameValue(«"undefined"», «"function"») to be true
-test/annexB/language/global-code/script-decl-lex-collision.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/script-decl-lex-collision.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-block-scoping.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-block-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
-test/annexB/language/global-code/switch-case-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-case-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/switch-case-global-existing-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
+test/annexB/language/global-code/switch-case-global-existing-non-enumerable-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-var-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-existing-var-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-case-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
@@ -829,8 +824,8 @@ test/annexB/language/global-code/switch-dflt-global-existing-block-fn-no-init.js
 test/annexB/language/global-code/switch-dflt-global-existing-block-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-dflt-global-existing-fn-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-dflt-global-existing-fn-update.js # SyntaxError: unsupported: block-level function in sloppy mode
-test/annexB/language/global-code/switch-dflt-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-dflt-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
+test/annexB/language/global-code/switch-dflt-global-existing-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
+test/annexB/language/global-code/switch-dflt-global-existing-non-enumerable-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-dflt-global-existing-var-no-init.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-dflt-global-existing-var-update.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/annexB/language/global-code/switch-dflt-global-init.js # SyntaxError: unsupported: block-level function in sloppy mode
@@ -848,7 +843,6 @@ test/annexB/language/statements/class/subclass/superclass-prototype-emulates-und
 test/annexB/language/statements/const/dstr/array-pattern-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/const/dstr/object-pattern-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/for-await-of/iterator-close-return-emulates-undefined-throws-when-called.js # skip: $262.IsHTMLDDA is not available through engine-api
-test/annexB/language/statements/for-in/nonstrict-initializer.js # SyntaxError: unsupported: for-in var initializer
 test/annexB/language/statements/for-of/iterator-close-return-emulates-undefined-throws-when-called.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/function/default-parameters-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/if/emulated-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
@@ -10103,9 +10097,6 @@ test/intl402/supportedLocalesOf-taint-Array-2.js # Test262Error: Client code can
 test/intl402/supportedLocalesOf-taint-Array.js # Test262Error: Client code can adversely affect behavior: method push. (Testing with Collator.)
 test/language/arguments-object/10.5-1-s.js # SyntaxError: unsupported: direct eval
 test/language/arguments-object/10.5-7-b-1-s.js # SyntaxError: unsupported: direct eval
-test/language/arguments-object/10.6-13-a-2.js # TypeError: null is not a function
-test/language/arguments-object/10.6-13-a-3.js # TypeError: null is not a function
-test/language/arguments-object/non-strict-arguments-object-is-immutable.js # Test262Error: Expected SameValue(«true», «false») to be true
 test/language/block-scope/leave/outermost-binding-updated-in-catch-block-nested-block-let-declaration-unseen-outside-of-block.js # SyntaxError: unsupported: direct eval
 test/language/block-scope/shadowing/dynamic-lookup-from-closure.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/language/block-scope/shadowing/lookup-from-closure.js # SyntaxError: unsupported: block-level function in sloppy mode
@@ -10460,7 +10451,6 @@ test/language/expressions/assignment/dstr/array-rest-iter-rtrn-close-err.js # Te
 test/language/expressions/assignment/dstr/array-rest-iter-rtrn-close-null.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
 test/language/expressions/assignment/dstr/array-rest-iter-rtrn-close.js # Test262Error: Expected SameValue(«0», «1») to be true
 test/language/expressions/assignment/fn-name-lhs-cover.js # Test262Error: name descriptor value should be ; name value should be 
-test/language/expressions/assignment/target-super-computed-reference.js # Test262Error: Expected a DummyError but got a Test262Error
 test/language/expressions/async-arrow-function/eval-var-scope-syntax-err.js # SyntaxError: unsupported: direct eval
 test/language/expressions/async-arrow-function/unscopables-with-in-nested-fn.js # SyntaxError: unsupported: with statement
 test/language/expressions/async-arrow-function/unscopables-with.js # SyntaxError: unsupported: with statement
@@ -10631,28 +10621,6 @@ test/language/expressions/compound-assignment/S11.13.2_A6.6_T1.js # SyntaxError:
 test/language/expressions/compound-assignment/S11.13.2_A6.7_T1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/compound-assignment/S11.13.2_A6.8_T1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/compound-assignment/S11.13.2_A6.9_T1.js # SyntaxError: unsupported: direct eval
-test/language/expressions/compound-assignment/S11.13.2_A7.10_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.10_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.11_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.11_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.1_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.1_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.2_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.2_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.3_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.3_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.4_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.4_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.5_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.5_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.6_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.6_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.7_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.7_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.8_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.8_T2.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.9_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/compound-assignment/S11.13.2_A7.9_T2.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--10.js # SyntaxError: unsupported: with statement
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--12.js # SyntaxError: unsupported: with statement
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--14.js # SyntaxError: unsupported: with statement
@@ -10664,23 +10632,10 @@ test/language/expressions/compound-assignment/compound-assignment-operator-calls
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--6.js # SyntaxError: unsupported: with statement
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v--8.js # SyntaxError: unsupported: with statement
 test/language/expressions/compound-assignment/compound-assignment-operator-calls-putvalue-lref--v-.js # SyntaxError: unsupported: with statement
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-add.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «3») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-bitand.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «0») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-bitor.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «15») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-bitxor.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «257») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-div.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «0.5») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-exp.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «1000») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-lshift.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «96») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-mod.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «1») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-mult.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «6») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-rshift.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «3») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-srshift.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «3») to be true
-test/language/expressions/compound-assignment/left-hand-side-private-reference-accessor-property-sub.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «1») to be true
 test/language/expressions/concatenation/S9.8_A1_T2.js # SyntaxError: unsupported: direct eval
 test/language/expressions/conditional/S11.12_A1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/conditional/tco-cond.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/conditional/tco-pos.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/delete/11.4.1-4.a-16.js # Test262Error: delete arguments Expected SameValue(«true», «false») to be true
 test/language/expressions/delete/11.4.1-4.a-5.js # SyntaxError: unsupported: with statement
 test/language/expressions/delete/11.4.1-4.a-6.js # SyntaxError: unsupported: with statement
 test/language/expressions/delete/11.4.1-4.a-7.js # SyntaxError: unsupported: direct eval
@@ -10785,12 +10740,6 @@ test/language/expressions/less-than-or-equal/S11.8.3_A1.js # SyntaxError: unsupp
 test/language/expressions/less-than/S11.8.1_A1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/logical-and/S11.11.1_A1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/logical-and/tco-right.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/logical-assignment/left-hand-side-private-reference-accessor-property-and.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «false») to be true
-test/language/expressions/logical-assignment/left-hand-side-private-reference-accessor-property-nullish.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «1») to be true
-test/language/expressions/logical-assignment/left-hand-side-private-reference-accessor-property-or.js # Test262Error: The expression should evaluate to the result Expected SameValue(«undefined», «true») to be true
-test/language/expressions/logical-assignment/lgcl-and-assignment-operator-lhs-before-rhs.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/logical-assignment/lgcl-nullish-assignment-operator-lhs-before-rhs.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/logical-assignment/lgcl-or-assignment-operator-lhs-before-rhs.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/logical-not/S11.4.9_A1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/logical-not/S9.2_A1_T2.js # SyntaxError: unsupported: direct eval
 test/language/expressions/logical-or/S11.11.2_A1.js # SyntaxError: unsupported: direct eval
@@ -10831,26 +10780,18 @@ test/language/expressions/optional-chaining/optional-call-preserves-this.js # Ty
 test/language/expressions/postfix-decrement/S11.3.2_A5_T1.js # SyntaxError: unsupported: with statement
 test/language/expressions/postfix-decrement/S11.3.2_A5_T2.js # SyntaxError: unsupported: with statement
 test/language/expressions/postfix-decrement/S11.3.2_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-decrement/S11.3.2_A6_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/postfix-decrement/S11.3.2_A6_T2.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/postfix-decrement/operator-x-postfix-decrement-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
 test/language/expressions/postfix-increment/S11.3.1_A5_T1.js # SyntaxError: unsupported: with statement
 test/language/expressions/postfix-increment/S11.3.1_A5_T2.js # SyntaxError: unsupported: with statement
 test/language/expressions/postfix-increment/S11.3.1_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/postfix-increment/S11.3.1_A6_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/postfix-increment/S11.3.1_A6_T2.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/postfix-increment/operator-x-postfix-increment-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-decrement/S11.4.5_A5_T1.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-decrement/S11.4.5_A5_T2.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-decrement/S11.4.5_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-decrement/S11.4.5_A6_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/prefix-decrement/S11.4.5_A6_T2.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/prefix-decrement/operator-prefix-decrement-x-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-increment/S11.4.4_A5_T1.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-increment/S11.4.4_A5_T2.js # SyntaxError: unsupported: with statement
 test/language/expressions/prefix-increment/S11.4.4_A5_T3.js # SyntaxError: unsupported: with statement
-test/language/expressions/prefix-increment/S11.4.4_A6_T1.js # Test262Error: Expected a TypeError but got a Test262Error
-test/language/expressions/prefix-increment/S11.4.4_A6_T2.js # Test262Error: Expected a TypeError but got a Test262Error
 test/language/expressions/prefix-increment/operator-prefix-increment-x-calls-putvalue-lhs-newvalue-.js # SyntaxError: unsupported: with statement
 test/language/expressions/property-accessors/S11.2.1_A1.1.js # SyntaxError: unsupported: direct eval
 test/language/expressions/property-accessors/S11.2.1_A1.2.js # SyntaxError: unsupported: direct eval
@@ -10863,15 +10804,7 @@ test/language/expressions/subtraction/S11.6.2_A1.js # SyntaxError: unsupported: 
 test/language/expressions/super/prop-dot-cls-val-from-eval.js # SyntaxError: unsupported: direct eval
 test/language/expressions/super/prop-dot-obj-val-from-eval.js # SyntaxError: unsupported: direct eval
 test/language/expressions/super/prop-expr-cls-val-from-eval.js # SyntaxError: unsupported: direct eval
-test/language/expressions/super/prop-expr-getsuperbase-before-topropertykey-getvalue.js # Test262Error: Expected SameValue(«"bad"», «"ok"») to be true
-test/language/expressions/super/prop-expr-getsuperbase-before-topropertykey-putvalue-compound-assign.js # Test262Error: Expected SameValue(«0», «2») to be true
-test/language/expressions/super/prop-expr-getsuperbase-before-topropertykey-putvalue-increment.js # Test262Error: Expected SameValue(«0», «2») to be true
-test/language/expressions/super/prop-expr-getsuperbase-before-topropertykey-putvalue.js # Test262Error: Expected SameValue(«"bad"», «"ok"») to be true
 test/language/expressions/super/prop-expr-obj-val-from-eval.js # SyntaxError: unsupported: direct eval
-test/language/expressions/super/prop-expr-uninitialized-this-getvalue.js # Test262Error: Expected a ReferenceError but got a Test262Error
-test/language/expressions/super/prop-expr-uninitialized-this-putvalue-compound-assign.js # Test262Error: Expected a ReferenceError but got a Test262Error
-test/language/expressions/super/prop-expr-uninitialized-this-putvalue-increment.js # Test262Error: Expected a ReferenceError but got a Test262Error
-test/language/expressions/super/prop-expr-uninitialized-this-putvalue.js # Test262Error: Expected a ReferenceError but got a Test262Error
 test/language/expressions/super/realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/tagged-template/cache-differing-expressions-eval.js # SyntaxError: unsupported: direct eval
 test/language/expressions/tagged-template/cache-eval-inner-function.js # SyntaxError: unsupported: direct eval
@@ -10879,9 +10812,6 @@ test/language/expressions/tagged-template/cache-identical-source-eval.js # Synta
 test/language/expressions/tagged-template/cache-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/tagged-template/tco-call.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/tagged-template/tco-member.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/tagged-template/template-object-frozen-non-strict.js # Test262Error: The template object is frozen Expected SameValue(«true», «undefined») to be true
-test/language/expressions/tagged-template/template-object-frozen-strict.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
-test/language/expressions/tagged-template/template-object.js # Test262Error: 0 descriptor should not be writable; 0 descriptor should not be configurable
 test/language/expressions/tco-pos.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/template-literal/mongolian-vowel-separator-eval.js # SyntaxError: unsupported: direct eval
 test/language/expressions/this/S11.1.1_A3.1.js # SyntaxError: unsupported: direct eval
@@ -10905,19 +10835,8 @@ test/language/function-code/10.4.3-1-82-s.js # SyntaxError: unsupported: direct 
 test/language/function-code/10.4.3-1-82gs.js # SyntaxError: unsupported: direct eval
 test/language/function-code/eval-param-env-with-computed-key.js # SyntaxError: unsupported: direct eval
 test/language/function-code/eval-param-env-with-prop-initializer.js # SyntaxError: unsupported: direct eval
-test/language/global-code/script-decl-func-dups.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func-err-non-configurable.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func-err-non-extensible.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-deletion.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-lex.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-restricted-global.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-var-declared-via-eval.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-var.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var-collision.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var-err.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var.js # skip: $262.evalScript is not available through engine-api
+test/language/global-code/script-decl-func.js # Test262Error: like-named configurable property Expected SameValue(«"number"», «"function"») to be true
+test/language/global-code/script-decl-lex-var-declared-via-eval.js # SyntaxError: unsupported: direct eval
 test/language/identifier-resolution/S10.2.2_A1_T5.js # SyntaxError: unsupported: with statement
 test/language/identifier-resolution/S10.2.2_A1_T6.js # SyntaxError: unsupported: with statement
 test/language/identifier-resolution/S10.2.2_A1_T7.js # SyntaxError: unsupported: with statement
@@ -10962,8 +10881,8 @@ test/language/import/import-defer/evaluation-sync/import-defer-does-not-evaluate
 test/language/import/import-defer/evaluation-sync/module-imported-defer-and-eager.js # post-parity: Test262Error: Actual [1.1, 1.2, 1, 2] and expected [2, 1.1, 1] should have the same contents. the module is evaluated in the order where it's imported as non-deferred
 test/language/import/import-defer/evaluation-top-level-await/async-cycle-dependency-of-deferred-module/main.js # post-parity: Test262Error: Actual [B, A-before-await, D, Middle-before-nsD.z, Middle-after-nsD.z, resolve-blocker, C, A-after-await] and expected [B, A-before-await, resolve-blocker, A-after-await, Middle-before-n
 test/language/import/import-defer/evaluation-top-level-await/flattening-order/main.js # post-parity: Test262Error: Actual [1, 2.1.1 start, 2.2.1, 2.2 start, 3, 5, 2.1.1 end, 2.2 end, 2.1, 2, 4.1 start, 4.1 end, 4] and expected [1, 2.1.1 start, 2.2.1, 2.2 start, 3, 5, 2.1.1 end, 2.2 end, 4.1 start, 4.
-test/language/import/import-defer/evaluation-top-level-await/import-defer-transitive-async-module/main.js # post-parity: Test262Error: Actual [tla start, tla end, imports-tla] and expected [tla start, tla end] should have the same contents. 
-test/language/import/import-defer/evaluation-top-level-await/sync-dependency-of-deferred-async-module/main.js # post-parity: Test262Error: Actual [dep, tla-with-dep start, tla-with-dep end, imports-tla-with-dep] and expected [dep, tla-with-dep start, tla-with-dep end] should have the same contents. 
+test/language/import/import-defer/evaluation-top-level-await/import-defer-transitive-async-module/main.js # post-parity: Test262Error: Actual [tla start, tla end, imports-tla] and expected [tla start, tla end] should have the same contents.
+test/language/import/import-defer/evaluation-top-level-await/sync-dependency-of-deferred-async-module/main.js # post-parity: Test262Error: Actual [dep, tla-with-dep start, tla-with-dep end, imports-tla-with-dep] and expected [dep, tla-with-dep start, tla-with-dep end] should have the same contents.
 test/language/import/import-defer/evaluation-triggers/ignore-exported-then-defineOwnProperty.js # post-parity: Test262Error: import defer does not trigger evaluation Expected SameValue(«1», «0») to be true
 test/language/import/import-defer/evaluation-triggers/ignore-exported-then-delete.js # post-parity: Test262Error: import defer does not trigger evaluation Expected SameValue(«1», «0») to be true
 test/language/import/import-defer/evaluation-triggers/ignore-exported-then-get-in-prototype.js # post-parity: Test262Error: import defer does not trigger evaluation Expected SameValue(«1», «0») to be true
@@ -11270,7 +11189,6 @@ test/language/statements/class/elements/privatename-not-valid-eval-earlyerr-8.js
 test/language/statements/class/elements/public-class-field-initialization-is-visible-to-proxy.js # Test262Error: Expected a Test262Error to be thrown but no exception was thrown at all
 test/language/statements/class/elements/static-field-init-with-this.js # SyntaxError: unsupported: direct eval
 test/language/statements/class/elements/syntax/valid/grammar-field-accessor.js # post-parity: SyntaxError: unsupported: auto-accessor
-test/language/statements/class/super/in-constructor-superproperty-evaluation.js # Test262Error: `super[super()]` via `new Derived()` throws a ReferenceError Expected a ReferenceError but got a Test262Error
 test/language/statements/const/block-local-closure-get-before-initialization.js # SyntaxError: unsupported: block-level function in sloppy mode
 test/language/statements/const/cptn-value.js # SyntaxError: unsupported: direct eval
 test/language/statements/continue/S12.7_A7.js # SyntaxError: unsupported: direct eval
@@ -11374,7 +11292,6 @@ test/language/statements/function/S13.2.2_A19_T5.js # SyntaxError: unsupported: 
 test/language/statements/function/S13.2.2_A19_T6.js # SyntaxError: unsupported: with statement
 test/language/statements/function/S13.2.2_A19_T7.js # SyntaxError: unsupported: with statement
 test/language/statements/function/S13.2.2_A19_T8.js # SyntaxError: unsupported: with statement
-test/language/statements/function/S13_A11_T1.js # Test262Error: #1: arguments property has attribute { DontDelete }
 test/language/statements/function/S13_A14_T1.js # SyntaxError: unsupported: direct eval
 test/language/statements/function/S13_A15_T4.js # Test262Error: #1: __func(42,42,42) === "object". Actual: __func(42,42,42)===undefined
 test/language/statements/function/cptn-decl.js # SyntaxError: unsupported: direct eval

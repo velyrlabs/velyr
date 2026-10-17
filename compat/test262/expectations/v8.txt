@@ -32,7 +32,6 @@ test/annexB/built-ins/String/prototype/replaceAll/custom-replacer-emulates-undef
 test/annexB/built-ins/String/prototype/search/custom-searcher-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/String/prototype/split/custom-splitter-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/built-ins/TypedArrayConstructors/from/iterator-method-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
-test/annexB/language/eval-code/direct/script-decl-lex-no-collision.js # skip: $262.evalScript is not available through engine-api
 test/annexB/language/expressions/assignment/dstr/array-pattern-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/expressions/assignment/dstr/object-pattern-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/expressions/coalesce/emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
@@ -52,23 +51,6 @@ test/annexB/language/expressions/yield/star-iterable-return-emulates-undefined-t
 test/annexB/language/expressions/yield/star-iterable-throw-emulates-undefined-throws-when-called.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/function-code/block-decl-func-skip-arguments.js # Test262Error: Expected SameValue(«"function arguments() {}"», «"[object Arguments]"») to be true
 test/annexB/language/function-code/block-decl-nested-blocks-with-fun-decl.js # Test262Error: Expected SameValue(«2», «1») to be true
-test/annexB/language/global-code/block-decl-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/block-decl-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-no-else-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-decl-no-else-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/script-decl-lex-collision.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-case-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-case-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-dflt-global-existing-global-init.js # skip: $262.evalScript is not available through engine-api
-test/annexB/language/global-code/switch-dflt-global-existing-non-enumerable-global-init.js # skip: $262.evalScript is not available through engine-api
 test/annexB/language/statements/class/subclass/superclass-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/class/subclass/superclass-prototype-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
 test/annexB/language/statements/const/dstr/array-pattern-emulates-undefined.js # skip: $262.IsHTMLDDA is not available through engine-api
@@ -1013,14 +995,14 @@ test/language/expressions/assignment/S11.13.1_A5_T3.js # Test262Error: #1: inner
 test/language/expressions/assignment/S11.13.1_A6_T1.js # Test262Error: #1: innerX === undefined. Actual: 1
 test/language/expressions/assignment/S11.13.1_A6_T2.js # Test262Error: #1: innerX === 2. Actual: 1
 test/language/expressions/assignment/S11.13.1_A6_T3.js # Test262Error: #1: scope.x === 2. Actual: 1
-test/language/expressions/assignmenttargettype/direct-callexpression-as-for-in-lhs.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/direct-callexpression-as-for-of-lhs.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/direct-callexpression-in-compound-assignment.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/direct-callexpression-in-postfix-update.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/direct-callexpression-in-prefix-update.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/direct-callexpression.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/parenthesized-callexpression-in-compound-assignment.js # expected SyntaxError, got Test262: This statement should not be evaluated.
-test/language/expressions/assignmenttargettype/parenthesized-callexpression.js # expected SyntaxError, got Test262: This statement should not be evaluated.
+test/language/expressions/assignmenttargettype/direct-callexpression-as-for-in-lhs.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/direct-callexpression-as-for-of-lhs.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/direct-callexpression-in-compound-assignment.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/direct-callexpression-in-postfix-update.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/direct-callexpression-in-prefix-update.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/direct-callexpression.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/parenthesized-callexpression-in-compound-assignment.js # expected parse error, got successful parse
+test/language/expressions/assignmenttargettype/parenthesized-callexpression.js # expected parse error, got successful parse
 test/language/expressions/async-generator/eval-body-proto-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/call/eval-realm-indirect.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/call/tco-call-args.js # RangeError: Maximum call stack size exceeded
@@ -1289,19 +1271,8 @@ test/language/expressions/tagged-template/cache-realm.js # skip: $262.createReal
 test/language/expressions/tagged-template/tco-call.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/tagged-template/tco-member.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/tco-pos.js # RangeError: Maximum call stack size exceeded
-test/language/global-code/script-decl-func-dups.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func-err-non-configurable.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func-err-non-extensible.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-func.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-deletion.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-lex.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-restricted-global.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-var-declared-via-eval.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex-var.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-lex.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var-collision.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var-err.js # skip: $262.evalScript is not available through engine-api
-test/language/global-code/script-decl-var.js # skip: $262.evalScript is not available through engine-api
+test/language/global-code/script-decl-func-err-non-configurable.js # Test262Error: writable, non-enumerable data property Expected a TypeError but got a SyntaxError
+test/language/global-code/script-decl-var-collision.js # Test262Error: no bindings created (script declaring a `var` on a `let` binding) Expected a ReferenceError to be thrown but no exception was thrown at all
 test/language/identifier-resolution/assign-to-global-undefined.js # expected ReferenceError, got success
 test/language/import/import-attributes/json-extensibility-array.js # SyntaxError: The requested module './json-value-array_FIXTURE.json' does not provide an export named 'default'
 test/language/import/import-attributes/json-extensibility-object.js # SyntaxError: Unexpected token ':'
