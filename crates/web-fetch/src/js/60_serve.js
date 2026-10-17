@@ -115,7 +115,7 @@
       // Settles when the client leaves, or false once `close(rid)` below ends the request.
       serveOp.disconnected(rid).then((gone) => { if (gone) controller.abort(); }, () => {});
       const remoteAddr = info.remote === null ? null : { transport: "tcp", ...info.remote };
-      await serveResponse(rid, request, await context.handler(request, { remoteAddr }));
+      await serveResponse(rid, request, await runInSpan(info.spanId, () => context.handler(request, { remoteAddr })));
     } catch (error) {
       console.error("Velyr.serve: the request handler failed:", error);
       controller.abort(error);

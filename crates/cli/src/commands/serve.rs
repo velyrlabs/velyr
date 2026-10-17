@@ -93,18 +93,24 @@ fn stop_on_signals(target: Target, deadline: Duration) {
                     Target::Single => {
                         tokio::time::sleep(deadline).await;
                         eprintln!("shutdown deadline passed, terminating");
-                        std::process::exit(1);
+                        exit_flushed(1);
                     }
                 }
             };
             tokio::select! {
-                () = signals.next() => std::process::exit(130),
+                () = signals.next() => exit_flushed(130),
                 () = drain => {}
             }
             signals.next().await;
-            std::process::exit(130);
+            exit_flushed(130);
         });
     });
+}
+
+/// Forced exits skip `main`, so pending telemetry is flushed here.
+fn exit_flushed(code: i32) -> ! {
+    crate::telemetry::shutdown();
+    std::process::exit(code)
 }
 
 /// `VELYR_SHUTDOWN_DEADLINE_MS`, default 10 s: how long a signal-triggered shutdown may drain.

@@ -26,6 +26,9 @@ pub struct Config {
     /// Packages whose install scripts `velyr install` may run.
     #[serde(rename = "allowScripts")]
     pub allow_scripts: Option<Vec<String>>,
+    /// OTLP trace export; read at startup by `telemetry::init`.
+    #[allow(dead_code)] // the field is only read with the `telemetry` feature
+    pub telemetry: Option<crate::telemetry::TelemetryConfig>,
 }
 
 /// `quotas` of `velyr.json`: the runtime quotas plus `memoryMb`, the budget `--workers=auto` uses.

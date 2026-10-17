@@ -138,7 +138,7 @@
     state.pumpFailure = undefined;
     try {
       const streamed = body !== null && body.bytes === null;
-      const sending = op.send(rid, method, target, wireHeaders(headers), streamed ? true : body?.bytes ?? null);
+      const sending = op.send(rid, method, target, wireHeaders(headers), streamed ? true : body?.bytes ?? null, currentSpanId());
       if (streamed) pumpRequestBody(rid, body.stream, state);
       const head = JSON.parse(await sending);
       state.responded = true;

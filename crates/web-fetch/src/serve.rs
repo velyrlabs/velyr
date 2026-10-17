@@ -90,6 +90,31 @@ struct Req {
     out: Mutex<Option<BodySender>>,
     /// Taken by a `101` response; see [`attach_upgrade`].
     upgrade: StdMutex<Option<UpgradeCallback>>,
+    /// OpenTelemetry server span; ended once the response body is out (`respond` for a buffered
+    /// one, `write`/`end` for a stream), or on drop if the request never gets that far.
+    #[cfg(feature = "telemetry")]
+    span: StdMutex<Option<velyr_runtime_telemetry::ActiveSpan>>,
+    /// The span's id for scripts (see `crate::telemetry`); released with the request.
+    #[cfg(feature = "telemetry")]
+    span_id: Option<u64>,
+}
+
+#[cfg(feature = "telemetry")]
+impl Drop for Req {
+    fn drop(&mut self) {
+        if let Some(id) = self.span_id {
+            crate::telemetry::release(id);
+        }
+    }
+}
+
+impl Req {
+    fn end_span(&self) {
+        #[cfg(feature = "telemetry")]
+        if let Some(span) = self.span.lock().expect("span slot").take() {
+            span.end();
+        }
+    }
 }
 
 struct ReqRes(Arc<Req>);
@@ -368,6 +393,10 @@ fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
         headers,
         body,
     } = request;
+    #[cfg(feature = "telemetry")]
+    let span = velyr_runtime_telemetry::server_span(&method, &uri, &headers);
+    #[cfg(feature = "telemetry")]
+    let span_id = span.clone().and_then(crate::telemetry::register);
     let req = Arc::new(Req {
         cancel: CancellationToken::new(),
         disconnected,
@@ -375,6 +404,10 @@ fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
         reply: StdMutex::new(None),
         out: Mutex::new(None),
         upgrade: StdMutex::new(None),
+        #[cfg(feature = "telemetry")]
+        span: StdMutex::new(span),
+        #[cfg(feature = "telemetry")]
+        span_id,
     });
     let id = match op_context(ctx)?.resources.insert(
         Box::new(ReqRes(req.clone())),
@@ -393,13 +426,17 @@ fn op_serve_take(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
         }
     };
     *req.reply.lock().expect("reply slot") = Some(reply);
+    #[cfg(feature = "telemetry")]
+    let span_id_json = req.span_id;
+    #[cfg(not(feature = "telemetry"))]
+    let span_id_json: Option<u64> = None;
     let remote = remote_addr
         .map(|addr| serde_json::json!({"hostname": addr.ip().to_string(), "port": addr.port()}));
     Ok(json_value(
         ctx,
         serde_json::json!({
             "id": id.to_js_number(), "method": method, "uri": uri, "version": version,
-            "headers": headers, "remote": remote,
+            "headers": headers, "remote": remote, "spanId": span_id_json,
         }),
     ))
 }
@@ -463,6 +500,13 @@ fn op_serve_respond(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, 
         .expect("reply slot")
         .take()
         .ok_or_else(|| VelyrError::internal("the request was already answered"))?;
+    #[cfg(feature = "telemetry")]
+    if let Some(span) = req.span.lock().expect("span slot").as_ref() {
+        span.record_status(status, 500);
+    }
+    if out.is_none() {
+        req.end_span();
+    }
     // Set before the reply: the caller starts writing as soon as this returns.
     *req.out
         .try_lock()
@@ -523,6 +567,7 @@ fn op_serve_write(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Ho
         }
         if end {
             guard.take();
+            req.end_span();
         }
         Ok(CompletionValue::Undefined)
     })
@@ -533,6 +578,7 @@ fn op_serve_end(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
     let req = req_arg(ctx, args, "op_serve_end")?;
     op_async(ctx, move |_token| async move {
         req.out.lock().await.take();
+        req.end_span();
         Ok(CompletionValue::Undefined)
     })
 }

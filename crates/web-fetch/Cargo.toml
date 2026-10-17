@@ -14,6 +14,7 @@ velyr-runtime-event-loop = { path = "../runtime-event-loop" }
 velyr-runtime-ops = { path = "../runtime-ops" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 velyr-runtime-resources = { path = "../runtime-resources" }
+velyr-runtime-telemetry = { path = "../runtime-telemetry", optional = true }
 brotli-decompressor = "=5.0.3"
 flate2 = "=1.1.10"
 http = "1"
@@ -23,6 +24,10 @@ serde_json.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
+
+[features]
+# OpenTelemetry server and client spans (VELYR-121); a no-op unless the host starts the exporter.
+telemetry = ["dep:velyr-runtime-telemetry"]
 
 [dev-dependencies]
 velyr-engine-v8 = { path = "../engine-v8" }

@@ -7,6 +7,7 @@ mod decode;
 mod ops;
 mod multipart;
 mod serve;
+mod telemetry;
 
 pub use serve::{ServeInbox, attach_upgrade, resolve_listen_host, termination_token};
 
@@ -29,6 +30,7 @@ pub const FETCH_JS: &str = concat!(
     include_str!("js/40_response.js"),
     include_str!("js/50_fetch.js"),
     include_str!("js/60_serve.js"),
+    include_str!("js/70_telemetry.js"),
     include_str!("js/90_exports.js"),
 );
 
@@ -38,6 +40,7 @@ pub fn fetch_ops() -> Vec<(HostFunctionDef, CapabilityKind)> {
         .into_iter()
         .chain(serve::OPS)
         .chain(multipart::OPS)
+        .chain(telemetry::OPS)
         .collect()
 }
 

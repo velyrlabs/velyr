@@ -1,0 +1,21 @@
+[package]
+name = "velyr-runtime-telemetry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# One OpenTelemetry release train (VELYR-121); bump all four together.
+opentelemetry = { version = "=0.33.1", default-features = false, features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "=0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "reqwest-rustls", "trace", "metrics"] }
+tracing-opentelemetry = { version = "=0.34.0", default-features = false }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+opentelemetry_sdk = { version = "=0.33.1", default-features = false, features = ["trace", "metrics", "testing"] }
+
+[lints]
+workspace = true

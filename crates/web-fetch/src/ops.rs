@@ -37,7 +37,7 @@ macro_rules! op {
 
 pub(crate) const OPS: [(HostFunctionDef, CapabilityKind); 9] = [
     op!(op_fetch_begin, 1, NetConnect),
-    op!(op_fetch_send, 5, None),
+    op!(op_fetch_send, 6, None),
     op!(op_fetch_detach, 1, None),
     op!(op_fetch_read, 1, None),
     op!(op_fetch_write, 2, None),
@@ -244,13 +244,23 @@ fn headers_arg(args: &[Value]) -> Result<Vec<(String, String)>, HostError> {
     serde_json::from_str(&json).map_err(|_| type_error("op_fetch_send", 3, "a JSON header list"))
 }
 
-/// `op_fetch_send(id, method, url, headersJson, body) -> Promise<string>`: `body` is `null`, bytes,
-/// or `true` for a body fed through `op_fetch_write`. Resolves JSON `{status, statusText, headers}`.
+/// `op_fetch_send(id, method, url, headersJson, body, parentSpanId) -> Promise<string>`: `body` is
+/// `null`, bytes, or `true` for a body fed through `op_fetch_write`; the span id is a number or `null`. Resolves JSON `{status, statusText, headers}`.
 fn op_fetch_send(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostError> {
     let _span = tracing::debug_span!("velyr.ops.fetch_send").entered();
     let fetch = fetch_arg(ctx, args, "op_fetch_send")?;
     let method = string_arg(args, 1, "op_fetch_send")?;
-    let headers = headers_arg(args)?;
+    #[cfg_attr(not(feature = "telemetry"), allow(unused_mut))]
+    let mut headers = headers_arg(args)?;
+    let uri = string_arg(args, 2, "op_fetch_send")?;
+    #[cfg(feature = "telemetry")]
+    let span = {
+        let parent = match args.get(5) {
+            Some(Value::Number(id)) => crate::telemetry::lookup(*id as u64),
+            _ => None,
+        };
+        velyr_runtime_telemetry::client_span(&method, &uri, &mut headers, parent.as_ref())
+    };
     let (body, upload) = match args.get(4) {
         Some(Value::Bool(true)) => {
             let (tx, rx) = body_channel();
@@ -276,7 +286,7 @@ fn op_fetch_send(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
     let parts = HttpRequestParts {
         remote_addr: None,
         method,
-        uri: string_arg(args, 2, "op_fetch_send")?,
+        uri,
         version: String::new(),
         headers,
         body,
@@ -286,8 +296,22 @@ fn op_fetch_send(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Hos
         let response = tokio::select! {
             () = token.cancelled() => return Err(VelyrError::cancelled()),
             () = fetch.cancel.cancelled() => return Err(VelyrError::cancelled()),
-            response = client.request(parts) => response?,
+            response = client.request(parts) => response,
         };
+        let response = match response {
+            Ok(response) => response,
+            Err(err) => {
+                #[cfg(feature = "telemetry")]
+                if let Some(span) = span {
+                    span.fail(&err.to_string());
+                }
+                return Err(err);
+            }
+        };
+        #[cfg(feature = "telemetry")]
+        if let Some(span) = span {
+            span.finish(response.status, 400);
+        }
         let decoder = decoder_for(decode, response.status, &response.headers);
         let head = serde_json::json!({
             "status": response.status,
