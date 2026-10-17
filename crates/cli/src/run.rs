@@ -196,12 +196,12 @@ fn runtime_config(
     config
 }
 
-/// ESM is the canonical entry format (TypeScript entries are stripped by the module host); other
+/// ESM is the canonical entry format (TypeScript and JSX entries are stripped by the module host); other
 /// extensions keep the classic-script path.
 fn is_module(file: &Path) -> bool {
     matches!(
         file.extension().and_then(|ext| ext.to_str()),
-        Some("js" | "mjs" | "cjs" | "ts" | "mts" | "cts")
+        Some("js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx")
     )
 }
 
@@ -219,5 +219,17 @@ fn describe(err: RunError) -> String {
             Some(stack) => format!("Uncaught {}\n{stack}", exception.message),
             None => format!("Uncaught {}", exception.message),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_module;
+    use std::path::Path;
+
+    #[test]
+    fn is_module_accepts_tsx_and_jsx() {
+        assert!(is_module(Path::new("a.tsx")));
+        assert!(is_module(Path::new("a.jsx")));
     }
 }
