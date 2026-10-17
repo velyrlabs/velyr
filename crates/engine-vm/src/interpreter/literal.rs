@@ -220,8 +220,7 @@ impl Interpreter {
         Ok(())
     }
 
-    /// GetTemplateObject: one frozen-shape array per site, with its `raw` strings.
-    /// shortcut: the arrays are not frozen (no [[PreventExtensions]] on elements yet).
+    /// GetTemplateObject: one frozen array per site, with its frozen `raw` strings.
     fn template_object(&mut self, info: &CodeInfo, index: ConstIndex) -> JsResult<Value> {
         let site = (Rc::as_ptr(&info.code) as usize, index.0);
         if let Some(template) = self.state.templates.get(&site) {
@@ -238,14 +237,24 @@ impl Interpreter {
         let raw: Vec<Value> = strings.raw.iter().cloned().map(Value::String).collect();
         let raw = self.create_array_from(&raw)?;
         self.state.scratch.push(object_value(raw));
-        let template = self.create_array_from(&cooked);
+        let template = self.build_frozen_template(raw, &cooked);
         self.state.scratch.pop();
         let template = template?;
+        self.state.templates.insert(site, object_value(template));
+        Ok(object_value(template))
+    }
+
+    /// Steps 10-13 of GetTemplateObject; the caller keeps `raw` rooted.
+    fn build_frozen_template(&mut self, raw: ObjectRef, cooked: &[Value]) -> JsResult<ObjectRef> {
+        let frozen = self.set_integrity(raw, true)?;
+        debug_assert!(frozen, "fresh arrays accept [[PreventExtensions]]");
+        let template = self.create_array_from(cooked)?;
         let key = self.realm.key_str("raw");
         let desc = PropertyDescriptor::data(object_value(raw), false, false, false);
         self.define_property(template, key, &desc)?;
-        self.state.templates.insert(site, object_value(template));
-        Ok(object_value(template))
+        let frozen = self.set_integrity(template, true)?;
+        debug_assert!(frozen, "fresh arrays accept [[PreventExtensions]]");
+        Ok(template)
     }
 
     /// CreateMappedArgumentsObject step 15, one parameter at a time: argument `index` of the

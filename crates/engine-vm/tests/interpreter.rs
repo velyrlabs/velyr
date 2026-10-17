@@ -260,3 +260,9 @@ fn bigint_constants_parse_decimal_digits() {
     let constant = velyr_engine_vm::bytecode::Constant::bigint_from_decimal("255");
     assert_eq!(format!("{:?}", constant.expect("valid digits")), "255n");
 }
+
+#[test]
+fn template_objects_are_frozen() {
+    assert_eq!(run("function t(s) { return s; } var s = t`a${1}b`; Object.isFrozen(s) && Object.isFrozen(s.raw)"), "true");
+    assert_eq!(run("'use strict'; function t(s) { return s; } try { t`a`[0] = 1; 'no' } catch (e) { e.constructor.name }"), "TypeError");
+}
