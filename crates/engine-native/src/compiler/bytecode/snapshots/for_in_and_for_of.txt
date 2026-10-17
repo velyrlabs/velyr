@@ -4,7 +4,7 @@
    2: StaGlobal(c2)
    3: Ldar(r0)
    4: Return
-c0: globals functions=["f"] vars=[] lets=[] consts=[]
+c0: globals functions=["f"] vars=[] lets=[] consts=[] annex_b=[]
 c1: function "f"
 c2: "f"
 == "f" Normal sloppy params=2 length=2 registers=12

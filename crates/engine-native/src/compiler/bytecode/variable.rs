@@ -10,7 +10,7 @@ use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 
 use super::function::FunctionCompiler;
 use super::outer::{OuterBindingSlot, OuterRef};
-use super::scope::{BlockBinding, Location, is_lexical};
+use super::scope::{BlockBinding, Location, VarTarget, is_lexical};
 use crate::compiler::{JsResult, throw};
 
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +26,9 @@ impl FunctionCompiler<'_> {
         let Some(symbol) = symbol else {
             return Ok(Slot::Global);
         };
+        if let Some(&register) = self.catch_bindings.get(&symbol) {
+            return Ok(Slot::Register(register));
+        }
         if let Some(reference) = reference
             && let Some(slot) = self.annex_b_slot(symbol, reference)?
         {
@@ -80,13 +83,70 @@ impl FunctionCompiler<'_> {
         }
         match info.block {
             BlockBinding::Symbol(_) => Ok(None),
-            BlockBinding::Synthetic(Location::Context { scope, slot }) => {
-                let depth = self.context_depth(scope)?;
-                Ok(Some(Slot::Context { depth, slot }))
-            }
-            // Emission (the register holding the block binding) belongs to the function compiler.
-            BlockBinding::Synthetic(_) => Err(internal("annex B block register")),
+            BlockBinding::Synthetic(_) => self.block_slot(symbol, &info.block).map(Some),
         }
+    }
+
+    /// The block binding of the Annex B.3.2 function declared as `symbol`.
+    fn block_slot(&self, symbol: SymbolId, block: &BlockBinding) -> JsResult<Slot> {
+        match *block {
+            BlockBinding::Symbol(own) => self.slot_of(Some(own), None),
+            BlockBinding::Synthetic(Location::Context { scope, slot }) => Ok(Slot::Context {
+                depth: self.context_depth(scope)?,
+                slot,
+            }),
+            BlockBinding::Synthetic(_) => self
+                .annex_b_registers
+                .get(&symbol)
+                .map(|&register| Slot::Register(register))
+                .ok_or_else(|| internal("annex B block register")),
+        }
+    }
+
+    /// Hoisting of a function declaration: `acc` into its binding, the block binding for an
+    /// Annex B.3.2 function (a register allocated here when it lives in one).
+    pub fn initialize_function(&mut self, symbol: SymbolId) -> JsResult<()> {
+        let analysis = self.analysis;
+        let Some(info) = analysis.annex_b_function(symbol) else {
+            return self.initialize_binding(symbol);
+        };
+        match info.block {
+            BlockBinding::Symbol(own) => self.initialize_binding(own),
+            BlockBinding::Synthetic(_) => {
+                if info.block == BlockBinding::Synthetic(Location::Local)
+                    && !self.annex_b_registers.contains_key(&symbol)
+                {
+                    let register = self.e.alloc();
+                    self.annex_b_registers.insert(symbol, register);
+                }
+                let slot = self.block_slot(symbol, &info.block)?;
+                self.store_slot(slot, analysis.name(symbol));
+                Ok(())
+            }
+        }
+    }
+
+    /// Evaluation of an Annex B.3.2 function declaration: the block binding's value goes to
+    /// the var binding (B.3.2.1) or the global object (B.3.2.2).
+    pub fn copy_block_function(&mut self, symbol: SymbolId) -> JsResult<()> {
+        let analysis = self.analysis;
+        let Some(info) = analysis.annex_b_function(symbol) else {
+            return Ok(());
+        };
+        let name = analysis.name(symbol);
+        let block = self.block_slot(symbol, &info.block)?;
+        self.load_slot(block, name);
+        match &info.var {
+            VarTarget::Symbol(var) => {
+                let slot = self.slot_of(Some(*var), None)?;
+                self.store_slot(slot, name);
+            }
+            VarTarget::Global(global) => {
+                let index = self.e.string(global);
+                self.e.emit(I::InitializeAnnexBGlobal(index));
+            }
+        }
+        Ok(())
     }
 
     /// Hops from the current context to `scope`'s.

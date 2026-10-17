@@ -58,8 +58,11 @@ impl FunctionCompiler<'_> {
             }
             Statement::TryStatement(s) => self.try_statement(s),
             Statement::VariableDeclaration(declaration) => self.variable_declaration(declaration),
-            // Hoisted by `hoist_functions` on scope entry.
-            Statement::FunctionDeclaration(_) => Ok(()),
+            // Hoisted by `hoist_functions` on scope entry; only Annex B.3.2 has work left.
+            Statement::FunctionDeclaration(function) => match &function.id {
+                Some(id) => self.copy_block_function(id.symbol_id()),
+                None => Ok(()),
+            },
             Statement::ClassDeclaration(class) => self.class(class, ""),
             Statement::WithStatement(_) => Err(unsupported("with statement")),
             Statement::DoWhileStatement(_)
@@ -109,18 +112,27 @@ impl FunctionCompiler<'_> {
         self.expression(&statement.test)?;
         let otherwise = self.e.new_label();
         self.e.jump(I::JumpIfFalse, otherwise);
-        self.statement(&statement.consequent)?;
+        self.if_clause(&statement.consequent)?;
         match &statement.alternate {
             Some(alternate) => {
                 let end = self.e.new_label();
                 self.e.jump(I::Jump, end);
                 self.e.bind(otherwise);
-                self.statement(alternate)?;
+                self.if_clause(alternate)?;
                 self.e.bind(end);
             }
             None => self.e.bind(otherwise),
         }
         Ok(())
+    }
+
+    /// B.3.3: a function declaration clause behaves as if wrapped in a block (Oxc gives it no
+    /// scope of its own), so it is created when the clause runs.
+    fn if_clause(&mut self, clause: &Statement) -> JsResult<()> {
+        if matches!(clause, Statement::FunctionDeclaration(_)) {
+            self.hoist_functions(std::slice::from_ref(clause))?;
+        }
+        self.statement(clause)
     }
 
     fn labeled(&mut self, statement: &LabeledStatement) -> JsResult<()> {
@@ -131,7 +143,8 @@ impl FunctionCompiler<'_> {
             body = &inner.body;
         }
         if matches!(body, Statement::FunctionDeclaration(_)) {
-            return Err(unsupported("labeled function declaration"));
+            // B.3.1: hoisted with the enclosing statement list.
+            return self.statement(body);
         }
         self.breakable_statement(body, labels)
     }

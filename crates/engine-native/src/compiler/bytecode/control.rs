@@ -5,7 +5,8 @@
 //! loops. A `finally` entry stops the walk: the jump records a token, runs the finally
 //! block, and the dispatch after the block resumes the jump from the outer level.
 
-use oxc_ast::ast::{CatchClause, TryStatement};
+use oxc_ast::ast::{BindingPattern, CatchClause, TryStatement};
+use oxc_semantic::SymbolId;
 use velyr_engine_vm::bytecode::{Instruction as I, Reg};
 
 use super::emitter::Label;
@@ -283,6 +284,11 @@ impl FunctionCompiler<'_> {
         let exception = self.e.alloc();
         self.e.emit(I::Star(exception));
         let saved = self.enter_scope(clause.body.scope_id());
+        let merged = self.merged_catch_parameter(clause);
+        let previous = merged.map(|symbol| {
+            let register = self.e.alloc();
+            (symbol, self.catch_bindings.insert(symbol, register))
+        });
         if let Some(param) = &clause.param {
             self.e.emit(I::Ldar(exception));
             self.bind_pattern(&param.pattern)?;
@@ -291,8 +297,28 @@ impl FunctionCompiler<'_> {
         for statement in &clause.body.body {
             self.statement(statement)?;
         }
+        if let Some((symbol, previous)) = previous {
+            match previous {
+                Some(register) => self.catch_bindings.insert(symbol, register),
+                None => self.catch_bindings.remove(&symbol),
+            };
+        }
         self.exit_scope(saved);
         self.e.release(mark);
         Ok(())
+    }
+
+    /// B.3.4: `catch (e) { var e = 1; }` gives the parameter and the var one Oxc symbol in
+    /// the var scope; inside the body every `e` (the var initializer included) is the
+    /// parameter.
+    /// shortcut: closures inside the body still see the var binding; give the parameter a
+    /// context slot if Test262 shows captured cases.
+    fn merged_catch_parameter(&self, clause: &CatchClause) -> Option<SymbolId> {
+        let BindingPattern::BindingIdentifier(id) = &clause.param.as_ref()?.pattern else {
+            return None;
+        };
+        let symbol = id.symbol_id();
+        let home = self.analysis.scoping.symbol_scope_id(symbol);
+        (home != clause.body.scope_id()).then_some(symbol)
     }
 }

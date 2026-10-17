@@ -440,8 +440,17 @@ impl<'s> ScopeAnalysis<'s> {
 
     pub fn global_declarations(&self) -> GlobalDeclarations {
         let mut declarations = GlobalDeclarations::default();
+        let mut var_names = HashSet::new();
         for symbol in self.bindings(self.root) {
+            let annex_b = self.annex_b_function(symbol);
+            if annex_b.is_some_and(|info| matches!(info.block, BlockBinding::Synthetic(_))) {
+                // A block function Oxc hoisted to the root: declared through `annex_b`.
+                continue;
+            }
             let flags = self.flags(symbol);
+            if !is_lexical(flags) {
+                var_names.insert(self.name(symbol));
+            }
             let name = JsStr::from_str(self.name(symbol));
             let list = if flags.contains(SymbolFlags::Function) {
                 &mut declarations.functions
@@ -454,6 +463,10 @@ impl<'s> ScopeAnalysis<'s> {
             };
             list.push(name);
         }
+        // B.3.2.2 step 12.a: names already declared by a function or var are skipped.
+        let annex_b = self.annex_b_globals().into_iter();
+        let annex_b = annex_b.filter(|name| !var_names.contains(name));
+        declarations.annex_b = annex_b.map(JsStr::from_str).collect();
         declarations
     }
 }

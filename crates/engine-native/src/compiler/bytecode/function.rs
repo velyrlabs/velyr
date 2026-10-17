@@ -19,8 +19,9 @@ use super::control::Control;
 use super::emitter::{Emitter, Header, Label};
 use super::generators::Coroutine;
 use super::outer::OuterScope;
-use super::scope::{Location, ScopeAnalysis, bound_identifiers, is_lexical, is_simple};
-use super::unsupported;
+use super::scope::{
+    BlockBinding, Location, ScopeAnalysis, bound_identifiers, is_lexical, is_simple,
+};
 use crate::compiler::JsResult;
 
 pub struct FunctionCompiler<'s> {
@@ -55,6 +56,11 @@ pub struct FunctionCompiler<'s> {
     pub outer: Option<Rc<OuterScope>>,
     /// Set while compiling parameter expressions, which do not see the body's bindings.
     pub parameters_end: Option<u32>,
+    /// Register of each `BlockBinding::Synthetic(Local)` Annex B.3.2 block binding.
+    pub annex_b_registers: HashMap<SymbolId, Reg>,
+    /// B.3.4: a `catch (e)` parameter Oxc merged with a `var e` of its body, bound to its
+    /// own register while that body compiles.
+    pub catch_bindings: HashMap<SymbolId, Reg>,
 }
 
 pub(super) enum Body<'b, 'a> {
@@ -127,6 +133,8 @@ impl<'s> FunctionCompiler<'s> {
             eager: kind == FunctionKind::Script,
             outer: None,
             parameters_end: None,
+            annex_b_registers: HashMap::new(),
+            catch_bindings: HashMap::new(),
         }
     }
 
@@ -406,25 +414,28 @@ impl<'s> FunctionCompiler<'s> {
         Ok(())
     }
 
-    /// Function declarations directly in `statements` are initialized on scope entry.
+    /// Function declarations directly in `statements` (labelled ones included, B.3.1) are
+    /// initialized on scope entry.
     pub fn hoist_functions(&mut self, statements: &[Statement]) -> JsResult<()> {
-        for statement in statements {
+        for mut statement in statements {
+            while let Statement::LabeledStatement(labeled) = statement {
+                statement = &labeled.body;
+            }
             let Statement::FunctionDeclaration(function) = statement else {
                 continue;
             };
             let Some(id) = &function.id else { continue };
-            let symbol = id.symbol_id();
-            let scoping = self.analysis.scoping;
-            let declared_in = scoping.scope_parent_id(function.scope_id());
-            let is_block_level =
-                declared_in.is_some_and(|scope| !scoping.scope_flags(scope).is_var());
-            if !self.is_strict && is_block_level {
-                return Err(unsupported("block-level function in sloppy mode"));
-            }
             self.closure(function, id.name.as_str(), FunctionKind::Normal)?;
-            self.initialize_binding(symbol)?;
+            self.initialize_function(id.symbol_id())?;
         }
         Ok(())
+    }
+
+    /// A block function hoisted to this var scope (B.3.2.1): `undefined` until its
+    /// declaration is evaluated, unlike a var-scoped function initialized on entry.
+    fn is_annex_b_var(&self, symbol: SymbolId) -> bool {
+        let info = self.analysis.annex_b_function(symbol);
+        info.is_some_and(|info| matches!(info.block, BlockBinding::Synthetic(_)))
     }
 
     /// Allocates the scope's context if it has captured bindings and puts its lexical
@@ -456,8 +467,16 @@ impl<'s> FunctionCompiler<'s> {
                     self.e.emit(I::LdaTheHole);
                     self.e.emit(I::Star(register));
                 }
+                Location::Local if self.is_annex_b_var(symbol) => {
+                    if let Some(&register) = self.registers.get(&symbol) {
+                        self.e.emit(I::LdaUndefined);
+                        self.e.emit(I::Star(register));
+                    }
+                }
                 Location::Context { slot, .. }
-                    if !is_lexical(flags) && !flags.contains(SymbolFlags::Function) =>
+                    if !is_lexical(flags)
+                        && (!flags.contains(SymbolFlags::Function)
+                            || self.is_annex_b_var(symbol)) =>
                 {
                     self.e.emit(I::LdaUndefined);
                     self.e.emit(I::StaContextSlot { depth: 0, slot });

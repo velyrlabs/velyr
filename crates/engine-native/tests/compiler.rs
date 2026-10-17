@@ -66,7 +66,7 @@ fn script_globals_and_completion_value() {
    7: Star(r0)
    8: Ldar(r0)
    9: Return
-c0: globals functions=[] vars=[] lets=["a"] consts=[]
+c0: globals functions=[] vars=[] lets=["a"] consts=[] annex_b=[]
 c1: "a"
 "#,
     );
@@ -189,7 +189,6 @@ fn unsupported_constructs_are_explicit_syntax_errors() {
     for (source, construct) in [
         ("with ({}) {}", "with statement"),
         ("function f() { eval('1'); }", "direct eval"),
-        ("{ function f() {} }", "block-level function in sloppy mode"),
     ] {
         let message = compile_error(source);
         assert_eq!(
