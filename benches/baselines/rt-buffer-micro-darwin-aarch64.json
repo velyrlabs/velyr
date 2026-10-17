@@ -1,0 +1,24 @@
+{
+  "benchmark": "buffer-micro",
+  "commit": "925f4a5ff06144c5d045760d32d2247e868eedcd-dirty",
+  "profile": "release",
+  "platform": "macos-aarch64",
+  "cpu": "Apple M4 Pro",
+  "memory": "24576 MiB",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "os": "macOS 27.0",
+  "timestamp": "2026-10-17T16:39:28Z",
+  "load_average": [
+    7.44873046875,
+    9.6240234375,
+    14.5205078125
+  ],
+  "metrics": {
+    "cpu_seconds": 0.3174162666666666,
+    "cycles": 1258803331.0,
+    "instructions": 7178978640.0,
+    "rss_mb": 43.984375,
+    "wall_ms": 303.123083,
+    "wall_ms_p95": 408.656209
+  }
+}

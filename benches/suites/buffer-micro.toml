@@ -1,0 +1,7 @@
+# "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+# Runtime memory plan RT-01: Buffer.from + utf8/base64/hex toString, 200000 iterations.
+name = "buffer-micro"
+command = ["velyr", "run", "benches/fixtures/buffer-micro.js"]
+iterations = 15
+warmup = 3
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds", "instructions", "cycles"]

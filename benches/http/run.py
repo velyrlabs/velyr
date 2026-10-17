@@ -92,6 +92,8 @@ def measure(argv, cwd, port, scenario, seconds):
 
     try:
         wait_listening(port, proc)
+        time.sleep(1)  # let startup allocations settle before sampling the idle RSS
+        idle_rss_mb = rss_mb(proc.pid)
         url = f"http://{HOST}:{port}/{scenario}"
         load(url, 2)  # warm-up
         sampler = threading.Thread(target=sample)
@@ -112,6 +114,7 @@ def measure(argv, cwd, port, scenario, seconds):
         "requests_per_sec": report["summary"]["requestsPerSec"],
         "p99_ms": report["latencyPercentiles"]["p99"] * 1000,
         "rss_mb": peak[0],
+        "idle_rss_mb": idle_rss_mb,
     }
 
 
@@ -163,7 +166,7 @@ def main():
         "profile": args.profile, "platform": suffix.replace("darwin", "macos"), "cpu": mach["cpu"],
         "memory": f"{int(memory) // 2**20} MiB" if memory else "unknown",
         "rustc": out(["rustc", "--version"]) or "unknown", "os": mach["os"], "timestamp": stamp,
-        "metrics": velyr_metrics,
+        "load_average": list(os.getloadavg()), "metrics": velyr_metrics,
     })
     write(args.out_dir / f"m4-{args.scenario}-comparison-{suffix}.json", {
         "scenario": args.scenario, "timestamp": stamp, "machine": mach, "load_generator": out(["oha", "--version"]),

@@ -1,0 +1,22 @@
+{
+  "benchmark": "http-plaintext",
+  "commit": "12b17c36e8bd9624175a0a36c99c567033a98509",
+  "profile": "web",
+  "platform": "macos-aarch64",
+  "cpu": "Apple M4 Pro",
+  "memory": "24576 MiB",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "os": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "timestamp": "2026-10-17T16:42:13Z",
+  "load_average": [
+    9.29150390625,
+    9.37255859375,
+    13.46923828125
+  ],
+  "metrics": {
+    "requests_per_sec": 32918.13736792531,
+    "p99_ms": 6.088208000000001,
+    "rss_mb": 73.890625,
+    "idle_rss_mb": 34.078125
+  }
+}

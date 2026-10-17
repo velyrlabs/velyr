@@ -1,0 +1,7 @@
+# "velyr" as first element is replaced by --bin / VELYR_BIN (default target/release/velyr).
+# Runtime memory plan RT-01: 10000 timers of 1 ms; cpu_seconds is the CPU per 10k firings.
+name = "timers-fire-10k"
+command = ["velyr", "run", "benches/fixtures/timers-fire-10k.js"]
+iterations = 15
+warmup = 3
+metrics = ["wall_ms", "wall_ms_p95", "rss_mb", "cpu_seconds", "instructions", "cycles"]
