@@ -4759,7 +4759,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "velyr"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde_json",
  "tempfile",
@@ -4778,7 +4778,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-bench-harness"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -4792,7 +4792,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-cli"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "assert_cmd",
  "base64 0.22.1",
@@ -4859,7 +4859,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-compat-commonjs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -4883,7 +4883,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-compat-napi"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cc",
  "libloading",
@@ -4896,7 +4896,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-compat-node"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "aws-lc-rs",
  "brotli",
@@ -4937,7 +4937,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-compat-npm"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "base64 0.22.1",
  "directories",
@@ -4959,28 +4959,28 @@ dependencies = [
 
 [[package]]
 name = "velyr-engine-api"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "velyr-runtime-errors",
 ]
 
 [[package]]
 name = "velyr-engine-api-conformance"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "velyr-engine-api",
 ]
 
 [[package]]
 name = "velyr-engine-gc"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "velyr-runtime-errors",
 ]
 
 [[package]]
 name = "velyr-engine-native"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "fixed_decimal",
  "iana-time-zone",
@@ -5010,7 +5010,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-engine-v8"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "v8",
  "velyr-engine-api",
@@ -5020,7 +5020,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-engine-vm"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "num-bigint 0.4.8",
  "num-traits",
@@ -5035,7 +5035,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-io-fs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "notify",
  "notify-debouncer-full",
@@ -5058,7 +5058,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-io-http"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "bytes",
  "h3",
@@ -5084,7 +5084,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-io-net"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde_json",
  "socket2",
@@ -5105,7 +5105,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-io-process"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "nix",
  "serde_json",
@@ -5127,7 +5127,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-io-tls"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "rcgen",
  "rustls",
@@ -5153,7 +5153,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-qa-test262"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "clap",
  "serde",
@@ -5167,7 +5167,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-qa-wpt"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "clap",
  "serde",
@@ -5194,7 +5194,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-core"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "memory-stats",
  "serde_json",
@@ -5217,14 +5217,14 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-errors"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "velyr-runtime-event-loop"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "tokio",
  "tokio-util",
@@ -5235,7 +5235,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-inspector"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.3.4",
@@ -5245,7 +5245,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-modules"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "oxc_sourcemap",
  "sha2",
@@ -5258,7 +5258,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-ops"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "tempfile",
  "tokio",
@@ -5276,7 +5276,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-permissions"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "idna",
  "proptest",
@@ -5286,7 +5286,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-resources"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5296,7 +5296,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-telemetry"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
@@ -5309,7 +5309,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-vfs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "sha2",
  "tempfile",
@@ -5321,7 +5321,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-runtime-workers"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "socket2",
  "tempfile",
@@ -5342,7 +5342,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-tooling-decorators"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -5356,7 +5356,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-tooling-jsx"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "oxc_allocator",
  "oxc_codegen",
@@ -5375,7 +5375,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-tooling-test"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "serde_json",
  "tempfile",
@@ -5383,7 +5383,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-tooling-tsconfig"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "jsonc-parser",
  "serde",
@@ -5396,7 +5396,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-tooling-typescript"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "oxc_allocator",
  "oxc_ast",
@@ -5418,7 +5418,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-web-core"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "encoding_rs",
  "url",
@@ -5431,7 +5431,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-web-crypto"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "aws-lc-rs",
  "tokio",
@@ -5448,7 +5448,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-web-fetch"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "brotli-decompressor 5.0.3",
  "flate2",
@@ -5477,7 +5477,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-web-streams"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "flate2",
  "velyr-engine-api",
@@ -5488,7 +5488,7 @@ dependencies = [
 
 [[package]]
 name = "velyr-web-websocket"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "futures-util",
  "rustls",
