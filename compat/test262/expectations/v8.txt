@@ -104,40 +104,33 @@ test/built-ins/Array/prototype/slice/create-proto-from-ctor-realm-array.js # ski
 test/built-ins/Array/prototype/slice/create-proto-from-ctor-realm-non-array.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Array/prototype/splice/create-proto-from-ctor-realm-array.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Array/prototype/splice/create-proto-from-ctor-realm-non-array.js # skip: $262.createRealm is not available through engine-api
+test/built-ins/ArrayBuffer/allocation-limit.js # VELYR_QUOTA_EXCEEDED: heap
+test/built-ins/ArrayBuffer/data-allocation-after-object-creation.js # VELYR_QUOTA_EXCEEDED: heap
+test/built-ins/ArrayBuffer/options-maxbytelength-allocation-limit.js # VELYR_QUOTA_EXCEEDED: heap
 test/built-ins/ArrayBuffer/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer-resizable.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/ArrayBuffer/prototype/immutable/prop-desc.js # Test262Error: ArrayBuffer.prototype.immutable getter should be a function Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/ArrayBuffer/prototype/immutable/return-immutable.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/ArrayBuffer/prototype/immutable/return-immutable.js # Test262Error: Expected SameValue(«undefined», «false») to be true
 test/built-ins/ArrayBuffer/prototype/immutable/this-has-no-arraybufferdata-internal.js # TypeError: Cannot read properties of undefined (reading 'get')
 test/built-ins/ArrayBuffer/prototype/immutable/this-is-not-object.js # TypeError: Cannot read properties of undefined (reading 'get')
 test/built-ins/ArrayBuffer/prototype/immutable/this-is-sharedarraybuffer.js # TypeError: Cannot read properties of undefined (reading 'get')
-test/built-ins/ArrayBuffer/prototype/maxByteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resizable/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resize/coerced-new-length-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/resize/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/ArrayBuffer/prototype/resize/this-is-immutable-arraybuffer-object.js # TypeError: (intermediate value).transferToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/argument-coercion.js # TypeError: ab.sliceToImmutable is not a function
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/modify-source-after-return.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/modify-source-after-return.js # TypeError: source.sliceToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/not-a-constructor.js # Test262Error: isConstructor invoked with a non-function value
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/prop-desc.js # Test262Error: sliceToImmutable should be a function Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-becomes-detached.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-becomes-detached.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-grows.js # TypeError: source.sliceToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-has-no-arraybufferdata-internal.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-not-detached.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-not-object.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-is-sharedarraybuffer.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-shrinks.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/ArrayBuffer/prototype/sliceToImmutable/this-shrinks.js # TypeError: source.sliceToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/transfer/this-is-immutable-arraybuffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-detached.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-immutable-arraybuffer.js # TypeError: (intermediate value).transferToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/new-length-coercion.js # TypeError: ab.transferToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/not-a-constructor.js # Test262Error: isConstructor invoked with a non-function value
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/prop-desc.js # Test262Error: transferToImmutable should be a function Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-has-no-arraybufferdata-internal.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
-test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-detachable.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-detachable.js # TypeError: (intermediate value).transferToImmutable is not a function
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-not-object.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/this-is-sharedarraybuffer.js # Test262Error: Method must exist. Expected SameValue(«"undefined"», «"function"») to be true
 test/built-ins/ArrayBuffer/prototype/transferToImmutable/to-larger.js # TypeError: source.transferToImmutable is not a function
@@ -153,7 +146,6 @@ test/built-ins/Atomics/and/immutable-buffer.js # Test262Error: no arg factories 
 test/built-ins/Atomics/compareExchange/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/Atomics/exchange/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/Atomics/notify/bigint/notify-all-on-loc.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/notify/bigint/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/notify/count-defaults-to-infinity-missing.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/count-defaults-to-infinity-undefined.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/immutable-buffer-returns-0.js # Test262Error: no arg factories match include immutable and exclude undefined
@@ -169,8 +161,7 @@ test/built-ins/Atomics/notify/notify-two.js # skip: $262.agent is not available 
 test/built-ins/Atomics/notify/notify-with-no-agents-waiting.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/notify-with-no-matching-agents-waiting.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/notify/notify-zero.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/notify/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-detached.js # skip: detachArrayBuffer.js is not available through engine-api
+test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-detached.js # RangeError: Invalid atomic access index
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared-resize-to-zero.js # RangeError: Invalid atomic access index
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion-non-shared.js # Test262Error: Expected a RangeError but got a Test262Error
 test/built-ins/Atomics/notify/retrieve-length-before-index-coercion.js # Test262Error: Expected a RangeError but got a Test262Error
@@ -191,7 +182,6 @@ test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-or.js # skip: $262.agen
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/bigint/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/wait/bigint/value-not-equal.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/waiterlist-block-indexedposition-wake.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/bigint/waiterlist-order-of-operations-is-fifo.js # skip: $262.agent is not available through engine-api
@@ -210,7 +200,6 @@ test/built-ins/Atomics/wait/no-spurious-wakeup-on-or.js # skip: $262.agent is no
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/wait/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/wait/null-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/object-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/wait/poisoned-object-for-timeout-throws-agent.js # skip: $262.agent is not available through engine-api
@@ -239,7 +228,6 @@ test/built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-or.js # skip: $262
 test/built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/bigint/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/waitAsync/bigint/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/waitAsync/bigint/null-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/bigint/object-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/bigint/poisoned-object-for-timeout-throws-agent.js # skip: $262.agent is not available through engine-api
@@ -268,7 +256,6 @@ test/built-ins/Atomics/waitAsync/no-spurious-wakeup-on-or.js # skip: $262.agent 
 test/built-ins/Atomics/waitAsync/no-spurious-wakeup-on-store.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/no-spurious-wakeup-on-sub.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/no-spurious-wakeup-on-xor.js # skip: $262.agent is not available through engine-api
-test/built-ins/Atomics/waitAsync/null-bufferdata-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Atomics/waitAsync/null-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/object-for-timeout-agent.js # skip: $262.agent is not available through engine-api
 test/built-ins/Atomics/waitAsync/poisoned-object-for-timeout-throws-agent.js # skip: $262.agent is not available through engine-api
@@ -289,97 +276,18 @@ test/built-ins/Atomics/waitAsync/was-woken-before-timeout.js # skip: $262.agent 
 test/built-ins/Atomics/xor/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/BigInt/prototype/valueOf/cross-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Boolean/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/DataView/custom-proto-access-detaches-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/DataView/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/DataView/prototype/buffer/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteLength/instance-has-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/byteOffset/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigInt64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getBigUint64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getFloat64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getInt8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/getUint8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-after-bigint-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setBigInt64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setBigInt64/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
 test/built-ins/DataView/prototype/setBigUint64/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setFloat16/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setFloat32/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setFloat64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setFloat64/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setInt16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setInt16/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setInt32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setInt32/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setInt8/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setInt8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setInt8/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setUint16/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint16/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setUint16/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setUint32/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint32/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setUint32/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
-test/built-ins/DataView/prototype/setUint8/detached-buffer-after-number-value.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer-after-toindex-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer-before-outofrange-byteoffset.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/DataView/prototype/setUint8/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/DataView/prototype/setUint8/immutable-buffer.js # TypeError: (intermediate value).transferToImmutable is not a function
 test/built-ins/Date/proto-from-ctor-realm-one.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/Date/proto-from-ctor-realm-two.js # skip: $262.createRealm is not available through engine-api
@@ -895,224 +803,40 @@ test/built-ins/Temporal/ZonedDateTime/prototype/since/float64-representable-inte
 test/built-ins/Temporal/ZonedDateTime/prototype/until/float64-representable-integer.js # Test262Error: Duration.p.toString() should not use more precise internal representation than the spec prescribes Expected SameValue(«"PT18446744073.709551616S"», «"PT18446744073.709552616S"») to be tr
 test/built-ins/ThrowTypeError/distinct-cross-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/ThrowTypeError/unique-per-realm-function-proto.js # Test262Error: arguments.get Expected SameValue(«function () { [native code] }», «function get arguments() { [native code] }») to be true
-test/built-ins/TypedArray/from/from-array-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/from/from-typedarray-into-itself-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/from/from-typedarray-mapper-detaches-result.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/Symbol.toStringTag/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/Symbol.toStringTag/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/buffer/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/buffer/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteLength/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteLength/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteOffset/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/byteOffset/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/coerced-values-end-detached-prototype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/coerced-values-end-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/coerced-values-start-detached.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/copyWithin/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/copyWithin/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/TypedArray/prototype/entries/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/entries/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/every/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-end-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-start-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/coerced-value-detach.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/fill/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/fill/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/TypedArray/prototype/filter/BigInt/callbackfn-detachbuffer-kept-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/filter/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/filter/speciesctor-destination-backed-by-immutable-buffer.js # TypeError: (intermediate value).buffer.transferToImmutable is not a function (Testing with Float64Array and makePassthrough.)
-test/built-ins/TypedArray/prototype/find/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/find/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findIndex/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLast/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/BigInt/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/findLastIndex/predicate-may-detach-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/forEach/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-false-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer-during-fromIndex-returns-true-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/detached-buffer-during-fromIndex-returns-false-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/detached-buffer-during-fromIndex-returns-true-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/includes/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/indexOf/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/BigInt/detached-buffer-during-fromIndex-returns-single-comma.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/detached-buffer-during-fromIndex-returns-single-comma.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/join/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/keys/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/keys/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer-during-fromIndex-returns-minus-one-for-undefined.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer-during-fromIndex-returns-minus-one-for-zero.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/lastIndexOf/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/length/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/length/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/map/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/map/speciesctor-destination-backed-by-immutable-buffer.js # TypeError: (intermediate value).buffer.transferToImmutable is not a function (Testing with Float64Array and makePassthrough.)
-test/built-ins/TypedArray/prototype/reduce/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduce/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reduceRight/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reverse/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/reverse/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/reverse/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/array-arg-targetbuffer-detached-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/BigInt/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-get-src-value-no-throw.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-on-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/array-arg-targetbuffer-detached-throws.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/set/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/TypedArray/prototype/set/typedarray-arg-srcbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/set/typedarray-arg-targetbuffer-detached-during-tointeger-offset-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-get-ctor.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-speciesctor-get-species-custom-ctor-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer-zero-count-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-get-ctor.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-speciesctor-get-species-custom-ctor-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-other-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer-zero-count-custom-ctor-same-targettype.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/slice/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/slice/speciesctor-destination-backed-by-immutable-buffer.js # TypeError: (intermediate value).buffer.transferToImmutable is not a function (Testing with Float64Array and makePassthrough.)
-test/built-ins/TypedArray/prototype/some/BigInt/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/callbackfn-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/some/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/sort/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/sort/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArray/prototype/sort/immutable-buffer.js # Test262Error: no arg factories match include immutable and exclude undefined
-test/built-ins/TypedArray/prototype/sort/sort-tonumber.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/byteoffset-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/subarray/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toLocaleString/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toLocaleString/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toReversed/this-value-invalid.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toSorted/this-value-invalid.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toString/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/toString/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/values/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArray/prototype/values/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/byteoffset-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/detachedbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/length-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/buffer-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/length-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/no-args/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/object-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors-bigint/typedarray-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/byteoffset-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/detachedbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/ctors/buffer-arg/length-to-number-detachbuffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm-sab.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/buffer-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/length-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/no-args/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
+test/built-ins/TypedArrayConstructors/ctors/object-arg/length-excessive-throws.js # VELYR_QUOTA_EXCEEDED: heap
 test/built-ins/TypedArrayConstructors/ctors/object-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/ctors/typedarray-arg/proto-from-ctor-realm.js # skip: $262.createRealm is not available through engine-api
 test/built-ins/TypedArrayConstructors/from/custom-ctor-returns-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/BigInt/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer-throws.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/DefineOwnProperty/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/BigInt/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Delete/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/BigInt/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Get/infinity-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/BigInt/enumerate-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/GetOwnProperty/enumerate-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/BigInt/infinity-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-not-number.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/HasProperty/infinity-with-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/BigInt/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-not-numeric-index.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-key-is-symbol.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer-realm.js # skip: $262.createRealm is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
-test/built-ins/TypedArrayConstructors/internals/Set/tonumber-value-detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/TypedArrayConstructors/of/custom-ctor-returns-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
 test/built-ins/Uint8Array/prototype/setFromBase64/detached-buffer.js # skip: detachArrayBuffer.js is not available through engine-api
 test/built-ins/Uint8Array/prototype/setFromBase64/throws-when-target-is-backed-by-immutable-arraybuffer.js # Test262Error: no arg factories match include immutable and exclude undefined
@@ -1305,15 +1029,15 @@ test/language/expressions/call/tco-non-eval-function-dynamic.js # RangeError: Ma
 test/language/expressions/call/tco-non-eval-function.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/call/tco-non-eval-global.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/call/tco-non-eval-with.js # RangeError: Maximum call stack size exceeded
-test/language/expressions/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-decorator-member-expr.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/expressions/class/elements/syntax/valid/grammar-field-accessor.js # SyntaxError: Unexpected identifier '$'
+test/language/expressions/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-decorator-member-expr.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/expressions/class/elements/syntax/valid/grammar-field-accessor.js # post-parity: SyntaxError: Unexpected identifier '$'
 test/language/expressions/class/private-getter-brand-check-multiple-evaluations-of-class-realm-function-ctor.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/class/private-getter-brand-check-multiple-evaluations-of-class-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/class/private-method-brand-check-multiple-evaluations-of-class-realm-function-ctor.js # skip: $262.createRealm is not available through engine-api
@@ -1385,283 +1109,77 @@ test/language/expressions/compound-assignment/S11.13.2_A7.9_T4.js # Test262Error
 test/language/expressions/conditional/tco-cond.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/conditional/tco-pos.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/delete/super-property-uninitialized-this.js # Test262Error: Expected a ReferenceError but got a Test262Error
-test/language/expressions/dynamic-import/assignment-expression/additive-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/array-literal.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/arrow-function.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/await-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/await-identifier.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/call-expr-arguments.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/call-expr-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/call-expr-identifier.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/cover-call-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/cover-parenthesized-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/identifier.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/lhs-assign-operator-assign-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/lhs-eq-assign-expr-nostrict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/lhs-eq-assign-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/logical-and-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/logical-or-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/member-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/new-target.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/object-literal.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/tagged-function-call.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/ternary.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/this.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/yield-assign-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/yield-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/assignment-expression/yield-identifier.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/await-import-evaluation.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-arrow-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-arrow-function-return-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-function-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-function-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-function-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-function-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-function-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-function-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-return-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-return-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-return-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-function-return-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-function-return-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-return-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-function-return-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-function-return-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-function-return-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-gen-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-gen-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-gen-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-gen-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-block-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-block-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-block-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-block-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-block-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-labeled-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-labeled-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-labeled-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-block-labeled-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-block-labeled-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-block-labeled-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-block-labeled-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-block-labeled-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-block-labeled-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-do-while-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-do-while-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-do-while-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-do-while-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-do-while-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-do-while-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-do-while-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-do-while-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-do-while-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-else-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-else-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-else-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-else-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-else-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-else-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-else-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-else-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-else-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-function-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-function-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-function-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-function-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-function-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-function-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-function-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-function-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-function-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-if-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-if-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-if-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-if-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-if-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-if-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-if-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-if-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-if-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-while-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/nested-while-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/nested-while-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/nested-while-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/nested-while-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-while-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/nested-while-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/nested-while-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/nested-while-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/top-level-import-catch-eval-rqstd-abrupt-typeerror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"TypeError"») to be true
-test/language/expressions/dynamic-import/catch/top-level-import-catch-eval-rqstd-abrupt-urierror.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"URIError"») to be true
-test/language/expressions/dynamic-import/catch/top-level-import-catch-eval-script-code-target.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
 test/language/expressions/dynamic-import/catch/top-level-import-catch-import-defer-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/catch/top-level-import-catch-import-source-source-text-module.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/top-level-import-catch-import-source-specifier-tostring-abrupt-rejects.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/catch/top-level-import-catch-import-source-specifier-tostring.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/catch/top-level-import-catch-instn-iee-err-ambiguous-import.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/catch/top-level-import-catch-instn-iee-err-circular.js # Test262Error: Test262Error: Expected SameValue(«"Error"», «"SyntaxError"») to be true
-test/language/expressions/dynamic-import/custom-primitive.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-cls-anon.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-cls-name-meth.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-cls-named.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-cls-anon.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-cls-name-meth.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-cls-named.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-fn-anon.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-fn-named.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-gen-anon.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-gen-named.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-export-dflt-expr-in.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-rqstd-once.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-self-once-module.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/eval-self-once-script.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/for-await-resolution-and-error-agen.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/for-await-resolution-and-error.js # Test262Error: Test262Error: Actual [] and expected [42, 39] should have the same contents.
-test/language/expressions/dynamic-import/import-attributes/2nd-param-await-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-await-ident.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-in.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-trailing-comma-fulfill.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-with-enumeration-enumerable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-with-enumeration.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-with-type-text.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-with-undefined.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-yield-expr.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/2nd-param-yield-ident-valid.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/import-attributes/trailing-comma-fulfill.js # Error: dynamic import() is not supported yet
+test/language/expressions/dynamic-import/import-attributes/2nd-param-with-enumeration-enumerable.js # Test262Error: Test262Error: Expected SameValue(«undefined», «262») to be true
+test/language/expressions/dynamic-import/import-attributes/2nd-param-with-type-text.js # Test262Error: Test262Error: Expected SameValue(«"undefined"», «"string"») to be true
 test/language/expressions/dynamic-import/import-defer/import-defer-async-module/main.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/import-defer/import-defer-transitive-async-module/main.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/import-defer/import-defer-transitive-async-module/promise-prototype-then-not-called.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/import-defer/sync-dependency-of-deferred-async-module/main.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/import-defer/sync/main.js # SyntaxError: Unexpected identifier 'defer'
-test/language/expressions/dynamic-import/import-fulfilled-member-of-errored-cycle.js # Test262Error: Test262Error: Expected SameValue(«"dynamic import() is not supported yet"», «"async error in B"») to be true
-test/language/expressions/dynamic-import/imported-self-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/indirect-resolution.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-Symbol-toStringTag.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-define-own-property.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-delete-exported-init-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-delete-exported-init-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-delete-non-exported-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-delete-non-exported-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-extensible.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-nested-namespace-dflt-direct.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-nested-namespace-dflt-indirect.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-nested-namespace-props-nrml.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-own-property-str-found-init.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-own-property-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-own-property-sym.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-str-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-sym-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-get-sym-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-has-property-str-found-init.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-has-property-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-has-property-sym-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-has-property-sym-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-no-iterator.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-own-property-keys-sort.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-prevent-extensions-object.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-prevent-extensions-reflect.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-prop-descs.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-prototype.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-prototype-of-null.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-prototype-of.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-same-values-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-same-values-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/await-ns-set-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/default-property-not-set-own.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-Symbol-toStringTag.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-define-own-property.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-delete-exported-init-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-delete-exported-init-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-delete-non-exported-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-delete-non-exported-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-extensible.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-nested-namespace-dflt-direct.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-nested-namespace-dflt-indirect.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-nested-namespace-props-nrml.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-own-property-str-found-init.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-own-property-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-own-property-sym.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-str-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-sym-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-get-sym-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-has-property-str-found-init.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-has-property-str-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-has-property-sym-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-has-property-sym-not-found.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-no-iterator.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-own-property-keys-sort.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-prevent-extensions-object.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-prevent-extensions-reflect.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-prop-descs.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-prototype.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-prototype-of-null.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-prototype-of.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-same-values-no-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-same-values-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/namespace/promise-then-ns-set-strict.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/reuse-namespace-object-from-import.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/reuse-namespace-object-from-script.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/reuse-namespace-object.js # Error: dynamic import() is not supported yet
 test/language/expressions/dynamic-import/syntax/valid/nested-arrow-assignment-expression-import-defer-empty-str-is-valid-assign-expr.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/syntax/valid/nested-arrow-assignment-expression-import-defer-script-code-valid.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/syntax/valid/nested-arrow-assignment-expression-import-source-empty-str-is-valid-assign-expr.js # SyntaxError: Unexpected identifier 'source'
@@ -1746,116 +1264,6 @@ test/language/expressions/dynamic-import/syntax/valid/top-level-import-defer-emp
 test/language/expressions/dynamic-import/syntax/valid/top-level-import-defer-script-code-valid.js # SyntaxError: Unexpected identifier 'defer'
 test/language/expressions/dynamic-import/syntax/valid/top-level-import-source-empty-str-is-valid-assign-expr.js # SyntaxError: Unexpected identifier 'source'
 test/language/expressions/dynamic-import/syntax/valid/top-level-import-source-script-code-valid.js # SyntaxError: Unexpected identifier 'source'
-test/language/expressions/dynamic-import/update-to-dynamic-import.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage-from-eval.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-assignment-expression-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-arrow-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-arrow-function-return-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-return-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-function-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-async-gen-return-await-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-block-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-do-while-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-else-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-function-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-braceless-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-if-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/nested-while-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/syntax-nested-block-labeled-specifier-tostring.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-eval-gtbndng-indirect-update-dflt.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-eval-gtbndng-indirect-update.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-eval-script-code-host-resolves-module-code.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-is-call-expression-square-brackets.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-returns-thenable.js # Error: dynamic import() is not supported yet
-test/language/expressions/dynamic-import/usage/top-level-import-then-specifier-tostring.js # Error: dynamic import() is not supported yet
 test/language/expressions/generators/eval-body-proto-realm.js # skip: $262.createRealm is not available through engine-api
 test/language/expressions/logical-and/tco-right.js # RangeError: Maximum call stack size exceeded
 test/language/expressions/logical-or/tco-right.js # RangeError: Maximum call stack size exceeded
@@ -1915,131 +1323,122 @@ test/language/import/import-bytes/bytes-from-js.js # SyntaxError: The requested 
 test/language/import/import-bytes/bytes-from-json.js # SyntaxError: Unexpected token ':'
 test/language/import/import-bytes/bytes-from-png.js # cannot resolve module `./bytes-from-png_FIXTURE.png` imported from `/Users/lucasbrito/dev/wdt/velyr-core/compat/vendor/test262/test/language/import/import-bytes/bytes-from-png.js`: VELYR_NOT_FOUND: /U
 test/language/import/import-bytes/bytes-from-txt.js # SyntaxError: Unexpected identifier 'World'
-test/language/import/import-defer/deferred-namespace-object/exotic-object-behavior.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/deferred-namespace-object/identity.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/deferred-namespace-object/json-module.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/deferred-namespace-object/reexport-deferred-ns-evaluation.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/deferred-namespace-object/to-string-tag.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-other-while-dep-evaluating-async/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-other-while-dep-evaluating/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-other-while-evaluating-async/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-other-while-evaluating/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-self-while-defer-evaluating/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-self-while-evaluating-async/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/get-self-while-evaluating.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/module-throws/defer-import-after-evaluation.js # Test262Error: Test262Error: Expected SameValue(«undefined», «"the error from throws_FIXTURE"») to be true
-test/language/import/import-defer/errors/module-throws/third-party-evaluation-after-defer-import.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/errors/module-throws/trigger-evaluation.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-sync/import-defer-does-not-evaluate.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-sync/module-imported-defer-and-eager.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-top-level-await/async-cycle-dependency-of-deferred-module/main.js # module evaluation never settled
-test/language/import/import-defer/evaluation-top-level-await/flattening-order/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-top-level-await/import-defer-async-module/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-top-level-await/import-defer-transitive-async-module/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-top-level-await/sync-dependency-of-deferred-async-module/main.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-getPrototypeOf.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-isExtensible.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-preventExtensions.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-private-name-access.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-set-string-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-set-string-not-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-setPrototypeOf.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-defineOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-delete.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-get-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-getOwnProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-hasProperty-in-prototype.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-hasProperty.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-get.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-property-define.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-property-set-exported.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKey-names.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKeys-symbols.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKeys.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/syntax/import-attributes.js # SyntaxError: Unexpected token '*'
-test/language/import/import-defer/syntax/valid-defer-namespace.js # SyntaxError: Unexpected token '*'
+test/language/import/import-defer/deferred-namespace-object/exotic-object-behavior.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/deferred-namespace-object/identity.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/deferred-namespace-object/json-module.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/deferred-namespace-object/reexport-deferred-ns-evaluation.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/deferred-namespace-object/to-string-tag.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-other-while-dep-evaluating-async/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-other-while-dep-evaluating/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-other-while-evaluating-async/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-other-while-evaluating/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-self-while-defer-evaluating/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-self-while-evaluating-async/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/get-self-while-evaluating.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/module-throws/defer-import-after-evaluation.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/module-throws/third-party-evaluation-after-defer-import.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/errors/module-throws/trigger-evaluation.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-sync/import-defer-does-not-evaluate.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-sync/module-imported-defer-and-eager.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-top-level-await/async-cycle-dependency-of-deferred-module/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-top-level-await/flattening-order/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-top-level-await/import-defer-async-module/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-top-level-await/import-defer-transitive-async-module/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-top-level-await/sync-dependency-of-deferred-async-module/main.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-exported-then-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-getPrototypeOf.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-isExtensible.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-not-exported-then-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-preventExtensions.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-private-name-access.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-set-string-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-set-string-not-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-setPrototypeOf.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-other-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/ignore-symbol-toStringTag-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-exported-string-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-defineOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-delete.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-get-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-getOwnProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-hasProperty-in-prototype.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-hasProperty.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-get.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-property-define.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-not-exported-string-super-property-set-exported.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKey-names.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKeys-symbols.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/evaluation-triggers/trigger-ownPropertyKeys.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/syntax/import-attributes.js # post-parity: SyntaxError: Unexpected token '*'
+test/language/import/import-defer/syntax/valid-defer-namespace.js # post-parity: SyntaxError: Unexpected token '*'
 test/language/module-code/ambiguous-export-bindings/namespace-unambiguous-if-import-source-and-export.js # SyntaxError: Unexpected identifier 'mod'
+test/language/module-code/source-phase-import/import-source.js # Test262Error: Test262Error: ./import-source-binding-name-2_FIXTURE.js: Promise should be rejected with a non-SyntaxError
 test/language/module-code/source-phase-import/reexport-source-binding-named-import.js # SyntaxError: Unexpected identifier 'x'
 test/language/module-code/source-phase-import/reexport-source-binding-namespace-get.js # SyntaxError: Unexpected identifier 'x'
-test/language/module-code/top-level-await/await-dynamic-import-rejection.js # expected TypeError, got Error: dynamic import() is not supported yet
-test/language/module-code/top-level-await/await-dynamic-import-resolution.js # Error: dynamic import() is not supported yet
-test/language/module-code/top-level-await/dynamic-import-of-waiting-module.js # async test never called $DONE
-test/language/module-code/top-level-await/dynamic-import-rejection.js # Test262Error: Test262Error: Expected true but got false
-test/language/module-code/top-level-await/dynamic-import-resolution.js # Error: dynamic import() is not supported yet
-test/language/module-code/top-level-await/fulfillment-order.js # async test never called $DONE
-test/language/module-code/top-level-await/module-graphs-does-not-hang.js # Error: dynamic import() is not supported yet
-test/language/module-code/top-level-await/rejection-order.js # async test never called $DONE
-test/language/module-code/top-level-await/unobservable-global-async-evaluation-count-reset.js # async test never called $DONE
-test/language/module-code/verify-dfs.js # Error: dynamic import() is not supported yet
 test/language/statements/await-using/initializer-Symbol.asyncDispose-disposed-at-end-of-imported-module.js # Test262Error: resource should be disposed once imported module evaluation finishes
 test/language/statements/await-using/initializer-Symbol.dispose-disposed-at-end-of-imported-module.js # Test262Error: resource should be disposed once imported module evaluation finishes
 test/language/statements/block/tco-stmt-list.js # RangeError: Maximum call stack size exceeded
 test/language/statements/block/tco-stmt.js # RangeError: Maximum call stack size exceeded
-test/language/statements/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/class-element-decorator-call-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/class-element-decorator-member-expr-decorator-member-expr.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/class-element-decorator-member-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/class-element-decorator-parenthesized-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-member-expr-decorator-member-expr.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # SyntaxError: Invalid or unexpected token
-test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/class-element-decorator-call-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/class-element-decorator-member-expr-decorator-member-expr.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/class-element-decorator-member-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/class-element-decorator-parenthesized-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-member-expr-decorator-member-expr.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js # post-parity: SyntaxError: Invalid or unexpected token
+test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js # post-parity: SyntaxError: Invalid or unexpected token
 test/language/statements/class/elements/private-class-field-on-nonextensible-objects.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
-test/language/statements/class/elements/syntax/valid/grammar-field-accessor.js # SyntaxError: Unexpected identifier '$'
+test/language/statements/class/elements/syntax/valid/grammar-field-accessor.js # post-parity: SyntaxError: Unexpected identifier '$'
 test/language/statements/class/subclass/private-class-field-on-nonextensible-return-override.js # Test262Error: Expected a TypeError to be thrown but no exception was thrown at all
 test/language/statements/do-while/tco-body.js # RangeError: Maximum call stack size exceeded
 test/language/statements/for/tco-const-body.js # RangeError: Maximum call stack size exceeded
@@ -2059,8 +1458,8 @@ test/language/statements/try/tco-finally.js # RangeError: Maximum call stack siz
 test/language/statements/using/initializer-disposed-at-end-of-imported-module.js # Test262Error: resource should be disposed once imported module evaluation finishes
 test/language/statements/variable/binding-resolution.js # Test262Error: Expected SameValue(«undefined», «true») to be true
 test/language/statements/while/tco-body.js # RangeError: Maximum call stack size exceeded
-test/language/statements/with/get-binding-value-call-with-proxy-env.js # Test262Error: Actual [has:Object, get:Symbol(Symbol.unscopables), get:Object] and expected [has:Object, get:Symbol(Symbol.unscopables), has:Object, get:Object] should have the same contents.
-test/language/statements/with/get-binding-value-idref-with-proxy-env.js # Test262Error: Actual [has:Object, get:Symbol(Symbol.unscopables), get:Object] and expected [has:Object, get:Symbol(Symbol.unscopables), has:Object, get:Object] should have the same contents.
+test/language/statements/with/get-binding-value-call-with-proxy-env.js # Test262Error: Actual [has:Object, get:Symbol(Symbol.unscopables), get:Object] and expected [has:Object, get:Symbol(Symbol.unscopables), has:Object, get:Object] should have the same contents. 
+test/language/statements/with/get-binding-value-idref-with-proxy-env.js # Test262Error: Actual [has:Object, get:Symbol(Symbol.unscopables), get:Object] and expected [has:Object, get:Symbol(Symbol.unscopables), has:Object, get:Object] should have the same contents. 
 test/language/statements/with/get-mutable-binding-binding-deleted-in-get-unscopables-strict-mode.js # Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all
 test/language/statements/with/set-mutable-binding-binding-deleted-in-get-unscopables-strict-mode.js # Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all
 test/language/statements/with/set-mutable-binding-binding-deleted-with-typed-array-in-proto-chain-strict-mode.js # Test262Error: Expected a ReferenceError but got a TypeError
