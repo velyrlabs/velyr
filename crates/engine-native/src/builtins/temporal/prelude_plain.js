@@ -270,6 +270,16 @@
       return Temporal.PlainDateTime.from(str);
     }
 
+    toPlainYearMonth() {
+      strOf(this, 'PlainDate');
+      return Temporal.PlainYearMonth.from(this);
+    }
+
+    toPlainMonthDay() {
+      strOf(this, 'PlainDate');
+      return Temporal.PlainMonthDay.from(this);
+    }
+
     toZonedDateTime(item) {
       const bag = typeof item === 'object' && item !== null && slotOf(item) === undefined ? item : { timeZone: item };
       const time = bag.plainTime === undefined ? undefined : strOf(Temporal.PlainTime.from(bag.plainTime), 'PlainTime');
@@ -419,6 +429,16 @@
     toPlainTime() {
       strOf(this, 'PlainDateTime');
       return PlainTime.from(this);
+    }
+
+    toPlainYearMonth() {
+      strOf(this, 'PlainDateTime');
+      return Temporal.PlainYearMonth.from(this);
+    }
+
+    toPlainMonthDay() {
+      strOf(this, 'PlainDateTime');
+      return Temporal.PlainMonthDay.from(this);
     }
 
     toZonedDateTime(timeZone, options) {

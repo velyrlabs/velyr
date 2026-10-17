@@ -170,25 +170,7 @@
       since(other, options) { return difference(this, 'since', other, options); },
     }, { until: 1, since: 1 });
   };
-  const DURATION_UNITS = ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds', 'milliseconds', 'microseconds', 'nanoseconds'];
-  const DURATION_READ_ORDER = [...DURATION_UNITS].sort();
-  // ToTemporalDuration with the properties read alphabetically and integral values required.
-  const durationArg = (item) => {
-    if (typeof item === 'string') return op('Duration', 'parse', item);
-    const slot = slotOf(item);
-    if (slot !== undefined && slot.cls === 'Duration') return slot.str;
-    if (notObject(item)) throw new TypeError('Invalid duration');
-    const given = {};
-    for (const unit of DURATION_READ_ORDER) {
-      const value = item[unit];
-      if (value === undefined) continue;
-      const number = +value;
-      if (!Number.isInteger(number)) throw new RangeError(`${unit} must be an integer`);
-      given[unit] = BigInt(number).toString();
-    }
-    if (Object.keys(given).length === 0) throw new TypeError('Duration needs at least one unit');
-    return op('Duration', 'create', ...DURATION_UNITS.map((unit) => given[unit] ?? '0'));
-  };
+  const durationArg = (item) => T.durationStr(item);
   // add and subtract; only the ZonedDateTime ones read `overflow`.
   const arithmeticMethods = (Class, cls, wrapper) => {
     const overflowOption = (options) => (cls === 'Instant' ? undefined : enumOption(optionsOf(options), 'overflow', ['constrain', 'reject']));
@@ -377,6 +359,8 @@
     toPlainDate() { strOf(this, 'ZonedDateTime'); return Temporal.PlainDate.from(this); }
     toPlainTime() { strOf(this, 'ZonedDateTime'); return Temporal.PlainTime.from(this); }
     toPlainDateTime() { strOf(this, 'ZonedDateTime'); return Temporal.PlainDateTime.from(this); }
+    toPlainYearMonth() { strOf(this, 'ZonedDateTime'); return Temporal.PlainYearMonth.from(this); }
+    toPlainMonthDay() { strOf(this, 'ZonedDateTime'); return Temporal.PlainMonthDay.from(this); }
 
     toString(options) {
       const str = strOf(this, 'ZonedDateTime');
