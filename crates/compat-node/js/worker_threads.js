@@ -146,7 +146,10 @@ function toFileUrl(filename) {
   errors.validateString(filename, 'filename');
   if (filename.startsWith('file:')) return new URL(filename);
   if (/^[a-zA-Z][a-zA-Z0-9+.-]+:/.test(filename)) throw errors.invalidArgValue('filename', filename, 'must be a path or a file: URL');
-  if (!filename.startsWith('/') && !filename.startsWith('./') && !filename.startsWith('../')) {
+  // Node accepts drive paths (`C:\x`, `C:/x`) and `.\` on Windows.
+  const windows = require('process').platform === 'win32';
+  const absolute = windows ? require('path').win32.isAbsolute(filename) : filename.startsWith('/');
+  if (!absolute && !(windows ? /^\.\.?[\\/]/ : /^\.\.?\//).test(filename)) {
     throw errors.make(TypeError, 'ERR_WORKER_PATH', `The worker script or module filename must be an absolute path or a relative path starting with './' or '../'. Received "${filename}"`);
   }
   return pathToFileURL(filename);

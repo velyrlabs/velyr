@@ -18,6 +18,8 @@ const cb = (fn, ...args) => new Promise((resolve) => fn(...args, (error, value, 
 const fails = (fn, code, label) => { try { fn(); } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not throw ' + code + ' ' + (label || '')); };
 const rejects = async (promise, code, label) => { try { await promise; } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not reject ' + code + ' ' + (label || '')); };
 // The runtime's default `path` is posix, while fs reports native paths, as Node's win32 `path` does.
+// `fs.symlink` returns Unsupported on Windows, where creating links needs a privilege.
+const LINKS = process.platform !== 'win32';
 const j = (name) => (process.platform === 'win32' ? path.win32 : path).join(DIR, name);
 "#;
 
@@ -75,12 +77,14 @@ fn sync_api_covers_files_directories_and_links() {
         eq(ents[0].parentPath, j('d'));
         same(fs.readdirSync(j('d'), { recursive: true }).sort(), ['one', 'sub']);
 
-        fs.symlinkSync(j('a.txt'), j('link'));
-        eq(fs.readlinkSync(j('link')), j('a.txt'));
-        eq(fs.lstatSync(j('link')).isSymbolicLink(), true);
-        eq(fs.statSync(j('link')).isSymbolicLink(), false);
-        eq(fs.realpathSync(j('link')), fs.realpathSync(j('a.txt')));
-        eq(fs.realpathSync.native(j('link')), fs.realpathSync(j('a.txt')));
+        if (LINKS) {
+          fs.symlinkSync(j('a.txt'), j('link'));
+          eq(fs.readlinkSync(j('link')), j('a.txt'));
+          eq(fs.lstatSync(j('link')).isSymbolicLink(), true);
+          eq(fs.statSync(j('link')).isSymbolicLink(), false);
+          eq(fs.realpathSync(j('link')), fs.realpathSync(j('a.txt')));
+          eq(fs.realpathSync.native(j('link')), fs.realpathSync(j('a.txt')));
+        }
 
         fs.renameSync(j('a.txt'), j('renamed.txt'));
         eq(fs.existsSync(j('a.txt')), false);
@@ -202,8 +206,10 @@ fn callback_api_matches_the_sync_results() {
         eq(await new Promise((r) => fs.exists(j('c3.txt'), r)), true);
         eq(await new Promise((r) => fs.exists(j('c2.txt'), r)), false);
         eq(ok(await cb(fs.realpath, j('c3.txt'))), fs.realpathSync(j('c3.txt')));
-        ok(await cb(fs.symlink, j('c3.txt'), j('ln')));
-        eq(ok(await cb(fs.readlink, j('ln'))), j('c3.txt'));
+        if (LINKS) {
+          ok(await cb(fs.symlink, j('c3.txt'), j('ln')));
+          eq(ok(await cb(fs.readlink, j('ln'))), j('c3.txt'));
+        }
         ok(await cb(fs.chmod, j('c3.txt'), 0o640));
         ok(await cb(fs.utimes, j('c3.txt'), 5, 6));
         eq(fs.statSync(j('c3.txt')).mtimeMs, 6000);
@@ -252,8 +258,10 @@ fn promises_api_and_file_handles() {
         await fsp.access(j('p3.txt'));
         await rejects(fsp.access(j('p2.txt')), 'ENOENT');
         eq(await fsp.realpath(j('p3.txt')), fs.realpathSync(j('p3.txt')));
-        await fsp.symlink(j('p3.txt'), j('pl'));
-        eq(await fsp.readlink(j('pl')), j('p3.txt'));
+        if (LINKS) {
+          await fsp.symlink(j('p3.txt'), j('pl'));
+          eq(await fsp.readlink(j('pl')), j('p3.txt'));
+        }
         await fsp.chmod(j('p3.txt'), 0o600);
         await fsp.utimes(j('p3.txt'), 7, 8);
         eq((await fsp.stat(j('p3.txt'))).mtimeMs, 8000);
