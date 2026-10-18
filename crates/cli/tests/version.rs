@@ -7,5 +7,5 @@ fn version_flag_prints_name_and_version() {
         .arg("--version")
         .assert()
         .success()
-        .stdout("velyr 0.1.0\n");
+        .stdout(concat!("velyr ", env!("CARGO_PKG_VERSION"), "\n"));
 }

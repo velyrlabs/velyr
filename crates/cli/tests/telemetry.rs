@@ -15,7 +15,10 @@ fn json_log_format_keeps_stdout_clean_and_stderr_valid_json() {
         .unwrap();
 
     assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "velyr 0.1.0\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!("velyr ", env!("CARGO_PKG_VERSION"), "\n")
+    );
     for line in String::from_utf8_lossy(&output.stderr).lines() {
         serde_json::from_str::<serde_json::Value>(line).expect("stderr line is valid JSON");
     }

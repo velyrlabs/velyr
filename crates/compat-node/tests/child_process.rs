@@ -171,8 +171,11 @@ fn a_name_with_a_slash_needs_the_path_to_be_granted() {
         eq(codeOf(() => cp.execFileSync('/bin/echo', ['hi'])), 'ERR_ACCESS_DENIED');
     "#,
     );
+    // Grants match the resolved path literally, so grant the canonical one: on merged-/usr hosts
+    // (Linux CI) `/bin/echo` is a symlink and `echo` resolves to `/usr/bin/echo`.
+    let echo = std::fs::canonicalize("/bin/echo").unwrap();
     check(
-        &["/bin/echo"],
+        &[echo.to_str().unwrap()],
         r#"
         eq(cp.execFileSync('/bin/echo', ['hi']).toString(), 'hi\n', 'by path');
         eq(cp.execFileSync('echo', ['hi']).toString(), 'hi\n', 'name resolving to the granted path');

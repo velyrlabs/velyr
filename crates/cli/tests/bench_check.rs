@@ -1,6 +1,7 @@
 //! `velyr bench` (pretty and json reports) and `velyr check` (external tsc, ADR-012).
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Output;
@@ -9,7 +10,7 @@ use std::time::Duration;
 use assert_cmd::Command;
 
 const BENCH: &str = r#"
-Velyr.bench('sum', () => { let s = 0; for (let i = 0; i < 100; i++) s += i; return s; });
+Velyr.bench('sum', () => { let s = 0; for (let i = 0; i < 10000; i++) s += i; return s; });
 Velyr.bench('async work', async () => { await Promise.resolve(1); });
 "#;
 
@@ -36,6 +37,7 @@ fn bench_dir() -> tempfile::TempDir {
     dir
 }
 
+#[cfg(unix)]
 fn install_fake_tsc(dir: &Path) {
     let bin = dir.join("node_modules/.bin");
     fs::create_dir_all(&bin).unwrap();
@@ -80,9 +82,16 @@ fn bench_json_has_the_statistics() {
     let first = &benches[0];
     assert_eq!(first["name"], "sum");
     assert_eq!(first["samples"], 10);
-    for key in ["meanNs", "p99Ns", "opsPerSec"] {
-        assert!(first[key].as_f64().unwrap() > 0.0, "{key}: {first}");
+    // Under a coarsened timer (macOS CI) even a batched sample can read 0 ns: the mean is then 0 and
+    // opsPerSec is Infinity, which JSON serializes as null.
+    for key in ["meanNs", "p99Ns"] {
+        assert!(first[key].as_f64().unwrap() >= 0.0, "{key}: {first}");
     }
+    let ops = &first["opsPerSec"];
+    assert!(
+        ops.is_null() || ops.as_f64().unwrap() > 0.0,
+        "opsPerSec: {first}"
+    );
     // A sample faster than the coarsened timer resolution reads as 0, so the median can be 0.
     assert!(first["p50Ns"].as_f64().unwrap() >= 0.0, "p50Ns: {first}");
     assert!(first["p99Ns"].as_f64() >= first["p50Ns"].as_f64());
@@ -117,6 +126,7 @@ fn check_without_typescript_fails_with_a_clear_message() {
     assert!(stderr.contains("velyr add -D typescript"), "{stderr}");
 }
 
+#[cfg(unix)]
 #[test]
 fn check_runs_tsc_with_no_emit() {
     let dir = tempfile::tempdir().unwrap();
@@ -127,6 +137,7 @@ fn check_runs_tsc_with_no_emit() {
     assert!(stdout.contains("tsc-args:--noEmit"), "{stdout}");
 }
 
+#[cfg(unix)]
 #[test]
 fn check_passes_files_through() {
     let dir = tempfile::tempdir().unwrap();
@@ -139,6 +150,7 @@ fn check_passes_files_through() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn check_exits_non_zero_when_tsc_reports_errors() {
     let dir = tempfile::tempdir().unwrap();

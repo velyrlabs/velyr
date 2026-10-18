@@ -428,6 +428,11 @@ fn shared_array_buffers_and_atomics() {
             "Atomics.notify(new Int32Array(new SharedArrayBuffer(4)), 0)",
             "0",
         ),
+        // The main thread may block, as in Node/V8 (`allow_atomics_wait` in `create_isolate`).
+        (
+            "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 0)",
+            "timed-out",
+        ),
         (
             "[Atomics.isLockFree(4), Atomics[Symbol.toStringTag]].join()",
             "true,Atomics",
@@ -439,10 +444,6 @@ fn shared_array_buffers_and_atomics() {
             ("SharedArrayBuffer(1)", "TypeError"),
             ("Atomics.add(new Float64Array(1), 0, 1)", "TypeError"),
             ("Atomics.load(new Int32Array(1), 4)", "RangeError"),
-            (
-                "Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 0)",
-                "TypeError",
-            ),
             ("Atomics.wait(new Int32Array(4), 0, 0, 0)", "TypeError"),
             ("new SharedArrayBuffer(4).grow(8)", "TypeError"),
         ],

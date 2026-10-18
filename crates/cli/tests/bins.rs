@@ -1,5 +1,5 @@
 //! `velyr x <bin>` and the `node` shim; every path lives in a tempdir.
-#![cfg(feature = "node")]
+#![cfg(all(feature = "node", unix))]
 
 use std::path::{Path, PathBuf};
 use std::process::Output;

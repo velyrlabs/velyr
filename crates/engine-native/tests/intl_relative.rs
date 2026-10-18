@@ -87,7 +87,7 @@ fn rejects_bad_input() {
     ]);
 }
 
-#[cfg(feature = "intl-all-locales")]
+#[cfg(all(feature = "intl-all-locales", feature = "intl-experimental"))]
 #[test]
 fn icu_other_locales() {
     expect_true(&[

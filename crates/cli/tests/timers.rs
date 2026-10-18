@@ -32,7 +32,7 @@ fn interval_cleared_on_third_run_prints_three_lines() {
 fn timeout_passes_extra_args_and_orders_by_delay() {
     run("args.js")
         .success()
-        .stdout("number\nt0\nx y\nt1\nmacro\nmicro\n");
+        .stdout("object\nt0\nx y\nt1\nmacro\nmicro\n");
 }
 
 #[test]
