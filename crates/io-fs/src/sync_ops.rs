@@ -128,6 +128,15 @@ impl FsError {
     }
 }
 
+/// Windows refuses to open a directory with `PermissionDenied`; unix reports `IsADirectory`.
+pub fn directory_read_error(path: &Path, err: io::Error) -> io::Error {
+    if err.kind() == io::ErrorKind::PermissionDenied && path.is_dir() {
+        io::ErrorKind::IsADirectory.into()
+    } else {
+        err
+    }
+}
+
 fn classify(kind: io::ErrorKind) -> (&'static str, i32, &'static str) {
     use io::ErrorKind as K;
     match kind {

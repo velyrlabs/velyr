@@ -10,10 +10,13 @@ const node = globalThis[Symbol.for('velyr.node')];
 const isUrlLike = (value) => (typeof value === 'object' && value !== null && typeof value.href === 'string')
   || (typeof value === 'string' && value.startsWith('file:'));
 
+// fileURLToPath returns native paths, so a Windows path must be checked with path.win32.
+const platformPath = () => (require('process').platform === 'win32' ? require('path').win32 : require('path'));
+
 function createRequire(filename) {
   let path = filename;
   if (isUrlLike(filename)) path = require('url').fileURLToPath(filename);
-  if (typeof path !== 'string' || !require('path').isAbsolute(path)) {
+  if (typeof path !== 'string' || !platformPath().isAbsolute(path)) {
     throw errors.invalidArgValue('filename', filename, 'must be a file URL object, file URL string, or absolute path string');
   }
   const loader = globalThis[Symbol.for('velyr.commonjs')];

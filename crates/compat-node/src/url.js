@@ -6,10 +6,13 @@ const path = require('path');
 
 const WHATWG = { URL: globalThis.URL, URLSearchParams: globalThis.URLSearchParams };
 
+// node:path stays posix on every host, so the default follows the real platform instead of path.sep.
+const isWindows = () => require('process').platform === 'win32';
+
 const isURL = (value) => value !== null && typeof value === 'object' && typeof value.href === 'string' && typeof value.protocol === 'string' && value.auth === undefined && value.path === undefined;
 
 function fileURLToPath(input, options) {
-  const windows = options && options.windows !== undefined ? options.windows : path.sep === '\\';
+  const windows = options && options.windows !== undefined ? options.windows : isWindows();
   let url = input;
   if (typeof url === 'string') url = new WHATWG.URL(url);
   else if (!isURL(url)) throw errors.invalidArgType('path', ['string', 'URL'], input);
@@ -46,7 +49,7 @@ function encodePathChars(text, windows) {
 
 function pathToFileURL(filepath, options) {
   errors.validateString(filepath, 'path');
-  const windows = options && options.windows !== undefined ? options.windows : path.sep === '\\';
+  const windows = options && options.windows !== undefined ? options.windows : isWindows();
   if (windows && filepath.startsWith('\\\\')) {
     const rest = filepath.slice(2);
     const slash = rest.indexOf('\\');

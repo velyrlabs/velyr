@@ -50,6 +50,14 @@ fn io_error(err: io::Error) -> VelyrError {
     }
 }
 
+/// A `file:` URL pathname keeps a slash before the drive letter (`/C:/x`), which Windows cannot open.
+fn without_url_drive_slash(raw: &str) -> &str {
+    match raw.as_bytes() {
+        [b'/', drive, b':', ..] if cfg!(windows) && drive.is_ascii_alphabetic() => &raw[1..],
+        _ => raw,
+    }
+}
+
 /// Canonical path of `raw`; for a write whose target does not exist yet, the canonical parent
 /// plus the file name. A dangling symlink is refused: writing through it would create a file
 /// at a location that was never authorized.
@@ -57,7 +65,7 @@ fn canonicalize(raw: &str, for_write: bool) -> Result<PathBuf, VelyrError> {
     if raw.is_empty() || raw.contains('\0') {
         return Err(VelyrError::invalid_data("invalid path"));
     }
-    let path = Path::new(raw);
+    let path = Path::new(without_url_drive_slash(raw));
     match dunce::canonicalize(path) {
         Ok(canonical) => Ok(canonical),
         Err(err) if for_write && err.kind() == io::ErrorKind::NotFound => {
@@ -159,15 +167,8 @@ fn op_fs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostEr
     })
 }
 
-/// Windows refuses to open a directory with `PermissionDenied`; unix reports `IsADirectory`.
 fn read_file(path: &Path) -> io::Result<Vec<u8>> {
-    std::fs::read(path).map_err(|err| {
-        if err.kind() == io::ErrorKind::PermissionDenied && path.is_dir() {
-            io::ErrorKind::IsADirectory.into()
-        } else {
-            err
-        }
-    })
+    std::fs::read(path).map_err(|err| crate::sync_ops::directory_read_error(path, err))
 }
 
 fn read_value(bytes: Vec<u8>, text: bool) -> CompletionValue {

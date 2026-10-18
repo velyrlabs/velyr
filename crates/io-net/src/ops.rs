@@ -209,6 +209,8 @@ fn bind_listener(host: &str, port: u16) -> Result<ListenerInner, VelyrError> {
         TcpSocket::new_v6()
     }
     .map_err(net_error)?;
+    // On Windows SO_REUSEADDR lets a second socket steal a bound port instead of failing with EADDRINUSE.
+    #[cfg(not(windows))]
     socket.set_reuseaddr(true).map_err(net_error)?;
     socket.bind(SocketAddr::new(ip, port)).map_err(net_error)?;
     Ok(ListenerInner {
