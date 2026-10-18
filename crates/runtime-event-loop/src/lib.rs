@@ -127,6 +127,11 @@ impl OpGuard {
 
     /// Delivers the completion. Dropped silently if the loop is gone (isolate terminated).
     pub fn send(mut self, completion: Completion) {
+        // Release the key before queueing: the loop may apply the completion (dropping
+        // `pending`) at once, and a stale unref'd count would then hide a live ref'd op.
+        if let Some(key) = self.key.take() {
+            self.handles.end(key);
+        }
         self.sent = true;
         let _ = self.tx.send(completion);
     }
