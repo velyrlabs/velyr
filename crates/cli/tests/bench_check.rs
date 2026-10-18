@@ -14,6 +14,7 @@ Velyr.bench('sum', () => { let s = 0; for (let i = 0; i < 10000; i++) s += i; re
 Velyr.bench('async work', async () => { await Promise.resolve(1); });
 "#;
 
+#[cfg(unix)]
 const FAKE_TSC: &str = "#!/usr/bin/env node\nconsole.log('tsc-args:' + process.argv.slice(2).join(' '));\nprocess.exit(Number(process.env.FAKE_TSC_EXIT || 0));\n";
 
 fn velyr(dir: &Path, args: &[&str]) -> Output {

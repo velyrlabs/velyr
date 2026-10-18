@@ -132,6 +132,7 @@ fn no_export_without_endpoint() {
     assert!(output.stderr.is_empty());
 }
 
+#[cfg(unix)]
 const SERVE_SCRIPT: &str = r#"export default {
   fetch: (req) => {
     if (req.url.endsWith("/hang")) return new Promise(() => {});
@@ -148,6 +149,7 @@ const SERVE_SCRIPT: &str = r#"export default {
 };"#;
 
 /// Starts `velyr serve` exporting to `port`; returns the child and the port it listens on.
+#[cfg(unix)]
 fn spawn_server(
     dir: &std::path::Path,
     port: u16,
@@ -187,6 +189,7 @@ fn spawn_server(
     (child, listen)
 }
 
+#[cfg(unix)]
 fn interrupt(child: &std::process::Child) {
     Command::new("kill")
         .args(["-INT", &child.id().to_string()])
@@ -221,6 +224,7 @@ fn flushes_spans_when_a_forced_shutdown_exits_early() {
     assert!(contains(&export.body, "/flush-me"));
 }
 
+#[cfg(unix)]
 fn varint(buf: &[u8], at: &mut usize) -> u64 {
     let mut value = 0;
     for shift in (0..).step_by(7) {
@@ -235,6 +239,7 @@ fn varint(buf: &[u8], at: &mut usize) -> u64 {
 }
 
 /// Fields of one protobuf message: (number, length-delimited bytes or fixed64 as LE bytes).
+#[cfg(unix)]
 fn fields(buf: &[u8]) -> Vec<(u64, Vec<u8>)> {
     let (mut at, mut out) = (0, Vec::new());
     while at < buf.len() {
@@ -261,6 +266,7 @@ fn fields(buf: &[u8]) -> Vec<(u64, Vec<u8>)> {
     out
 }
 
+#[cfg(unix)]
 struct Span {
     name: String,
     kind: u64,
@@ -270,6 +276,7 @@ struct Span {
 }
 
 /// Every span in an OTLP traces export.
+#[cfg(unix)]
 fn spans(body: &[u8]) -> Vec<Span> {
     let nested = |msg: &[u8], number| -> Vec<Vec<u8>> {
         fields(msg)
