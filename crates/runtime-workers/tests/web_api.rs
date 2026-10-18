@@ -57,6 +57,13 @@ fn temp_dir() -> std::path::PathBuf {
     dunce::canonicalize(dir).unwrap()
 }
 
+/// The `file://` URL of `dir`; the JS source cannot embed a Windows path, whose backslashes escape.
+fn dir_url(dir: &std::path::Path) -> String {
+    let text = dir.to_string_lossy().replace('\\', "/");
+    let slash = if text.starts_with('/') { "" } else { "/" };
+    format!("file://{slash}{text}")
+}
+
 fn host(permissions: &Arc<CapabilitySet>) -> WorkerHost {
     WorkerHost {
         deployment_policy: permissions.clone(),
@@ -162,11 +169,11 @@ fn terminate_stops_a_busy_worker_and_the_main_isolate_goes_on() {
         &dir,
         "terminate",
         &format!(
-            "const worker = new Worker('file://{}/busy.js');
+            "const worker = new Worker('{}/busy.js');
              await new Promise((resolve) => {{ worker.onmessage = resolve; }});
              worker.terminate();
              record('terminated');",
-            dir.display()
+            dir_url(&dir)
         ),
     );
     assert_eq!(log, ["terminated"]);
@@ -183,7 +190,7 @@ fn ended_follows_the_error_and_carries_the_exit_code() {
         "ended",
         &format!(
             "for (const name of ['ok', 'throws', 'closes']) {{
-               const worker = new Worker('file://{}/' + name + '.js');
+               const worker = new Worker('{}/' + name + '.js');
                const seen = [];
                worker.addEventListener('error', () => seen.push('error'));
                const code = await new Promise((resolve) => {{
@@ -191,7 +198,7 @@ fn ended_follows_the_error_and_carries_the_exit_code() {
                }});
                record(name + ' [' + seen + '] ' + code);
              }}",
-            dir.display()
+            dir_url(&dir)
         ),
     );
     assert_eq!(log, ["ok [] 0", "throws [error] 1", "closes [] 0"]);
@@ -209,17 +216,17 @@ fn a_heap_limit_ends_the_worker_with_a_quota_error_and_the_parent_goes_on() {
         &dir,
         "heap",
         &format!(
-            "const worker = new Worker('file://{}/hog.js', {{ velyr: {{ heapLimitMb: 16 }} }});
+            "const worker = new Worker('{}/hog.js', {{ velyr: {{ heapLimitMb: 16 }} }});
              worker.addEventListener('error', (e) => record(e.error.code + ' ' + e.error.quota));
              const code = await new Promise((resolve) => {{
                worker.addEventListener('ended', (event) => resolve(event.code));
              }});
              record('ended ' + code);
              let bad = '';
-             try {{ new Worker('file://{}/hog.js', {{ velyr: {{ heapLimitMb: 0 }} }}); }} catch (e) {{ bad = e.name; }}
+             try {{ new Worker('{}/hog.js', {{ velyr: {{ heapLimitMb: 0 }} }}); }} catch (e) {{ bad = e.name; }}
              record('bad ' + bad);",
-            dir.display(),
-            dir.display()
+            dir_url(&dir),
+            dir_url(&dir)
         ),
     );
     assert_eq!(

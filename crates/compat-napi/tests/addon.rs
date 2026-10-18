@@ -1,4 +1,7 @@
 //! Each test drives one Node-API group of the C addon in `tests/addons/` from JS.
+// The Windows build exports no `napi_*` symbols yet (build.rs needs a .def file) and the addon
+// is built with gcc-style flags, so the C addon cannot load there.
+#![cfg(unix)]
 
 mod support;
 

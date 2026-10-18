@@ -199,7 +199,9 @@ fn broken_json_names_the_file() {
     write(&root, "bad/tsconfig.json", "{ not json");
     let err = loader.for_file(&root.join("bad/x.ts")).unwrap_err();
     assert!(
-        err.message().contains("bad/tsconfig.json"),
+        err.message()
+            .replace('\\', "/")
+            .contains("bad/tsconfig.json"),
         "{}",
         err.message()
     );

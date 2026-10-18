@@ -396,6 +396,8 @@ fn write_only_grant_cannot_read() {
     assert_ok(run_fs(&body, false, true));
 }
 
+// `fs.symlink` returns Unsupported on Windows, where creating links needs a privilege.
+#[cfg(unix)]
 #[test]
 fn symlinks_cannot_escape_the_grant() {
     let outside = tempfile::tempdir().unwrap();

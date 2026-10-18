@@ -152,8 +152,13 @@ mod tests {
         }
     }
 
+    /// Unix absolute literals are drive-relative on Windows, so root them on `C:`.
+    fn root() -> &'static str {
+        if cfg!(windows) { "C:" } else { "" }
+    }
+
     fn module() -> ResolvedModule {
-        let path = std::path::PathBuf::from("/app/main.js");
+        let path = std::path::PathBuf::from(format!("{}/app/main.js", root()));
         ResolvedModule {
             id: ModuleId::from_path(&path).unwrap(),
             path,
@@ -163,7 +168,10 @@ mod tests {
     fn ctx(allow: bool) -> LoadContext {
         let mut builder = CapabilitySet::builder();
         if allow {
-            builder = builder.allow(Capability::ImportLocal(PathPattern::new("/app")));
+            builder = builder.allow(Capability::ImportLocal(PathPattern::new(format!(
+                "{}/app",
+                root()
+            ))));
         }
         LoadContext {
             permissions: builder.build(),

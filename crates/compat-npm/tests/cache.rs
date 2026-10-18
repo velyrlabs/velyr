@@ -217,6 +217,8 @@ async fn rejects_symlink_pointing_outside() {
     }
 }
 
+// The first link is a valid in-package symlink, which extraction refuses off unix (Unsupported).
+#[cfg(unix)]
 #[tokio::test]
 async fn rejects_symlink_chain_that_escapes_through_another_link() {
     // `a/b` points at the package root, so `a/b/c -> ..` really points outside.

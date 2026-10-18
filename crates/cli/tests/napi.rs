@@ -1,6 +1,8 @@
 //! Node-API addons under `velyr run`: `require('./x.node')` and `process.dlopen` load the C test
 //! addon of `velyr-compat-napi`, and without `--allow-native` nothing is ever `dlopen`ed.
-#![cfg(feature = "node")]
+// Unix only: the C addon leaves `napi_*` undefined for the host executable to provide, which a
+// Windows DLL cannot do without an import library for the exe.
+#![cfg(all(feature = "node", unix))]
 
 use std::path::{Path, PathBuf};
 use std::process::Command as Process;

@@ -54,8 +54,13 @@ const HELPER_SHA256: [(&str, &str); 10] = [
     ),
 ];
 
+/// Unix absolute literals are drive-relative on Windows, so root them on `C:`.
+fn abs(path: &str) -> String {
+    format!("{}{path}", if cfg!(windows) { "C:" } else { "" })
+}
+
 fn referrer() -> ModuleId {
-    ModuleId::from_path(Path::new("/proj/main.ts")).unwrap()
+    ModuleId::from_path(Path::new(&abs("/proj/main.ts"))).unwrap()
 }
 
 fn no_grants() -> LoadContext {
@@ -109,10 +114,10 @@ fn unknown_helper_is_not_found() {
 fn import_map_cannot_shadow_helpers() {
     let ctx = ResolveContext {
         import_map: HashMap::from([("velyr-oxc-runtime/".into(), "./evil/".into())]),
-        import_map_dir: PathBuf::from("/proj"),
+        import_map_dir: PathBuf::from(abs("/proj")),
         ..Default::default()
     };
-    let other = ModuleId::from_path(Path::new("/elsewhere/deep/x.js")).unwrap();
+    let other = ModuleId::from_path(Path::new(&abs("/elsewhere/deep/x.js"))).unwrap();
     let resolved = FsResolver
         .resolve("velyr-oxc-runtime/helpers/decorateParam", &other, &ctx)
         .unwrap();

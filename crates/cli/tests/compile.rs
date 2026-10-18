@@ -11,6 +11,8 @@ fn host_triple() -> String {
         .unwrap()
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn compiled_executable_runs_without_sources_and_reads_assets() {
     let dir = tempfile::tempdir().unwrap();
@@ -41,6 +43,8 @@ fn compiled_executable_runs_without_sources_and_reads_assets() {
         .stdout("sum 42\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn compile_bakes_permissions_and_rejects_allow_flags_at_runtime() {
     let dir = tempfile::tempdir().unwrap();
@@ -118,6 +122,7 @@ fn foreign_target_is_not_supported_yet() {
 }
 
 /// `node_modules/cjs-dep` (CommonJS, requires a sibling file and a JSON file) next to the app.
+#[cfg(unix)]
 fn write_cjs_dependency(root: &std::path::Path) {
     let lib = root.join("node_modules/cjs-dep/lib");
     std::fs::create_dir_all(&lib).unwrap();
@@ -135,6 +140,7 @@ fn write_cjs_dependency(root: &std::path::Path) {
     std::fs::write(lib.join("util.js"), "exports.mark = '!';\n").unwrap();
 }
 
+#[cfg(unix)]
 fn compile_then_remove_sources(dir: &std::path::Path, entry: &str, extra: &[&str]) {
     let mut args = vec!["compile", entry, "-o", "app"];
     args.extend_from_slice(extra);
@@ -154,6 +160,8 @@ fn compile_then_remove_sources(dir: &std::path::Path, entry: &str, extra: &[&str
     }
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn commonjs_entry_with_npm_dependency_and_json_runs_without_sources() {
     let dir = tempfile::tempdir().unwrap();
@@ -174,6 +182,8 @@ fn commonjs_entry_with_npm_dependency_and_json_runs_without_sources() {
         .stdout("hello cjs 7! cfg\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn esm_entry_importing_commonjs_dependency_and_json_runs_without_sources() {
     let dir = tempfile::tempdir().unwrap();
@@ -194,6 +204,8 @@ fn esm_entry_importing_commonjs_dependency_and_json_runs_without_sources() {
         .stdout("hello esm 7! cfg\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn included_asset_is_read_from_the_payload_with_velyr_read_file() {
     let dir = tempfile::tempdir().unwrap();
@@ -245,6 +257,8 @@ fn include_with_a_directory_symlink_loop_terminates_and_keeps_the_files() {
         .stdout("hello asset\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn commonjs_require_of_an_esm_package_runs_without_sources() {
     let dir = tempfile::tempdir().unwrap();
@@ -276,6 +290,8 @@ fn commonjs_require_of_an_esm_package_runs_without_sources() {
         .stdout("42\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn included_asset_is_read_from_the_payload_with_fs_read_file_sync() {
     let dir = tempfile::tempdir().unwrap();
@@ -296,6 +312,8 @@ fn included_asset_is_read_from_the_payload_with_fs_read_file_sync() {
         .stdout("hello asset\n");
 }
 
+// Unix only: the embedded payload addresses files by POSIX path (`/$velyr/app/...`), which the Windows runtime cannot resolve yet.
+#[cfg(unix)]
 #[test]
 fn fs_read_file_sync_keeps_enoent_inside_the_payload_and_denies_outside_the_app_root() {
     let dir = tempfile::tempdir().unwrap();

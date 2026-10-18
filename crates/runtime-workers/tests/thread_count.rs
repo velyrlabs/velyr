@@ -1,4 +1,6 @@
 //! A worker costs its own thread plus the isolate watchdog, not an extra joining thread.
+// Counting threads needs /proc or `ps`, neither of which exists on Windows.
+#![cfg(unix)]
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

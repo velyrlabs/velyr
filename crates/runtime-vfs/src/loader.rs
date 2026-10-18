@@ -47,7 +47,7 @@ mod tests {
     #[tokio::test]
     async fn loads_embedded_module_and_reports_missing() {
         let vfs = Vfs::new(BTreeMap::from([(
-            "/app/a.js".to_owned(),
+            "/$velyr/app/a.js".to_owned(),
             b"export {}".to_vec(),
         )]));
         let loader = VfsLoader(Arc::new(vfs));
@@ -60,9 +60,13 @@ mod tests {
         };
 
         assert_eq!(
-            &*loader.load(&at("/app/a.js"), &ctx).await.unwrap().text,
+            &*loader
+                .load(&at("/$velyr/app/a.js"), &ctx)
+                .await
+                .unwrap()
+                .text,
             "export {}"
         );
-        assert!(loader.load(&at("/app/b.js"), &ctx).await.is_err());
+        assert!(loader.load(&at("/$velyr/app/b.js"), &ctx).await.is_err());
     }
 }

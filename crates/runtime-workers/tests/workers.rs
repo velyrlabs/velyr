@@ -13,6 +13,9 @@ use velyr_runtime_workers::{ParentContext, WorkerHandle, WorkerOptions};
 
 const WAIT: Duration = Duration::from_secs(20);
 
+/// The filesystem root; Windows rejects a rooted path that has no drive.
+const ROOT: &str = if cfg!(windows) { "C:/" } else { "/" };
+
 fn module(name: &str, text: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("velyr-worker-{name}-{}.mjs", std::process::id()));
     std::fs::write(&path, text).unwrap();
@@ -37,7 +40,7 @@ fn parent(capabilities: Arc<CapabilitySet>, workers: u64) -> ParentContext {
     ParentContext {
         capabilities,
         deployment_policy: caps(vec![
-            Capability::FsRead(PathPattern::new("/")),
+            Capability::FsRead(PathPattern::new(ROOT)),
             Capability::EnvRead(NamePattern::new("*")),
         ]),
         quotas: Arc::new(QuotaContext::new(QuotaConfig {
@@ -84,21 +87,29 @@ const PENDING: &str = "op_worker_post_message(1); await op_worker_recv_message()
 fn effective_authority_is_the_intersection_with_the_parent() {
     let parent = parent(
         caps(vec![
-            Capability::FsRead(PathPattern::new("/a")),
+            Capability::FsRead(PathPattern::new(format!("{ROOT}a"))),
             Capability::EnvRead(NamePattern::new("PATH")),
         ]),
         4,
     );
     let requested = caps(vec![
-        Capability::FsRead(PathPattern::new("/")),
+        Capability::FsRead(PathPattern::new(ROOT)),
         Capability::EnvRead(NamePattern::new("*")),
     ]);
     let entry = module("authority", PENDING);
     let worker = spawn(&parent, options(entry.clone(), requested.clone(), false));
     let effective = worker.capabilities();
-    assert!(effective.check(&Request::FsRead("/a/file")).is_allow());
-    assert!(!effective.check(&Request::FsRead("/etc/passwd")).is_allow());
-    assert!(!effective.check(&Request::FsRead("/")).is_allow());
+    assert!(
+        effective
+            .check(&Request::FsRead(&format!("{ROOT}a/file")))
+            .is_allow()
+    );
+    assert!(
+        !effective
+            .check(&Request::FsRead(&format!("{ROOT}etc/passwd")))
+            .is_allow()
+    );
+    assert!(!effective.check(&Request::FsRead(ROOT)).is_allow());
     assert!(matches!(worker.terminate(WAIT), Err(RunError::Terminated)));
 
     let allowed = module("env-allowed", "nativeEnvRead('PATH');");

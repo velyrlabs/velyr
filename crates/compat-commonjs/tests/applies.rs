@@ -10,6 +10,8 @@ fn applies(path: &Path, text: &str) -> bool {
     transform.applies(&ModuleId::from_path(path).unwrap(), text)
 }
 
+// `/$velyr/...` is not an absolute path on Windows, so no `ModuleId` exists for it there.
+#[cfg(unix)]
 #[test]
 fn embedded_paths_are_never_transformed() {
     let helper = "/$velyr/oxc-runtime/helpers/decorate.js";

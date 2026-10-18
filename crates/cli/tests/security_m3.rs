@@ -50,9 +50,12 @@ fn script_without_flags_is_denied_every_ambient_capability() {
         "envToObject",
         "envSet",
         "importOutside",
-        "importAbsolute",
     ] {
         assert_eq!(results[key], DENIED, "{key}");
+    }
+    // The fixture imports the POSIX absolute path `/etc/hosts`, which is not a path on Windows.
+    if cfg!(unix) {
+        assert_eq!(results["importAbsolute"], DENIED, "importAbsolute");
     }
     assert_eq!(results["outsideLoaded"], false);
 }

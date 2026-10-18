@@ -101,7 +101,10 @@ fn exports_subpaths_and_unexported_subpath() {
     assert_eq!(code, ErrorCode::NotFound);
     assert!(message.contains("'./internal/x.js'"), "{message}");
     assert!(message.contains("exports"), "{message}");
-    assert!(message.contains("node_modules/p"), "{message}");
+    assert!(
+        message.replace('\\', "/").contains("node_modules/p"),
+        "{message}"
+    );
 }
 
 #[test]

@@ -1,3 +1,6 @@
+// velyr-bench measures children with getrusage and refuses to run on a non-unix host.
+#![cfg(unix)]
+
 use assert_cmd::Command;
 use std::path::{Path, PathBuf};
 

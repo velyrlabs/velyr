@@ -122,7 +122,12 @@ fn relative_path_resolves_against_cwd() {
 fn file_url_is_accepted_and_other_schemes_are_rejected() {
     let (_guard, dir) = canonical_tmp();
     std::fs::write(dir.join("a b.txt"), "url").unwrap();
-    let url = format!("new URL('file://{}/a%20b.txt')", dir.display());
+    // Windows paths need a third slash and forward slashes to form a valid `file:` URL.
+    let dir_url = dir.display().to_string().replace('\\', "/");
+    let url = format!(
+        "new URL('file://{}{dir_url}/a%20b.txt')",
+        if cfg!(windows) { "/" } else { "" }
+    );
     let message = run(&report(&format!("Velyr.readTextFile({url})")), &[&dir], &[]);
     assert_eq!(message, "Uncaught got:url");
     let message = run(

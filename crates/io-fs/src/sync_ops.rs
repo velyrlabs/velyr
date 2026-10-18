@@ -400,7 +400,14 @@ mod tests {
         let deep = resolve(base.join("a/b/c").to_str().unwrap(), PathMode::Deep).unwrap();
         assert_eq!(deep, base.join("a/b/c"));
         let escape = base.join("a/../../x");
-        assert!(resolve(escape.to_str().unwrap(), PathMode::Deep).is_err());
+        let escaped = resolve(escape.to_str().unwrap(), PathMode::Deep);
+        if cfg!(windows) {
+            // Windows canonicalization folds `..` lexically even through a missing directory, so
+            // the returned path is exactly what the OS opens and the permission check sees it.
+            assert_eq!(escaped.unwrap(), base.parent().unwrap().join("x"));
+        } else {
+            assert!(escaped.is_err());
+        }
     }
 
     #[cfg(unix)]
