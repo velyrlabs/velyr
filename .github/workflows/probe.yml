@@ -7,5 +7,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ci/event-loop-and-windows-tests
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo run -q
+      - run: cargo test -p velyr-compat-node --lib --test facades_in_memory --no-fail-fast
