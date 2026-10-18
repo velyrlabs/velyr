@@ -45,6 +45,8 @@ fn system_gzip(args: &[&str], input: &[u8]) -> Vec<u8> {
     output.stdout
 }
 
+// The expected EOL, devNull and os.type() values are the unix ones.
+#[cfg(unix)]
 #[test]
 fn os_answers_from_the_host_without_env_permission() {
     assert_ok(run(r#"const os = req('os'), proc = req('process');

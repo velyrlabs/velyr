@@ -1,6 +1,7 @@
 //! `node:child_process` on V8 under the real event loop, over io-process. Each script runs with an
 //! explicit set of `ProcessSpawn` grants (what `--allow-run=...` expands to) and only macOS/Linux
 //! base binaries. Every run is bounded by a watchdog, so a regression that hangs fails the test.
+#![cfg(unix)]
 
 use std::path::PathBuf;
 use std::sync::Arc;

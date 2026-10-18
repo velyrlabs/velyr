@@ -92,7 +92,7 @@ fn wait_for(dir: &Path, target: &str, want: &str, trigger: &str) -> String {
         {trigger}
         const started = Date.now();
         for await (const event of watcher) {{
-          if (event.kind === "{want}" && event.paths.some((p) => p.endsWith("/{target}"))) {{
+          if (event.kind === "{want}" && event.paths.some((p) => p.endsWith("/{target}") || p.endsWith("\\{target}"))) {{
             throw new Error("got:" + event.kind + ":" + (Date.now() - started));
           }}
         }}"#
