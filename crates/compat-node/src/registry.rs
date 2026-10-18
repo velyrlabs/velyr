@@ -59,7 +59,8 @@ pub fn builtin_name(specifier: &str) -> Option<&'static str> {
 
 #[cfg(windows)]
 fn facade_file(name: &str) -> String {
-    format!("{}.mjs", name.replace('/', "__"))
+    // `:` (velyr:test) is not allowed in Windows file names.
+    format!("{}.mjs", name.replace(['/', ':'], "__"))
 }
 
 /// `facade_source` by name, the shape `ModuleHost::register_embedded_facades` wants.
