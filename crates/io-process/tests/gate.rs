@@ -31,7 +31,7 @@ fn gate_in(set: &CapabilitySet, program: &str, cwd: &str, path: &str) -> Result<
 }
 
 fn canon(path: &str) -> String {
-    std::fs::canonicalize(path)
+    dunce::canonicalize(path)
         .unwrap()
         .to_str()
         .unwrap()

@@ -22,10 +22,10 @@ impl RealpathCache {
         let is_plain_leaf = fs::symlink_metadata(path).is_ok_and(|m| !m.file_type().is_symlink());
         let (Some(parent), Some(name), true) = (path.parent(), path.file_name(), is_plain_leaf)
         else {
-            return fs::canonicalize(path);
+            return dunce::canonicalize(path);
         };
         if parent.as_os_str().is_empty() {
-            return fs::canonicalize(path);
+            return dunce::canonicalize(path);
         }
         Ok(self.canonical_dir(parent)?.join(name))
     }
@@ -34,7 +34,7 @@ impl RealpathCache {
         if let Some(hit) = self.dirs.read().unwrap_or_else(|e| e.into_inner()).get(dir) {
             return Ok(hit.clone());
         }
-        let real = fs::canonicalize(dir)?;
+        let real = dunce::canonicalize(dir)?;
         self.dirs
             .write()
             .unwrap_or_else(|e| e.into_inner())
@@ -57,7 +57,7 @@ mod tests {
 
     fn tree() -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         fs::create_dir_all(root.join("sub")).unwrap();
         fs::write(root.join("a.js"), "").unwrap();
         fs::write(root.join("sub/b.js"), "").unwrap();
@@ -75,7 +75,7 @@ mod tests {
         ] {
             assert_eq!(
                 cache.canonicalize(&p).unwrap(),
-                fs::canonicalize(&p).unwrap()
+                dunce::canonicalize(&p).unwrap()
             );
         }
     }
@@ -99,7 +99,7 @@ mod tests {
         let cache = RealpathCache::default();
         assert_eq!(
             cache.canonicalize(&p).unwrap(),
-            fs::canonicalize(&p).unwrap()
+            dunce::canonicalize(&p).unwrap()
         );
         assert_eq!(cache.canonicalize(&p).unwrap(), root.join("sub/b.js"));
     }

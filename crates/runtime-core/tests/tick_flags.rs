@@ -10,7 +10,7 @@ use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 fn with_loop_isolate<T: Send + 'static>(
     probe: impl FnOnce(&mut LoopIsolate<V8Isolate>) -> T + Send + 'static,
 ) -> T {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-tick-flags-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

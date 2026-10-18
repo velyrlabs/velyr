@@ -256,7 +256,7 @@ mod tests {
     fn project_resolver_applies_velyr_json_imports() {
         use velyr_runtime_modules::ResolveContext;
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         write(&root, "velyr.json", r#"{ "imports": { "~/": "./src/" } }"#);
         write(&root, "src/a.ts", "export const a = 1;");
         write(&root, "src/main.ts", "import '~/a';");

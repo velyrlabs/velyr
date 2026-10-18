@@ -25,7 +25,7 @@ fn allow(dir: &Path) -> Arc<CapabilitySet> {
 #[test]
 fn package_extends_cannot_climb_out_of_the_grant_through_a_symlink() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let grant = root.join("grant");
     write(
         &root,
@@ -45,7 +45,7 @@ fn package_extends_cannot_climb_out_of_the_grant_through_a_symlink() {
 #[test]
 fn extends_diamond_parses_each_file_once() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let levels = 10;
     write(&root, "tsconfig.json", r#"{"extends":"./c0.json"}"#);
     for i in 0..levels {
@@ -68,7 +68,7 @@ fn extends_diamond_parses_each_file_once() {
 #[test]
 fn too_many_extends_files_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let parents: Vec<String> = (0..70).map(|i| format!("\"./p{i}.json\"")).collect();
     write(
         &root,
@@ -86,7 +86,7 @@ fn too_many_extends_files_is_an_error() {
 #[test]
 fn oversized_config_file_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let padding = " ".repeat(2 * 1024 * 1024);
     write(&root, "tsconfig.json", &format!("{{}}{padding}"));
     let loader = TsconfigLoader::new(allow(&root));

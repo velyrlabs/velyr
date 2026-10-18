@@ -64,7 +64,7 @@ async fn is_embedded_covers_exactly_the_registered_facade_names() {
 #[tokio::test]
 async fn unregistered_facade_name_is_loaded_from_disk_with_authorization() {
     let dir = tempfile::tempdir().unwrap();
-    let root = std::fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let file = root.join("$velyr/node/path.js");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, "export default 'from disk';\n").unwrap();

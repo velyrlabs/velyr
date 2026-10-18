@@ -6,14 +6,14 @@
 // nothing, so a live watcher always keeps the process alive; `watchFile` reacts to change events
 // of the parent directory instead of polling, and a missing parent directory is an ENOENT.
 const { EventEmitter } = require('events');
-const path = require('path');
+const { nextTick, platform } = require('process');
+// Event paths come back from the OS in native form, so they are resolved and compared the same way.
+const path = platform === 'win32' ? require('path').win32 : require('path');
 const errors = require('internal/errors');
 const { Buffer } = require('buffer');
 const { toPath, getOptions } = require('internal/fs/util');
 const { sync } = require('internal/fs/ops');
 const { Stats } = require('internal/fs/stats');
-
-const { nextTick } = require('process');
 
 function translate(error, target) {
   if (error.code === 'VELYR_PERMISSION_DENIED') {

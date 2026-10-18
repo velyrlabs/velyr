@@ -1,4 +1,6 @@
 //! A worker costs its own thread plus the isolate watchdog, not an extra joining thread.
+// Counting threads needs /proc or `ps`, neither of which exists on Windows.
+#![cfg(unix)]
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -34,11 +36,11 @@ fn thread_count() -> usize {
 fn module(name: &str, text: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("velyr-tc-{name}-{}.mjs", std::process::id()));
     std::fs::write(&path, text).unwrap();
-    std::fs::canonicalize(path).unwrap()
+    dunce::canonicalize(path).unwrap()
 }
 
 fn parent() -> ParentContext {
-    let dir = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    let dir = dunce::canonicalize(std::env::temp_dir()).unwrap();
     let import = Capability::ImportLocal(PathPattern::new(dir.to_str().unwrap()));
     let capabilities = CapabilitySet::builder().allow(import).build();
     ParentContext {

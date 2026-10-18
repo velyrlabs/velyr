@@ -49,8 +49,8 @@ fn is_supervisor_report(path: &Path) -> bool {
         .is_some_and(|name| name.to_string_lossy().starts_with(REPORT_PREFIX));
     let in_temp = path
         .parent()
-        .and_then(|dir| dir.canonicalize().ok())
-        .is_some_and(|dir| std::env::temp_dir().canonicalize().ok() == Some(dir));
+        .and_then(|dir| dunce::canonicalize(dir).ok())
+        .is_some_and(|dir| dunce::canonicalize(std::env::temp_dir()).ok() == Some(dir));
     let regular = path.symlink_metadata().is_ok_and(|meta| meta.is_file());
     named && in_temp && regular
 }
@@ -112,8 +112,7 @@ pub fn supervise(file: &Path, extra: &[String]) -> ExitCode {
 }
 
 fn canonical(path: &Path) -> std::result::Result<PathBuf, String> {
-    path.canonicalize()
-        .map_err(|e| format!("error: cannot watch {}: {e}", path.display()))
+    dunce::canonicalize(path).map_err(|e| format!("error: cannot watch {}: {e}", path.display()))
 }
 
 fn watch(file: &Path, extra: &[String]) -> std::result::Result<(), String> {

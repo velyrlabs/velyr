@@ -152,8 +152,13 @@ mod tests {
         }
     }
 
+    /// Unix absolute literals are drive-relative on Windows, so root them on `C:`.
+    fn root() -> &'static str {
+        if cfg!(windows) { "C:" } else { "" }
+    }
+
     fn module() -> ResolvedModule {
-        let path = std::path::PathBuf::from("/app/main.js");
+        let path = std::path::PathBuf::from(format!("{}/app/main.js", root()));
         ResolvedModule {
             id: ModuleId::from_path(&path).unwrap(),
             path,
@@ -163,7 +168,10 @@ mod tests {
     fn ctx(allow: bool) -> LoadContext {
         let mut builder = CapabilitySet::builder();
         if allow {
-            builder = builder.allow(Capability::ImportLocal(PathPattern::new("/app")));
+            builder = builder.allow(Capability::ImportLocal(PathPattern::new(format!(
+                "{}/app",
+                root()
+            ))));
         }
         LoadContext {
             permissions: builder.build(),
@@ -206,7 +214,7 @@ mod tests {
     #[tokio::test]
     async fn file_edited_between_workers_is_seen_by_the_second() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().canonicalize().unwrap().join("main.js");
+        let path = dunce::canonicalize(dir.path()).unwrap().join("main.js");
         std::fs::write(&path, "export const a = 1;").unwrap();
         let module = ResolvedModule {
             id: ModuleId::from_path(&path).unwrap(),
@@ -222,7 +230,7 @@ mod tests {
     }
 
     fn ctx_for(dir: &std::path::Path) -> LoadContext {
-        let dir = dir.canonicalize().unwrap();
+        let dir = dunce::canonicalize(dir).unwrap();
         LoadContext {
             permissions: CapabilitySet::builder()
                 .allow(Capability::ImportLocal(PathPattern::new(

@@ -38,7 +38,9 @@ fn collect(root: &Path, dir: &Path, out: &mut Vec<String>) -> io::Result<()> {
             collect(root, &path, out)?;
         } else if path.to_string_lossy().ends_with(ANY_SUFFIX) {
             let relative = path.strip_prefix(root).unwrap_or(&path);
-            out.push(relative.to_string_lossy().into_owned());
+            // Manifest entries use `/`, so walked paths must too or the dedup misses on Windows.
+            let parts: Vec<_> = relative.iter().map(|part| part.to_string_lossy()).collect();
+            out.push(parts.join("/"));
         }
     }
     Ok(())

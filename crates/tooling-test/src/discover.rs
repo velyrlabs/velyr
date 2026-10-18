@@ -108,7 +108,7 @@ mod tests {
                 p.strip_prefix(dir.path())
                     .unwrap()
                     .to_string_lossy()
-                    .into_owned()
+                    .replace(std::path::MAIN_SEPARATOR, "/")
             })
             .collect();
         assert_eq!(names, ["a.test.js", "sub/__tests__/c.js", "sub/b.spec.ts"]);

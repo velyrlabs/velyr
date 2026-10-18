@@ -1,0 +1,3 @@
+# Goldens, pinned helper hashes and fixtures compare bytes: keep LF on every platform.
+* text=auto eol=lf
+*.sig binary

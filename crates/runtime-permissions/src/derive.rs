@@ -55,24 +55,24 @@ mod tests {
 
     #[test]
     fn narrower_parent_bounds_broader_request() {
-        let parent = set(vec![fs_read("/app")], vec![]);
-        let requested = set(vec![fs_read("/")], vec![]);
-        let policy = set(vec![fs_read("/")], vec![]);
+        let parent = set(vec![fs_read(abs!("/app"))], vec![]);
+        let requested = set(vec![fs_read(abs!("/"))], vec![]);
+        let policy = set(vec![fs_read(abs!("/"))], vec![]);
         let child = parent.derive_child(&requested, &policy);
-        assert!(can_read(&child, "/app/x"));
-        assert!(!can_read(&child, "/etc/passwd"));
-        assert!(!can_read(&child, "/application"));
+        assert!(can_read(&child, abs!("/app/x")));
+        assert!(!can_read(&child, abs!("/etc/passwd")));
+        assert!(!can_read(&child, abs!("/application")));
     }
 
     #[test]
     fn narrower_request_and_policy_bound_the_child() {
-        let all = set(vec![fs_read("/")], vec![]);
-        let narrow = set(vec![fs_read("/app/a")], vec![]);
+        let all = set(vec![fs_read(abs!("/"))], vec![]);
+        let narrow = set(vec![fs_read(abs!("/app/a"))], vec![]);
         let by_request = all.derive_child(&narrow, &all);
         let by_policy = all.derive_child(&all, &narrow);
         for child in [by_request, by_policy] {
-            assert!(can_read(&child, "/app/a/f"));
-            assert!(!can_read(&child, "/app/b"));
+            assert!(can_read(&child, abs!("/app/a/f")));
+            assert!(!can_read(&child, abs!("/app/b")));
         }
     }
 
@@ -104,12 +104,12 @@ mod tests {
 
     #[test]
     fn identical_sets_keep_the_grant_and_chains_stay_bounded() {
-        let s = set(vec![fs_read("/app")], vec![]);
+        let s = set(vec![fs_read(abs!("/app"))], vec![]);
         let child = s.derive_child(&s, &s);
-        assert!(can_read(&child, "/app/x"));
-        let grandchild = child.derive_child(&set(vec![fs_read("/")], vec![]), &s);
-        assert!(can_read(&grandchild, "/app/x"));
-        assert!(!can_read(&grandchild, "/etc"));
+        assert!(can_read(&child, abs!("/app/x")));
+        let grandchild = child.derive_child(&set(vec![fs_read(abs!("/"))], vec![]), &s);
+        assert!(can_read(&grandchild, abs!("/app/x")));
+        assert!(!can_read(&grandchild, abs!("/etc")));
     }
 
     #[test]
@@ -131,7 +131,8 @@ mod tests {
     }
 
     fn path() -> impl Strategy<Value = String> {
-        prop::collection::vec(seg(), 0..4).prop_map(|v| format!("/velyr-prop/{}", v.join("/")))
+        prop::collection::vec(seg(), 0..4)
+            .prop_map(|v| format!("{}/velyr-prop/{}", abs!(""), v.join("/")))
     }
 
     fn name() -> impl Strategy<Value = &'static str> {

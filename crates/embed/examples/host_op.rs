@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let permissions = Permissions::new().allow(Capability::ImportLocal(PathPattern::new(
-        dir.canonicalize()?.to_string_lossy(),
+        dunce::canonicalize(&dir)?.to_string_lossy(),
     )));
     let mut runtime = Runtime::builder()
         .permissions(permissions)

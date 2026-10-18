@@ -21,7 +21,7 @@ impl ModuleResolver for Alias {
 }
 
 fn run(resolver: Option<Arc<dyn ModuleResolver + Send + Sync>>) -> Result<(), RunError> {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-resolver-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -59,7 +59,7 @@ fn bare_specifier_fails_with_the_default_resolver() {
 
 #[test]
 fn a_configured_resolver_serves_the_imports() {
-    let dep = std::fs::canonicalize(std::env::temp_dir())
+    let dep = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-resolver-{}", std::process::id()))
         .join("dep.mjs");

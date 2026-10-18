@@ -67,7 +67,7 @@ pub fn ensure_private_dir(path: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(path)?;
     #[cfg(unix)]
     unix_private_dir(path)?;
-    path.canonicalize()
+    dunce::canonicalize(path)
 }
 
 #[cfg(unix)]
@@ -162,7 +162,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("a/b");
         let canonical = ensure_private_dir(&dir).unwrap();
-        assert_eq!(canonical, dir.canonicalize().unwrap());
+        assert_eq!(canonical, dunce::canonicalize(&dir).unwrap());
         assert_eq!(mode(&dir), 0o700);
     }
 

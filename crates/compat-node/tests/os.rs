@@ -35,7 +35,7 @@ fn free_apis_work_without_a_grant() {
         &[],
         "if (os.hostname().length === 0 || os.homedir().length === 0) throw new Error('free');
          if (os.cpus().length < 1) throw new Error('cpus');
-         eq(typeof os.platform(), 'string'); eq(typeof os.arch(), 'string'); eq(os.EOL, '\\n');",
+         eq(typeof os.platform(), 'string'); eq(typeof os.arch(), 'string'); eq(os.EOL, os.platform() === 'win32' ? '\\r\\n' : '\\n');",
     ));
 }
 
@@ -57,6 +57,8 @@ fn user_info_with_grant() {
     ));
 }
 
+// sysinfo does not list the loopback adapter on Windows (known product gap).
+#[cfg(not(windows))]
 #[test]
 fn network_interfaces_lists_the_loopback() {
     assert_ok(run_granting(

@@ -177,7 +177,7 @@ pub fn serve(
     engine: EngineKind,
 ) -> ExitCode {
     let _span = tracing::info_span!("velyr.cli.serve").entered();
-    let file = file.canonicalize().unwrap_or_else(|_| file.to_path_buf());
+    let file = dunce::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
     let count = match worker_count(workers) {
         Ok(count) => count,
         Err(message) => {

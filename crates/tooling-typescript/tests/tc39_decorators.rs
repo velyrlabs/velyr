@@ -12,7 +12,7 @@ const SOURCE: &str =
 
 fn run(tsconfig: Option<&str>, name: &str, media_type: MediaType) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let root = std::fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let mut transform = TypeScriptTransform::new(None);
     if let Some(text) = tsconfig {
         std::fs::write(root.join("tsconfig.json"), text).unwrap();

@@ -19,6 +19,7 @@ oxc_transformer = "=0.154.0"
 serde_json.workspace = true
 
 [dev-dependencies]
+dunce.workspace = true
 tempfile = "3"
 velyr-runtime-permissions = { path = "../runtime-permissions" }
 

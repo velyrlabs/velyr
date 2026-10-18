@@ -62,7 +62,7 @@ pub(super) fn ensure_executable(link: &Path) {
     if mode & 0o111 == 0o111 {
         return;
     }
-    let Ok(file) = std::fs::canonicalize(link) else {
+    let Ok(file) = dunce::canonicalize(link) else {
         return;
     };
     let copy = file.with_file_name(format!(".velyr-bin-{}", std::process::id()));

@@ -23,9 +23,11 @@ const dns = require('dns/promises');
 const HIGH_WATER_MARK = 64 * 1024;
 const ACCEPT_RETRY_MS = 10;
 const SYSTEM_ERRORS = [
-  [/refused/i, 'ECONNREFUSED'], [/already in use/i, 'EADDRINUSE'], [/reset by peer/i, 'ECONNRESET'],
-  [/broken pipe/i, 'EPIPE'], [/timed out/i, 'ETIMEDOUT'], [/assign requested address/i, 'EADDRNOTAVAIL'],
-  [/network is unreachable/i, 'ENETUNREACH'], [/permission denied/i, 'EACCES'],
+  [/refused/i, 'ECONNREFUSED'], [/already in use|only one usage of each socket address/i, 'EADDRINUSE'],
+  [/reset by peer|forcibly closed/i, 'ECONNRESET'],
+  [/broken pipe/i, 'EPIPE'], [/timed out|did not properly respond/i, 'ETIMEDOUT'],
+  [/assign requested address|address is not valid in its context/i, 'EADDRNOTAVAIL'],
+  [/network is unreachable/i, 'ENETUNREACH'], [/permission denied|forbidden by its access permissions/i, 'EACCES'],
 ];
 
 function velyr() {

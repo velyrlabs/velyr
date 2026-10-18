@@ -9,7 +9,7 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 
 fn project() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(root.join("dep.mjs"), "export const value = 1;\n").unwrap();
     std::fs::write(
         root.join("main.mjs"),

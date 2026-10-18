@@ -20,6 +20,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+dunce.workspace = true
 velyr-engine-v8 = { path = "../engine-v8" }
 velyr-io-fs = { path = "../io-fs" }
 velyr-runtime-ops = { path = "../runtime-ops" }

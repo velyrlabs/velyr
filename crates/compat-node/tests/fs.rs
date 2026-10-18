@@ -17,7 +17,10 @@ const path = node.require('path');
 const cb = (fn, ...args) => new Promise((resolve) => fn(...args, (error, value, extra) => resolve({ error, value, extra })));
 const fails = (fn, code, label) => { try { fn(); } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not throw ' + code + ' ' + (label || '')); };
 const rejects = async (promise, code, label) => { try { await promise; } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not reject ' + code + ' ' + (label || '')); };
-const j = (name) => path.join(DIR, name);
+// The runtime's default `path` is posix, while fs reports native paths, as Node's win32 `path` does.
+// `fs.symlink` returns Unsupported on Windows, where creating links needs a privilege.
+const LINKS = process.platform !== 'win32';
+const j = (name) => (process.platform === 'win32' ? path.win32 : path).join(DIR, name);
 "#;
 
 fn grants(dir: &str, read: bool, write: bool) -> Arc<CapabilitySet> {
@@ -33,7 +36,7 @@ fn grants(dir: &str, read: bool, write: bool) -> Arc<CapabilitySet> {
 
 fn run_fs(body: &str, read: bool, write: bool) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let canonical = dir.path().canonicalize().unwrap();
+    let canonical = dunce::canonicalize(dir.path()).unwrap();
     let dir_text = canonical.to_str().unwrap();
     let script = format!("{CHECKS}const DIR = {dir_text:?};{PRELUDE}{body}");
     run_with(&script, grants(dir_text, read, write), "")
@@ -74,12 +77,14 @@ fn sync_api_covers_files_directories_and_links() {
         eq(ents[0].parentPath, j('d'));
         same(fs.readdirSync(j('d'), { recursive: true }).sort(), ['one', 'sub']);
 
-        fs.symlinkSync(j('a.txt'), j('link'));
-        eq(fs.readlinkSync(j('link')), j('a.txt'));
-        eq(fs.lstatSync(j('link')).isSymbolicLink(), true);
-        eq(fs.statSync(j('link')).isSymbolicLink(), false);
-        eq(fs.realpathSync(j('link')), fs.realpathSync(j('a.txt')));
-        eq(fs.realpathSync.native(j('link')), fs.realpathSync(j('a.txt')));
+        if (LINKS) {
+          fs.symlinkSync(j('a.txt'), j('link'));
+          eq(fs.readlinkSync(j('link')), j('a.txt'));
+          eq(fs.lstatSync(j('link')).isSymbolicLink(), true);
+          eq(fs.statSync(j('link')).isSymbolicLink(), false);
+          eq(fs.realpathSync(j('link')), fs.realpathSync(j('a.txt')));
+          eq(fs.realpathSync.native(j('link')), fs.realpathSync(j('a.txt')));
+        }
 
         fs.renameSync(j('a.txt'), j('renamed.txt'));
         eq(fs.existsSync(j('a.txt')), false);
@@ -94,7 +99,8 @@ fn sync_api_covers_files_directories_and_links() {
         fs.accessSync(j('copy.txt'), fs.constants.R_OK | fs.constants.W_OK);
         fails(() => fs.accessSync(j('nope')), 'ENOENT');
         fs.chmodSync(j('copy.txt'), 0o600);
-        eq(fs.statSync(j('copy.txt')).mode & 0o777, 0o600);
+        // Windows keeps only the owner write bit (read-only flag), so Node reports 0o666 there.
+        eq(fs.statSync(j('copy.txt')).mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
         fs.utimesSync(j('copy.txt'), 1000, 2000);
         eq(fs.statSync(j('copy.txt')).mtimeMs, 2000000);
         eq(fs.statSync(j('copy.txt')).atimeMs, 1000000);
@@ -201,8 +207,10 @@ fn callback_api_matches_the_sync_results() {
         eq(await new Promise((r) => fs.exists(j('c3.txt'), r)), true);
         eq(await new Promise((r) => fs.exists(j('c2.txt'), r)), false);
         eq(ok(await cb(fs.realpath, j('c3.txt'))), fs.realpathSync(j('c3.txt')));
-        ok(await cb(fs.symlink, j('c3.txt'), j('ln')));
-        eq(ok(await cb(fs.readlink, j('ln'))), j('c3.txt'));
+        if (LINKS) {
+          ok(await cb(fs.symlink, j('c3.txt'), j('ln')));
+          eq(ok(await cb(fs.readlink, j('ln'))), j('c3.txt'));
+        }
         ok(await cb(fs.chmod, j('c3.txt'), 0o640));
         ok(await cb(fs.utimes, j('c3.txt'), 5, 6));
         eq(fs.statSync(j('c3.txt')).mtimeMs, 6000);
@@ -222,7 +230,7 @@ fn callback_api_matches_the_sync_results() {
         eq((await cb(fs.close, fd)).error.code, 'EBADF');
         eq((await cb(fs.read, fd, buf, 0, 4, 0)).error.code, 'EBADF');
         eq((await cb(fs.readFile, j('nope'))).error.code, 'ENOENT');
-        ok(await cb(fs.unlink, j('ln')));
+        if (LINKS) ok(await cb(fs.unlink, j('ln')));
         ok(await cb(fs.rm, j('m'), { recursive: true }));
         ok(await cb(fs.mkdir, j('rd')));
         ok(await cb(fs.rmdir, j('rd')));
@@ -251,8 +259,10 @@ fn promises_api_and_file_handles() {
         await fsp.access(j('p3.txt'));
         await rejects(fsp.access(j('p2.txt')), 'ENOENT');
         eq(await fsp.realpath(j('p3.txt')), fs.realpathSync(j('p3.txt')));
-        await fsp.symlink(j('p3.txt'), j('pl'));
-        eq(await fsp.readlink(j('pl')), j('p3.txt'));
+        if (LINKS) {
+          await fsp.symlink(j('p3.txt'), j('pl'));
+          eq(await fsp.readlink(j('pl')), j('p3.txt'));
+        }
         await fsp.chmod(j('p3.txt'), 0o600);
         await fsp.utimes(j('p3.txt'), 7, 8);
         eq((await fsp.stat(j('p3.txt'))).mtimeMs, 8000);
@@ -262,7 +272,7 @@ fn promises_api_and_file_handles() {
         const names = [];
         for await (const entry of await fsp.opendir(j('q'))) names.push(entry.name);
         same(names, ['r']);
-        await fsp.unlink(j('pl'));
+        if (LINKS) await fsp.unlink(j('pl'));
         await fsp.rm(j('q'), { recursive: true });
         await fsp.rmdir(j('q2/r')).catch((e) => eq(e.code, 'ENOTEMPTY'));
         await rejects(fsp.readFile(j('nope')), 'ENOENT');
@@ -396,10 +406,14 @@ fn write_only_grant_cannot_read() {
     assert_ok(run_fs(&body, false, true));
 }
 
+// `fs.symlink` returns Unsupported on Windows, where creating links needs a privilege.
+#[cfg(unix)]
 #[test]
 fn symlinks_cannot_escape_the_grant() {
     let outside = tempfile::tempdir().unwrap();
-    let secret = outside.path().canonicalize().unwrap().join("secret.txt");
+    let secret = dunce::canonicalize(outside.path())
+        .unwrap()
+        .join("secret.txt");
     std::fs::write(&secret, "secret").unwrap();
     let body = format!(
         "{DENIED_CALLS}const secret = {:?};{}",

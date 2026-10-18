@@ -47,7 +47,7 @@ fn run(dir: &Path) {
 
 #[test]
 fn required_graph_dependencies_consume_the_shared_cache() {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-require-cache-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

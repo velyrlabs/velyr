@@ -2,6 +2,18 @@
 //!
 //! Precedence: explicit deny > explicit scoped allow > default deny. There is no prompt.
 
+#[cfg(test)]
+macro_rules! abs {
+    ($path:literal) => {
+        // Unix absolute literals are drive-relative on Windows, so root them on `C:`.
+        if cfg!(windows) {
+            concat!("C:", $path)
+        } else {
+            $path
+        }
+    };
+}
+
 mod derive;
 mod net;
 mod path;
@@ -439,9 +451,9 @@ mod tests {
         let set = CapabilitySet::builder().build();
         for request in [
             Request::EnvRead("HOME"),
-            Request::FsRead("/etc/passwd"),
+            Request::FsRead(abs!("/etc/passwd")),
             Request::NetConnect("example.com", 443),
-            Request::NativeLoad("/lib/x.so"),
+            Request::NativeLoad(abs!("/lib/x.so")),
         ] {
             assert!(!set.check(&request).is_allow(), "{request:?}");
         }
@@ -475,13 +487,18 @@ mod tests {
         let set = CapabilitySet::builder()
             .allow(Capability::ProcessSpawn(ProgramPattern::new("git")))
             .allow(Capability::ImportRemote(HostPattern::new("esm.sh")))
-            .allow(Capability::NativeLoad(PathPattern::new("/opt/lib.so")))
+            .allow(Capability::NativeLoad(PathPattern::new(abs!(
+                "/opt/lib.so"
+            ))))
             .allow(Capability::InspectorBind(AddrPattern::new("127.0.0.1")))
             .build();
         assert!(set.check(&Request::ProcessSpawn("git")).is_allow());
         assert!(!set.check(&Request::ProcessSpawn("git2")).is_allow());
         assert!(set.check(&Request::ImportRemote("esm.sh")).is_allow());
-        assert!(set.check(&Request::NativeLoad("/opt/lib.so")).is_allow());
+        assert!(
+            set.check(&Request::NativeLoad(abs!("/opt/lib.so")))
+                .is_allow()
+        );
         assert!(set.check(&Request::InspectorBind("127.0.0.1")).is_allow());
     }
 
@@ -590,23 +607,29 @@ mod tests {
 
     #[test]
     fn dotdot_and_string_prefix_do_not_escape_directory_grant() {
-        let set = fs_read_set("/tmp/x");
-        assert!(set.check(&Request::FsRead("/tmp/x")).is_allow());
-        assert!(set.check(&Request::FsRead("/tmp/x/a/b")).is_allow());
-        assert!(set.check(&Request::FsRead("/tmp/x/a/../b")).is_allow());
-        assert!(!set.check(&Request::FsRead("/tmp/x/../y")).is_allow());
-        assert!(!set.check(&Request::FsRead("/tmp/x2/a")).is_allow());
+        let set = fs_read_set(abs!("/tmp/x"));
+        assert!(set.check(&Request::FsRead(abs!("/tmp/x"))).is_allow());
+        assert!(set.check(&Request::FsRead(abs!("/tmp/x/a/b"))).is_allow());
         assert!(
-            !set.check(&Request::FsRead("/tmp/../../../etc/passwd"))
+            set.check(&Request::FsRead(abs!("/tmp/x/a/../b")))
+                .is_allow()
+        );
+        assert!(!set.check(&Request::FsRead(abs!("/tmp/x/../y"))).is_allow());
+        assert!(!set.check(&Request::FsRead(abs!("/tmp/x2/a"))).is_allow());
+        assert!(
+            !set.check(&Request::FsRead(abs!("/tmp/../../../etc/passwd")))
                 .is_allow()
         );
     }
 
     #[test]
     fn read_grant_does_not_cover_write_or_import() {
-        let set = fs_read_set("/tmp/x");
-        assert!(!set.check(&Request::FsWrite("/tmp/x/a")).is_allow());
-        assert!(!set.check(&Request::ImportLocal("/tmp/x/a")).is_allow());
+        let set = fs_read_set(abs!("/tmp/x"));
+        assert!(!set.check(&Request::FsWrite(abs!("/tmp/x/a"))).is_allow());
+        assert!(
+            !set.check(&Request::ImportLocal(abs!("/tmp/x/a")))
+                .is_allow()
+        );
     }
 
     #[test]
@@ -625,64 +648,71 @@ mod tests {
     #[test]
     fn deny_pattern_is_normalized_too() {
         let set = CapabilitySet::builder()
-            .allow(Capability::FsRead(PathPattern::new("/tmp")))
-            .deny(Capability::FsRead(PathPattern::new("/tmp/secret/../s2")))
+            .allow(Capability::FsRead(PathPattern::new(abs!("/tmp"))))
+            .deny(Capability::FsRead(PathPattern::new(abs!(
+                "/tmp/secret/../s2"
+            ))))
             .build();
-        assert!(set.check(&Request::FsRead("/tmp/ok")).is_allow());
-        assert!(!set.check(&Request::FsRead("/tmp/s2/k")).is_allow());
+        assert!(set.check(&Request::FsRead(abs!("/tmp/ok"))).is_allow());
+        assert!(!set.check(&Request::FsRead(abs!("/tmp/s2/k"))).is_allow());
     }
 
     #[test]
     fn deny_beneath_finds_nested_denies_of_the_same_kind_only() {
         let set = CapabilitySet::builder()
-            .allow(Capability::FsWrite(PathPattern::new("/tmp/a")))
-            .deny(Capability::FsWrite(PathPattern::new("/tmp/a/b/secret")))
+            .allow(Capability::FsWrite(PathPattern::new(abs!("/tmp/a"))))
+            .deny(Capability::FsWrite(PathPattern::new(abs!(
+                "/tmp/a/b/secret"
+            ))))
             .build();
         let beneath = |request: Request<'_>| set.has_deny_beneath(&request);
-        assert!(beneath(Request::FsWrite("/tmp/a")));
-        assert!(beneath(Request::FsWrite("/tmp/a/b")));
-        assert!(beneath(Request::FsWrite("/tmp/A/../a")));
-        assert!(!beneath(Request::FsWrite("/tmp/a/b/secret/x")));
-        assert!(!beneath(Request::FsWrite("/tmp/a/c")));
-        assert!(!beneath(Request::FsWrite("/tmp/a2")));
-        assert!(!beneath(Request::FsRead("/tmp/a")));
+        assert!(beneath(Request::FsWrite(abs!("/tmp/a"))));
+        assert!(beneath(Request::FsWrite(abs!("/tmp/a/b"))));
+        assert!(beneath(Request::FsWrite(abs!("/tmp/A/../a"))));
+        assert!(!beneath(Request::FsWrite(abs!("/tmp/a/b/secret/x"))));
+        assert!(!beneath(Request::FsWrite(abs!("/tmp/a/c"))));
+        assert!(!beneath(Request::FsWrite(abs!("/tmp/a2"))));
+        assert!(!beneath(Request::FsRead(abs!("/tmp/a"))));
         assert!(!beneath(Request::EnvRead("HOME")));
     }
 
     #[test]
     fn deny_beneath_fails_closed_and_follows_bounds() {
         let denying = CapabilitySet::builder()
-            .allow(Capability::FsRead(PathPattern::new("/tmp")))
-            .deny(Capability::FsRead(PathPattern::new("/tmp/s")))
+            .allow(Capability::FsRead(PathPattern::new(abs!("/tmp"))))
+            .deny(Capability::FsRead(PathPattern::new(abs!("/tmp/s"))))
             .build();
         assert!(denying.has_deny_beneath(&Request::FsRead("")));
         let plain = CapabilitySet::builder()
-            .allow(Capability::FsRead(PathPattern::new("/tmp")))
+            .allow(Capability::FsRead(PathPattern::new(abs!("/tmp"))))
             .build();
-        assert!(!plain.has_deny_beneath(&Request::FsRead("/tmp")));
+        assert!(!plain.has_deny_beneath(&Request::FsRead(abs!("/tmp"))));
         let child = plain.derive_child(&plain, &denying);
-        assert!(child.has_deny_beneath(&Request::FsRead("/tmp")));
+        assert!(child.has_deny_beneath(&Request::FsRead(abs!("/tmp"))));
     }
 
     #[test]
     fn empty_and_nul_paths_are_denied() {
-        let set = fs_read_set("/");
+        let set = fs_read_set(abs!("/"));
         assert!(!set.check(&Request::FsRead("")).is_allow());
-        assert!(!set.check(&Request::FsRead("/a\0b")).is_allow());
+        assert!(!set.check(&Request::FsRead(abs!("/a\0b"))).is_allow());
     }
 
     #[test]
     fn native_load_uses_path_policy() {
         let set = CapabilitySet::builder()
-            .allow(Capability::NativeLoad(PathPattern::new("/opt/lib")))
+            .allow(Capability::NativeLoad(PathPattern::new(abs!("/opt/lib"))))
             .build();
-        assert!(set.check(&Request::NativeLoad("/opt/lib/x.so")).is_allow());
         assert!(
-            !set.check(&Request::NativeLoad("/opt/lib/../../etc/x"))
+            set.check(&Request::NativeLoad(abs!("/opt/lib/x.so")))
                 .is_allow()
         );
         assert!(
-            !set.check(&Request::NativeLoad("/opt/library/x.so"))
+            !set.check(&Request::NativeLoad(abs!("/opt/lib/../../etc/x")))
+                .is_allow()
+        );
+        assert!(
+            !set.check(&Request::NativeLoad(abs!("/opt/library/x.so")))
                 .is_allow()
         );
     }
@@ -728,8 +758,8 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn macos_matches_case_insensitively() {
-        let set = fs_read_set("/Tmp/X");
-        assert!(set.check(&Request::FsRead("/tmp/x/a")).is_allow());
+        let set = fs_read_set(abs!("/Tmp/X"));
+        assert!(set.check(&Request::FsRead(abs!("/tmp/x/a"))).is_allow());
     }
 
     #[cfg(windows)]

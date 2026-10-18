@@ -38,8 +38,7 @@ pub(super) fn scan_specifiers(source: &str) -> Vec<String> {
 }
 
 pub(super) fn canonical(path: &Path) -> Result<PathBuf, String> {
-    path.canonicalize()
-        .map_err(|e| format!("error: {}: {e}", path.display()))
+    dunce::canonicalize(path).map_err(|e| format!("error: {}: {e}", path.display()))
 }
 
 fn read(path: &Path) -> Result<Vec<u8>, String> {
@@ -79,7 +78,7 @@ impl Graph {
     /// Files under the root, or under a `node_modules` of the root or one of its parents; anything
     /// else only with `--allow-outside-root`.
     fn is_embeddable(&self, path: &Path) -> bool {
-        let real = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        let real = dunce::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
         self.allow_outside_root
             || grant_scopes(&self.root, false)
                 .iter()
@@ -233,7 +232,7 @@ fn collect_files(path: &Path, out: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf
         out.push(path.to_path_buf());
         return;
     }
-    let Ok(real) = path.canonicalize() else {
+    let Ok(real) = dunce::canonicalize(path) else {
         return;
     };
     if !seen.insert(real) {

@@ -49,19 +49,51 @@ impl ModuleId {
 
     /// `path` must be absolute; it is not canonicalized here.
     pub fn from_path(path: &Path) -> Option<Self> {
+        if let Some(text) = path.to_str().filter(|text| is_plain_virtual(text)) {
+            return Some(Self(format!("file://{text}")));
+        }
         Url::from_file_path(path).ok().map(|url| Self(url.into()))
     }
 
     /// Parses a `file://` URL as produced by [`ModuleId::as_str`].
     pub fn parse(text: &str) -> Option<Self> {
         let url = Url::parse(text).ok()?;
-        url.to_file_path().ok()?;
+        if virtual_path(&url).is_none() {
+            url.to_file_path().ok()?;
+        }
         Some(Self(url.into()))
     }
 
     pub fn to_path(&self) -> Option<PathBuf> {
-        Url::parse(&self.0).ok()?.to_file_path().ok()
+        let url = Url::parse(&self.0).ok()?;
+        match virtual_path(&url) {
+            Some(path) => Some(PathBuf::from(path)),
+            None => url.to_file_path().ok(),
+        }
     }
+}
+
+/// Root of the embedded modules (`/$velyr/node/...`, `/$velyr/oxc-runtime/...`). It is not a
+/// drive path, so Windows rejects it as a file URL and the id is built by hand.
+const VIRTUAL_ROOT: &str = "/$velyr/";
+
+/// shortcut: only unreserved characters, so the URL needs no percent coding; any other
+/// embedded path falls back to the OS rules (unix only), upgrade when Windows needs them.
+fn is_plain_virtual(path: &str) -> bool {
+    path.strip_prefix(VIRTUAL_ROOT).is_some_and(|rest| {
+        rest.split('/').all(|segment| {
+            !matches!(segment, "" | "." | "..")
+                && segment
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "._$~-".contains(c))
+        })
+    })
+}
+
+fn virtual_path(url: &Url) -> Option<&str> {
+    (url.scheme() == "file" && url.host().is_none())
+        .then(|| url.path())
+        .filter(|path| is_plain_virtual(path))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,4 +152,39 @@ pub trait ModuleLoader: Send + Sync {
         module: &'a ResolvedModule,
         ctx: &'a LoadContext,
     ) -> BoxFuture<'a, Result<ModuleSource>>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn virtual_ids_round_trip_on_every_os() {
+        for text in [
+            "/$velyr/oxc-runtime/helpers/decorate.js",
+            "/$velyr/node/fs/promises.js",
+        ] {
+            let id = ModuleId::from_path(Path::new(text)).unwrap();
+            assert_eq!(id.as_str(), format!("file://{text}"));
+            assert_eq!(id.to_path().unwrap(), PathBuf::from(text));
+            assert_eq!(ModuleId::parse(id.as_str()).unwrap(), id);
+            #[cfg(unix)]
+            assert_eq!(id.as_str(), Url::from_file_path(text).unwrap().as_str());
+        }
+    }
+
+    #[test]
+    fn virtual_paths_with_reserved_characters_use_the_os_rules() {
+        for text in ["/$velyr/a b/c#d%e.js", "/$velyr/caf\u{e9}.js"] {
+            let id = ModuleId::from_path(Path::new(text));
+            #[cfg(unix)]
+            {
+                let id = id.unwrap();
+                assert_eq!(id.as_str(), Url::from_file_path(text).unwrap().as_str());
+                assert_eq!(id.to_path().unwrap(), PathBuf::from(text));
+            }
+            #[cfg(windows)]
+            assert!(id.is_none(), "{text}");
+        }
+    }
 }

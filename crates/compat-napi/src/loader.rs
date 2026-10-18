@@ -54,7 +54,7 @@ pub extern "C" fn napi_module_register(module: *mut NapiModule) {
 
 /// Canonicalizes `path` and checks `NativeLoad` for it. Never opens the library.
 pub fn authorize(path: &Path, permissions: &CapabilitySet) -> Result<PathBuf, VelyrError> {
-    let canonical = match std::fs::canonicalize(path) {
+    let canonical = match dunce::canonicalize(path) {
         Ok(canonical) => canonical,
         Err(err) => {
             // Without permission for the path as written, do not reveal whether it exists.

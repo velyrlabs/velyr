@@ -30,7 +30,7 @@ fn run(dir: &std::path::Path) -> Result<(), velyr_runtime_core::RunError> {
 
 #[test]
 fn second_isolate_consumes_what_the_first_published() {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-shared-cache-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

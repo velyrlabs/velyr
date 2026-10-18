@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use url::{ParseError, Url};
@@ -46,7 +45,7 @@ pub(crate) fn resolve_with(
     let path = ctx
         .realpaths
         .as_deref()
-        .map_or_else(|| fs::canonicalize(&path), |c| c.canonicalize(&path))
+        .map_or_else(|| dunce::canonicalize(&path), |c| c.canonicalize(&path))
         .map_err(|_| VelyrError::not_found(format!("module not found: {specifier}")))?;
     let id = ModuleId::from_path(&path)
         .ok_or_else(|| VelyrError::invalid_data("module path is not representable as a URL"))?;
@@ -190,7 +189,7 @@ mod tests {
 
     fn project() -> (tempfile::TempDir, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         fs::create_dir_all(root.join("sub")).unwrap();
         fs::create_dir_all(root.join("vendor")).unwrap();
         for f in [

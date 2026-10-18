@@ -9,7 +9,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use velyr_io_fs::sync_ops::FsError;
+use velyr_io_fs::sync_ops::{FsError, directory_read_error};
 
 pub(crate) type Parts = Vec<Vec<u8>>;
 pub(crate) type Outcome = Result<Parts, FsError>;
@@ -225,7 +225,15 @@ pub(crate) fn read_dir(path: &Path, raw: String) -> Outcome {
 
 /// Reads the whole file; a directory fails with `EISDIR` on the read, like Node.
 pub(crate) fn read_all(path: &Path, raw: String) -> Outcome {
-    let mut file = File::open(path).map_err(at("open", raw.clone()))?;
+    let mut file = File::open(path).map_err(|err| {
+        let err = directory_read_error(path, err);
+        let syscall = if err.kind() == io::ErrorKind::IsADirectory {
+            "read"
+        } else {
+            "open"
+        };
+        at(syscall, raw.clone())(err)
+    })?;
     let mut data = Vec::new();
     file.read_to_end(&mut data).map_err(at("read", raw))?;
     Ok(vec![data])
@@ -329,12 +337,30 @@ fn system_time(ms: f64) -> SystemTime {
 
 pub(crate) fn set_times(path: &Path, raw: String, atime_ms: f64, mtime_ms: f64) -> Outcome {
     let fail = at("utime", raw);
-    let file = File::open(path).map_err(&fail)?;
+    let file = open_for_times(path).map_err(&fail)?;
     let times = fs::FileTimes::new()
         .set_accessed(system_time(atime_ms))
         .set_modified(system_time(mtime_ms));
     file.set_times(times).map_err(&fail)?;
     Ok(vec![])
+}
+
+#[cfg(not(windows))]
+fn open_for_times(path: &Path) -> io::Result<File> {
+    File::open(path)
+}
+
+/// SetFileTime needs FILE_WRITE_ATTRIBUTES, which a read-only open lacks; backup semantics
+/// lets the same call open directories.
+#[cfg(windows)]
+fn open_for_times(path: &Path) -> io::Result<File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const FILE_WRITE_ATTRIBUTES: u32 = 0x100;
+    const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+    fs::OpenOptions::new()
+        .access_mode(FILE_WRITE_ATTRIBUTES)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(path)
 }
 
 /// `prefix` plus six random characters, created as a directory (retried on collision).

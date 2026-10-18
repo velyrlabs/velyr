@@ -200,8 +200,8 @@ fn scan_modules(dir: &Path, matrix: &Matrix) -> Vec<ModuleReport> {
         let relative = file
             .strip_prefix(dir)
             .unwrap_or(&file)
-            .display()
-            .to_string();
+            .to_string_lossy()
+            .replace('\\', "/");
         for name in core_imports(&file, &source) {
             used.entry(name).or_default().insert(relative.clone());
         }

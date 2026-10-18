@@ -2,6 +2,9 @@
 //! needs the shell granted, and a child's default environment is `process.env`, which only holds
 //! the variables `--allow-env` granted. Each run has a timeout, so a hang fails the test.
 
+// Unix only: the scripts spawn `sh`, `echo` and `ls`, and the environment pins a POSIX `PATH`.
+#![cfg(unix)]
+
 use std::time::Duration;
 
 use assert_cmd::Command;

@@ -215,7 +215,7 @@ fn run_file<E: Engine>(engine: &E, harness: &Harness, file: &Path) -> Outcome {
         Ok(text) => text,
         Err(err) => return Outcome::Crash(format!("read: {err}")),
     };
-    let abs_path = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
+    let abs_path = dunce::canonicalize(file).unwrap_or_else(|_| file.to_owned());
     let case = TestCase { abs_path, text };
     panic::catch_unwind(AssertUnwindSafe(|| {
         run_test(engine, harness, &case, TEST_TIMEOUT)

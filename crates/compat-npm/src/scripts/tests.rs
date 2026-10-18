@@ -32,6 +32,14 @@ fn tmp() -> tempfile::TempDir {
     tempfile::tempdir().unwrap()
 }
 
+/// One `\n`-terminated line per line: `cmd` echoes with `\r\n` and keeps the space before `>>`.
+fn read_log(path: &Path) -> String {
+    let text = std::fs::read_to_string(path).unwrap();
+    text.lines()
+        .map(|line| format!("{}\n", line.trim_end()))
+        .collect()
+}
+
 #[test]
 fn nothing_runs_by_default_and_the_package_is_listed() {
     let dir = tmp();
@@ -73,10 +81,7 @@ fn events_run_in_lifecycle_order_and_other_scripts_never() {
         r#"{"test":"echo test >> log","postinstall":"echo post >> log","preinstall":"echo pre >> log","install":"echo install >> log"}"#,
     );
     run(dir.path(), std::slice::from_ref(&t), &Allow::All, None).unwrap();
-    assert_eq!(
-        std::fs::read_to_string(t.dir.join("log")).unwrap(),
-        "pre\ninstall\npost\n"
-    );
+    assert_eq!(read_log(&t.dir.join("log")), "pre\ninstall\npost\n");
 }
 
 #[test]
@@ -86,13 +91,10 @@ fn a_script_runs_once_per_installed_version() {
     for _ in 0..2 {
         run(dir.path(), std::slice::from_ref(&t), &Allow::All, None).unwrap();
     }
-    assert_eq!(std::fs::read_to_string(t.dir.join("log")).unwrap(), "x\n");
+    assert_eq!(read_log(&t.dir.join("log")), "x\n");
     forget(dir.path(), &["a@1.0.0".to_owned()]);
     run(dir.path(), std::slice::from_ref(&t), &Allow::All, None).unwrap();
-    assert_eq!(
-        std::fs::read_to_string(t.dir.join("log")).unwrap(),
-        "x\nx\n"
-    );
+    assert_eq!(read_log(&t.dir.join("log")), "x\nx\n");
 }
 
 #[test]
@@ -103,6 +105,8 @@ fn a_failing_script_fails_the_install() {
     assert!(err.to_string().contains("a@1.0.0"), "{err}");
 }
 
+// POSIX `env` and its shell-added variables; `cmd` has neither.
+#[cfg(unix)]
 #[test]
 fn the_environment_is_minimal() {
     let dir = tmp();
@@ -133,6 +137,8 @@ fn the_environment_is_minimal() {
     );
 }
 
+// POSIX `$PATH` and `command -v`; Windows writes `node.cmd` instead of `node`.
+#[cfg(unix)]
 #[test]
 fn path_has_node_modules_bin_and_node_is_the_shim() {
     let dir = tmp();
@@ -167,11 +173,12 @@ fn path_has_node_modules_bin_and_node_is_the_shim() {
 #[test]
 fn scripts_hand_the_shim_explicit_flags_and_nothing_else_does() {
     let dir = tmp();
-    let t = package(
-        dir.path(),
-        "a",
-        r#"{"postinstall":"echo $VELYR_NODE_SHIM_FLAGS > flags.txt"}"#,
-    );
+    let echo = if cfg!(windows) {
+        "echo %VELYR_NODE_SHIM_FLAGS%> flags.txt"
+    } else {
+        "echo $VELYR_NODE_SHIM_FLAGS > flags.txt"
+    };
+    let t = package(dir.path(), "a", &format!(r#"{{"postinstall":"{echo}"}}"#));
     run(dir.path(), std::slice::from_ref(&t), &Allow::All, None).unwrap();
     let flags = std::fs::read_to_string(t.dir.join("flags.txt")).unwrap();
     assert_eq!(flags.trim(), "-A");

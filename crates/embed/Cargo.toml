@@ -6,6 +6,7 @@ license.workspace = true
 description = "Embed the Velyr JavaScript runtime in a Rust host: permissions, quotas, host ops."
 
 [dependencies]
+dunce.workspace = true
 velyr-engine-api = { path = "../engine-api" }
 velyr-engine-v8 = { path = "../engine-v8" }
 velyr-runtime-core = { path = "../runtime-core" }
@@ -20,6 +21,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+dunce.workspace = true
 tempfile = "3"
 
 [lints]

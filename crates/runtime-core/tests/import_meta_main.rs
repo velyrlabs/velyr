@@ -6,7 +6,7 @@ use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 
 #[test]
 fn only_the_entry_module_is_main() {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-import-meta-main-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

@@ -1,6 +1,5 @@
 //! `CommonJsTransform::applies`: only files that need a facade are rewritten.
 
-use std::fs;
 use std::path::Path;
 
 use velyr_compat_commonjs::CommonJsTransform;
@@ -11,6 +10,8 @@ fn applies(path: &Path, text: &str) -> bool {
     transform.applies(&ModuleId::from_path(path).unwrap(), text)
 }
 
+// `/$velyr/...` is not an absolute path on Windows, so no `ModuleId` exists for it there.
+#[cfg(unix)]
 #[test]
 fn embedded_paths_are_never_transformed() {
     let helper = "/$velyr/oxc-runtime/helpers/decorate.js";
@@ -20,7 +21,7 @@ fn embedded_paths_are_never_transformed() {
 #[test]
 fn only_commonjs_and_json_need_a_facade() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     assert!(applies(&root.join("a.js"), "module.exports = 1;"));
     assert!(applies(&root.join("a.json"), "{}"));
     assert!(!applies(&root.join("a.js"), "export const a = 1;"));

@@ -79,7 +79,7 @@ fn run(script: &str, dir: &Path, grant: bool, outside: impl FnOnce() + Send + 's
 
 fn canonical_tmp() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().canonicalize().unwrap();
+    let path = dunce::canonicalize(dir.path()).unwrap();
     (dir, path)
 }
 
@@ -92,7 +92,7 @@ fn wait_for(dir: &Path, target: &str, want: &str, trigger: &str) -> String {
         {trigger}
         const started = Date.now();
         for await (const event of watcher) {{
-          if (event.kind === "{want}" && event.paths.some((p) => p.endsWith("/{target}"))) {{
+          if (event.kind === "{want}" && event.paths.some((p) => p.endsWith("/{target}") || p.endsWith("\\{target}"))) {{
             throw new Error("got:" + event.kind + ":" + (Date.now() - started));
           }}
         }}"#
@@ -213,7 +213,7 @@ fn one_denied_path_denies_the_whole_watch() {
     let script = format!(
         r#"try {{ Velyr.watchFs([{dir:?}, {:?}]); }} catch (e) {{ throw new Error("code:" + e.code); }}
         throw new Error("not-denied");"#,
-        other.path().canonicalize().unwrap()
+        dunce::canonicalize(other.path()).unwrap()
     );
     let message = run(&script, &dir, true, || {});
     assert!(

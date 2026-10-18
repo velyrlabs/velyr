@@ -40,7 +40,7 @@ fn write_outside_allow_write_is_denied_and_creates_nothing() {
 #[test]
 fn write_inside_allow_write_roundtrips() {
     let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
+    let cwd = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(
         cwd.join("main.js"),
         r#"await Velyr.writeTextFile("out.txt", "written");

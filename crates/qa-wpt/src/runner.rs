@@ -327,7 +327,7 @@ mod tests {
 
     fn tree(files: &[(&str, &str)]) -> (tempfile::TempDir, Runner) {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         fs::create_dir_all(root.join("resources")).unwrap();
         fs::write(root.join("resources/testharness.js"), STUB_HARNESS).unwrap();
         for (name, text) in files {

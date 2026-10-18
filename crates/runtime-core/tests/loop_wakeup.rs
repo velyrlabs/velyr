@@ -17,7 +17,7 @@ const RUN_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn read_burst() -> String {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let data = root.join("data.bin");
     std::fs::write(&data, vec![7u8; FILE_BYTES]).unwrap();
     let entry = root.join("main.mjs");

@@ -174,6 +174,8 @@ fn query_read_is_granted_inside_the_grant_and_denied_outside() {
 fn query_covers_env_net_listen_run_native_and_import() {
     use velyr_runtime_permissions::{AddrPattern, HostPattern, PortRange, ProgramPattern};
     let ports = |p| PortRange { start: p, end: p };
+    // Unix absolute paths are drive-relative on Windows.
+    let root = if cfg!(windows) { "C:" } else { "" };
     let permissions = CapabilitySet::builder()
         .allow(Capability::EnvRead(NamePattern::new("FOO")))
         .allow(Capability::NetConnect(
@@ -185,10 +187,16 @@ fn query_covers_env_net_listen_run_native_and_import() {
             ports(8080),
         ))
         .allow(Capability::ProcessSpawn(ProgramPattern::new("git")))
-        .allow(Capability::NativeLoad(PathPattern::new("/opt/lib")))
-        .allow(Capability::ImportLocal(PathPattern::new("/opt/mods")))
+        .allow(Capability::NativeLoad(PathPattern::new(format!(
+            "{root}/opt/lib"
+        ))))
+        .allow(Capability::ImportLocal(PathPattern::new(format!(
+            "{root}/opt/mods"
+        ))))
         .allow(Capability::ImportRemote(HostPattern::new("esm.sh")))
         .build();
+    let native = format!(r#"{{ name: "native", path: "{root}/opt/lib/x.so" }}"#);
+    let import = format!(r#"{{ name: "import", path: "{root}/opt/mods/a.js" }}"#);
     let cases = [
         (r#"{ name: "env", variable: "FOO" }"#, "granted"),
         (r#"{ name: "env", variable: "BAR" }"#, "denied"),
@@ -198,8 +206,8 @@ fn query_covers_env_net_listen_run_native_and_import() {
         (r#"{ name: "listen", host: "127.0.0.1:8080" }"#, "granted"),
         (r#"{ name: "run", command: "git" }"#, "granted"),
         (r#"{ name: "run", command: "rm" }"#, "denied"),
-        (r#"{ name: "native", path: "/opt/lib/x.so" }"#, "granted"),
-        (r#"{ name: "import", path: "/opt/mods/a.js" }"#, "granted"),
+        (native.as_str(), "granted"),
+        (import.as_str(), "granted"),
         (r#"{ name: "import", host: "esm.sh" }"#, "granted"),
         (r#"{ name: "import", host: "evil.test" }"#, "denied"),
     ];

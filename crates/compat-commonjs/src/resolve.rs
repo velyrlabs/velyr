@@ -2,7 +2,6 @@
 //! (`package.json` `main`, `index`), and `node_modules` packages with `exports` conditions.
 //! The `exports` and `imports` matching is compat-npm's (`match_exports`, `match_imports`).
 
-use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use crate::fscache::{self, Auth, Kind};
@@ -35,7 +34,7 @@ fn normalize(path: &Path) -> PathBuf {
 }
 
 fn real(path: PathBuf) -> PathBuf {
-    fs::canonicalize(&path).unwrap_or_else(|_| normalize(&path))
+    dunce::canonicalize(&path).unwrap_or_else(|_| normalize(&path))
 }
 
 fn is_file(path: &Path) -> bool {
@@ -211,11 +210,12 @@ pub fn resolve(request: &str, from: &Path, conditions: &[String], auth: Auth) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn typescript_candidates_are_authorized_before_they_are_probed() {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         fs::write(root.join("dep.ts"), "").unwrap();
         let from = root.join("main.cts");
         let deny_ts = |path: &Path| match path.extension().is_some_and(|ext| ext == "ts") {

@@ -39,12 +39,16 @@ fn import_cycle_follows_esm_semantics() {
         .stdout("b sees getA as function\na is in TDZ: ReferenceError\na sees b = b\nmain done\n");
 }
 
+// Unix only: the fixture imports the POSIX absolute path `/etc/hosts`, which is not a path on Windows.
+#[cfg(unix)]
 #[test]
 fn static_import_outside_grant_is_denied_with_exit_1() {
     let assert = run("denied/main.js").code(1).stdout("");
     assert!(stderr_of(&assert).contains("VELYR_PERMISSION_DENIED"));
 }
 
+// Unix only: the fixture imports the POSIX absolute path `/etc/hosts`, which is not a path on Windows.
+#[cfg(unix)]
 #[test]
 fn dynamic_import_outside_grant_rejects_with_permission_code() {
     let assert = run("dynamic-denied/main.js")
@@ -62,7 +66,7 @@ fn uncaught_module_error_exits_1_after_earlier_output() {
 #[test]
 fn classic_globals_are_not_shared_with_module_scope() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::write(
         root.join("main.mjs"),
         "var x = 1; console.log(typeof globalThis.x, this);",
@@ -76,7 +80,7 @@ fn classic_globals_are_not_shared_with_module_scope() {
 #[test]
 fn import_outside_project_root_needs_allow_read() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::create_dir_all(root.join("app")).unwrap();
     fs::create_dir_all(root.join("shared")).unwrap();
     fs::write(root.join("shared/x.js"), "export const x = 7;").unwrap();

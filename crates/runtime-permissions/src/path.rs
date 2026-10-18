@@ -97,7 +97,7 @@ fn canonicalize_prefix(lexical: &Path) -> Option<PathBuf> {
     let mut existing = lexical.to_path_buf();
     let mut suffix: Vec<OsString> = Vec::new();
     loop {
-        match fs::canonicalize(&existing) {
+        match dunce::canonicalize(&existing) {
             Ok(mut real) => {
                 real.extend(suffix.iter().rev());
                 return Some(real);
@@ -262,9 +262,9 @@ mod tests {
     #[test]
     fn coverage_is_component_wise() {
         let at = |p: &str| NormalizedPath::resolve(p, None).unwrap();
-        assert!(at("/app/data").covers(&at("/app/data/x")));
-        assert!(!at("/app/data").covers(&at("/app/data2")));
-        assert!(NormalizedPath::everything().covers(&at("/x")));
+        assert!(at(abs!("/app/data")).covers(&at(abs!("/app/data/x"))));
+        assert!(!at(abs!("/app/data")).covers(&at(abs!("/app/data2"))));
+        assert!(NormalizedPath::everything().covers(&at(abs!("/x"))));
     }
 
     #[test]

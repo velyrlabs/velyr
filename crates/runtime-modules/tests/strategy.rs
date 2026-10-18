@@ -32,7 +32,7 @@ impl BareSpecifierResolver for Fixed {
 
 fn project() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
     for f in ["main.js", "a.js", "node_modules/pkg/index.js"] {
         fs::write(root.join(f), "export {};").unwrap();

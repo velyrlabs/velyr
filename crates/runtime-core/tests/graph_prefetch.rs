@@ -31,7 +31,7 @@ impl<S: tracing::Subscriber> Layer<S> for CountInstantiates {
 }
 
 fn fixture(name: &str) -> PathBuf {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!(
             "velyr-graph-prefetch-{}-{name}",

@@ -300,7 +300,7 @@ mod tests {
     }
 
     fn module(name: &str, text: &str) -> (std::path::PathBuf, ResolvedModule) {
-        let dir = std::fs::canonicalize(std::env::temp_dir())
+        let dir = dunce::canonicalize(std::env::temp_dir())
             .unwrap()
             .join(format!("velyr-sync-{}-{name}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();

@@ -337,7 +337,8 @@ pub fn op_command_set_ref(ctx: &mut dyn CallContext, args: &[Value]) -> Result<V
     Ok(Value::Undefined)
 }
 
-#[cfg(test)]
+// Needs the `sleep` binary and unix signals; spawning is unsupported on Windows.
+#[cfg(all(test, unix))]
 mod tests {
     use std::ffi::OsStr;
     use std::path::Path;

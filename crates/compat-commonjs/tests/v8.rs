@@ -76,7 +76,7 @@ impl Harness {
     /// `files` are written under a fresh root; `allowed` is the grant (the root when `None`).
     fn new(files: &[(&str, &str)], allowed: Option<&str>) -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         for (name, text) in files {
             let path = root.join(name);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -217,7 +217,7 @@ fn json_is_parsed_with_and_without_extension() {
         ("bad.json", "{oops"),
         (
             "main.cjs",
-            "let bad; try { require('./bad.json') } catch (e) { bad = e.message.startsWith(__dirname + '/bad.json: ') }\n\
+            "let bad; try { require('./bad.json') } catch (e) { bad = e.message.replaceAll('\\\\', '/').startsWith(__dirname.replaceAll('\\\\', '/') + '/bad.json: ') }\n\
              globalThis.out = [require('./data.json').n, require('./data').n, bad];",
         ),
     ];
@@ -420,12 +420,13 @@ fn resolve_cache_and_wrapper_arguments() {
         ),
         (
             "main.cjs",
-            "const path = require.resolve('./dep');\n\
+            "const n = (s) => s.replaceAll('\\\\', '/');\n\
+             const path = require.resolve('./dep');\n\
              const first = require('./dep');\n\
              const cached = require.cache[path];\n\
              delete require.cache[path];\n\
              const second = require('./dep');\n\
-             globalThis.out = { isAbs: path === __dirname + '/dep.js', file: __filename === __dirname + '/main.cjs', runs: globalThis.runs, cachedExports: cached.exports === first, fresh: first !== second, thisIsExports: this === module.exports, loaded: cached.loaded };",
+             globalThis.out = { isAbs: n(path) === n(__dirname) + '/dep.js', file: n(__filename) === n(__dirname) + '/main.cjs', runs: globalThis.runs, cachedExports: cached.exports === first, fresh: first !== second, thisIsExports: this === module.exports, loaded: cached.loaded };",
         ),
     ];
     assert_eq!(

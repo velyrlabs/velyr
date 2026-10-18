@@ -31,7 +31,7 @@ fn write(root: &Path, rel: &str, text: &str) -> PathBuf {
 
 fn project(tsconfig: &str, cache: bool) -> (tempfile::TempDir, PathBuf, TypeScriptTransform) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     write(&root, "tsconfig.json", tsconfig);
     let permissions: Arc<CapabilitySet> = CapabilitySet::builder()
         .allow(Capability::ImportLocal(PathPattern::new(

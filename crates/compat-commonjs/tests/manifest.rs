@@ -45,7 +45,7 @@ fn grant(root: &Path) -> std::sync::Arc<CapabilitySet> {
 #[test]
 fn manifest_projection_keeps_only_runtime_fields() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::write(
         root.join("package.json"),
         r##"{"name":"leaky-name","version":"1.2.3","type":"commonjs","main":"lib.js",
@@ -67,7 +67,7 @@ fn manifest_projection_keeps_only_runtime_fields() {
 #[test]
 fn large_scripts_field_is_not_retained() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let blob = "x".repeat(1 << 20);
     fs::write(
         root.join("package.json"),
@@ -82,7 +82,7 @@ fn large_scripts_field_is_not_retained() {
 #[test]
 fn manifest_read_without_grant_is_denied() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let pkg = root.join("vendor").join("pkg");
     fs::create_dir_all(&pkg).unwrap();
     fs::write(pkg.join("package.json"), r#"{"main":"lib.js"}"#).unwrap();

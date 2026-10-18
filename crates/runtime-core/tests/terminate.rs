@@ -41,7 +41,7 @@ fn run_cancelled(
     collector: Option<fn() -> Vec<LeakEntry>>,
 ) -> Result<(), RunError> {
     let token = CancellationToken::new();
-    let dir = std::fs::canonicalize(path.parent().unwrap()).unwrap();
+    let dir = dunce::canonicalize(path.parent().unwrap()).unwrap();
     let capabilities = CapabilitySet::builder()
         .allow(Capability::ImportLocal(PathPattern::new(
             dir.to_str().unwrap(),

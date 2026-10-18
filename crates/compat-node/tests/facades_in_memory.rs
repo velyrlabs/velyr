@@ -1,5 +1,7 @@
 //! `node:x` facades are served from memory: nothing is written at start and the embedded path
 //! needs no `ImportLocal` grant, while real files still do.
+//! Windows serves facades from files instead (see `NodeBuiltinResolver::new`).
+#![cfg(not(windows))]
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -11,7 +13,7 @@ use velyr_runtime_modules::{FsResolver, ModuleId, ModuleResolver, ResolveContext
 use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 
 fn canonical(dir: &tempfile::TempDir) -> PathBuf {
-    std::fs::canonicalize(dir.path()).unwrap()
+    dunce::canonicalize(dir.path()).unwrap()
 }
 
 fn run(work: &Path, facades: &Path, grants: &[&Path]) -> Result<(), String> {

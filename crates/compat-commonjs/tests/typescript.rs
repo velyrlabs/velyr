@@ -16,7 +16,7 @@ const MAIN: &str = "const require = globalThis[Symbol.for('velyr.commonjs')].cre
 
 fn run(files: &[(&str, &str)]) -> Result<(), String> {
     let dir = tempfile::tempdir().unwrap();
-    let root = std::fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     for (name, text) in files {
         std::fs::write(root.join(name), text).unwrap();
     }

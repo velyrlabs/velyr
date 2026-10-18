@@ -261,11 +261,17 @@ fn remove_clears_package_json_lock_and_node_modules() {
 fn second_install_rewrites_nothing() {
     let p = Project::new(MANIFEST);
     p.velyr(&["add", "left-pad"]).success();
+    // Bins are symlinks on Unix and `.cmd` shims on Windows.
+    let bin = if cfg!(windows) {
+        "node_modules/.bin/tiny.cmd"
+    } else {
+        "node_modules/.bin/tiny"
+    };
     let watched = [
         "velyr.lock",
         "package.json",
         "node_modules/left-pad/index.js",
-        "node_modules/.bin/tiny",
+        bin,
         "node_modules/.velyr-state.json",
     ];
     let before: Vec<_> = watched.iter().map(|w| mtime(&p.root.join(w))).collect();

@@ -45,6 +45,8 @@ fn system_gzip(args: &[&str], input: &[u8]) -> Vec<u8> {
     output.stdout
 }
 
+// The expected EOL, devNull and os.type() values are the unix ones.
+#[cfg(unix)]
 #[test]
 fn os_answers_from_the_host_without_env_permission() {
     assert_ok(run(r#"const os = req('os'), proc = req('process');
@@ -267,7 +269,7 @@ fn zlib_interoperates_with_the_system_gzip() {
     let from_system = system_gzip(&["-c", "-6"], &plain);
     let multi = [system_gzip(&["-c"], b"one "), system_gzip(&["-c"], b"two")].concat();
     let dir = tempfile::tempdir().unwrap();
-    let canonical = dir.path().canonicalize().unwrap();
+    let canonical = dunce::canonicalize(dir.path()).unwrap();
     let dir_text = canonical.to_str().unwrap();
     std::fs::write(canonical.join("system.gz"), &from_system).unwrap();
     std::fs::write(canonical.join("multi.gz"), &multi).unwrap();
@@ -379,8 +381,8 @@ fn create_require_works_from_esm() {
     let work = tempfile::tempdir().unwrap();
     let facades = tempfile::tempdir().unwrap();
     let (work, facades) = (
-        std::fs::canonicalize(work.path()).unwrap(),
-        std::fs::canonicalize(facades.path()).unwrap(),
+        dunce::canonicalize(work.path()).unwrap(),
+        dunce::canonicalize(facades.path()).unwrap(),
     );
     std::fs::write(
         work.join("dep.cjs"),
@@ -397,7 +399,7 @@ const require = createRequire(import.meta.url);
 if (require('node:path').join('a', 'b') !== 'a/b') throw new Error('builtin through require');
 if (require('./dep.cjs').answer !== 42) throw new Error('relative cjs through require');
 if (createRequire(new URL('./dep.cjs', import.meta.url))('./dep.cjs').answer !== 42) throw new Error('URL form');
-if (require('os').EOL !== '\n' || !isBuiltin('node:os') || !builtinModules.includes('zlib')) throw new Error('lists');
+if (require('os').EOL !== (require('os').platform() === 'win32' ? '\r\n' : '\n') || !isBuiltin('node:os') || !builtinModules.includes('zlib')) throw new Error('lists');
 if (mod.createRequire !== createRequire) throw new Error('default export');
 if (gunzipSync(gzipSync('esm')).toString() !== 'esm' || parse('a=1').a !== '1') throw new Error('facades');
 "#,

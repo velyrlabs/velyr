@@ -31,7 +31,7 @@ fn create_facade_dir() -> io::Result<PathBuf> {
         // Fails when the directory belongs to someone else, which is the right outcome.
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
     }
-    dir.canonicalize()
+    dunce::canonicalize(&dir)
 }
 
 /// Wraps `inner` so `import 'node:x'` / `import 'x'` reach the builtins. The facades are served

@@ -17,7 +17,7 @@ fn require_host(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, Host
 
 #[test]
 fn require_esm_shares_the_instance_with_import() {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-require-esm-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
