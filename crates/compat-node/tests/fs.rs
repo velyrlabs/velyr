@@ -17,7 +17,8 @@ const path = node.require('path');
 const cb = (fn, ...args) => new Promise((resolve) => fn(...args, (error, value, extra) => resolve({ error, value, extra })));
 const fails = (fn, code, label) => { try { fn(); } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not throw ' + code + ' ' + (label || '')); };
 const rejects = async (promise, code, label) => { try { await promise; } catch (e) { eq(e.code, code, label || 'code'); return e; } throw new Error('did not reject ' + code + ' ' + (label || '')); };
-const j = (name) => path.join(DIR, name);
+// The runtime's default `path` is posix, while fs reports native paths, as Node's win32 `path` does.
+const j = (name) => (process.platform === 'win32' ? path.win32 : path).join(DIR, name);
 "#;
 
 fn grants(dir: &str, read: bool, write: bool) -> Arc<CapabilitySet> {

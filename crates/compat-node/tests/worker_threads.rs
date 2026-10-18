@@ -43,13 +43,13 @@ fn raw_web_worker_round_trips_in_the_harness() {
         "main.mjs",
         &format!(
             "for (const file of ['echo.mjs', 'echo.cjs']) {{
-               const w = new Worker('file://{}/' + file, {{ type: 'module' }});
+               const w = new Worker('{}' + file, {{ type: 'module' }});
                const reply = new Promise((resolve) => {{ w.onmessage = (e) => resolve(e.data); }});
                w.postMessage('hi');
                record(await reply);
                w.terminate();
              }}",
-            fx.dir.display()
+            fx.url("")
         ),
     );
     assert_eq!(fx.run().unwrap(), ["esm hi", "cjs hi"]);
@@ -87,7 +87,7 @@ fn exchange(file: &str, source: &str) {
              log({{ parentList: data.list }});
              const [code] = await Promise.all([once(w, 'exit'), w.terminate()]);
              log('exit ' + typeof code[0]);",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(
@@ -140,7 +140,7 @@ fn terminate_stops_a_busy_worker_and_resolves() {
              const code = await w.terminate();
              log('terminate ' + typeof code);
              log('exit ' + typeof (await exit)[0]);",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["terminate number", "exit number"]);
@@ -155,7 +155,7 @@ fn a_worker_that_finishes_emits_exit_zero() {
         &format!(
             "const w = new Worker('{}/quick.mjs');
              log('exit ' + (await once(w, 'exit'))[0]);",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["ran", "exit 0"]);
@@ -175,7 +175,7 @@ fn an_uncaught_worker_error_reaches_the_parent_then_exit_one() {
              const [error] = await once(w, 'error');
              log('error ' + error.message);
              log('exit ' + (await once(w, 'exit'))[0]);",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["error boom", "exit 1"]);
@@ -190,7 +190,7 @@ fn process_exit_code_reaches_the_parent() {
         &format!(
             "const w = new Worker('{}/exit7.mjs');
              log('exit ' + (await once(w, 'exit'))[0]);",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["exit 7"]);
@@ -213,7 +213,7 @@ fn a_heap_limit_ends_the_worker_with_out_of_memory_and_the_parent_goes_on() {
              log('error ' + error.code);
              log('exit ' + (await once(w, 'exit'))[0]);
              log('alive');",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(
@@ -242,7 +242,7 @@ fn unsupported_options_fail_loudly_and_eval_is_off() {
              log(codeOf(() => new Worker('http://example.com/x.mjs')));
              try {{ new Worker(file, {{ workerData: () => 1 }}); log('no error'); }} catch (e) {{ log(e.name); }}
              log(codeOf(() => wt.receiveMessageOnPort(new MessageChannel().port1)));",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(
@@ -284,7 +284,7 @@ fn message_ports_speak_node_events_and_cross_into_a_worker() {
              log('worker ' + answer);
              await once(port1, 'close');
              await w.terminate();",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["local 1", "worker 42"]);
@@ -320,7 +320,7 @@ fn name_and_environment_data_reach_the_worker() {
              const w = new Worker('{}/env.mjs', {{ name: 'mine' }});
              log((await once(w, 'message'))[0]);
              await w.terminate();",
-            fx.dir.display()
+            fx.slash_dir()
         ),
     );
     assert_eq!(log, ["{\"name\":\"mine\",\"shared\":{\"deep\":[1]}}"]);

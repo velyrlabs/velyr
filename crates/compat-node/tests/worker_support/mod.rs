@@ -165,8 +165,16 @@ impl Fixture {
         self
     }
 
+    /// The scratch directory with forward slashes, safe to embed in JS string literals on Windows.
+    pub fn slash_dir(&self) -> String {
+        self.dir.display().to_string().replace('\\', "/")
+    }
+
     pub fn url(&self, name: &str) -> String {
-        format!("file://{}", self.dir.join(name).display())
+        let dir = self.slash_dir();
+        // A Windows drive path (`C:/...`) needs a leading slash to form `file:///C:/...`.
+        let lead = if dir.starts_with('/') { "" } else { "/" };
+        format!("file://{lead}{}/{name}", dir.trim_end_matches('/'))
     }
 
     fn permissions(&self) -> Arc<CapabilitySet> {

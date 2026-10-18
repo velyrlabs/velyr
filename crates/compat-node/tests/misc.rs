@@ -399,7 +399,7 @@ const require = createRequire(import.meta.url);
 if (require('node:path').join('a', 'b') !== 'a/b') throw new Error('builtin through require');
 if (require('./dep.cjs').answer !== 42) throw new Error('relative cjs through require');
 if (createRequire(new URL('./dep.cjs', import.meta.url))('./dep.cjs').answer !== 42) throw new Error('URL form');
-if (require('os').EOL !== '\n' || !isBuiltin('node:os') || !builtinModules.includes('zlib')) throw new Error('lists');
+if (require('os').EOL !== (require('os').platform() === 'win32' ? '\r\n' : '\n') || !isBuiltin('node:os') || !builtinModules.includes('zlib')) throw new Error('lists');
 if (mod.createRequire !== createRequire) throw new Error('default export');
 if (gunzipSync(gzipSync('esm')).toString() !== 'esm' || parse('a=1').a !== '1') throw new Error('facades');
 "#,
