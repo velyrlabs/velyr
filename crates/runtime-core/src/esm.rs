@@ -398,7 +398,6 @@ pub(crate) async fn run<I: Isolate>(
         entry,
     };
     let to_original = modules.host.source_maps().mapper();
-    isolate.set_entry_module(modules.entry.as_str());
     isolate.set_prepare_stack_trace(Arc::new(move |file, line, column| {
         to_original(file, line, column).map(|(file, line, column)| MappedPosition {
             file,
@@ -451,6 +450,8 @@ async fn start(
     let root = modules
         .resolve(&specifier, &modules.entry)
         .map_err(RunError::Load)?;
+    // The resolved id, not the raw path: they differ by symlinks and Windows 8.3 short names.
+    isolate.set_entry_module(root.id.as_str());
     let handle = modules
         .load_graph(isolate, &root)
         .await

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures_util::{SinkExt, StreamExt};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Error as WsError;
@@ -156,6 +157,7 @@ pub(crate) async fn drive(mut ws: WebSocketStream<Box<dyn Duplex>>, mut link: Li
             },
         }
     };
+    let too_big = matches!(end, End::TooBig);
     let (code, reason, clean) = match end {
         End::Dropped => return,
         End::Clean => match peer_close.flatten() {
@@ -183,4 +185,19 @@ pub(crate) async fn drive(mut ws: WebSocketStream<Box<dyn Duplex>>, mut link: Li
             clean,
         })
         .await;
+    if too_big {
+        drain(&mut ws).await;
+    }
+}
+
+/// Reads what the peer still sends until it hangs up. Closing with unread bytes resets the
+/// connection, and on Windows a reset can discard the close frame the peer has not read yet.
+async fn drain(ws: &mut WebSocketStream<Box<dyn Duplex>>) {
+    let stream = ws.get_mut();
+    let _ = stream.shutdown().await;
+    let _ = tokio::time::timeout(
+        CLOSE_TIMEOUT,
+        tokio::io::copy(stream, &mut tokio::io::sink()),
+    )
+    .await;
 }

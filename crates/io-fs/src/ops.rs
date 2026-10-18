@@ -152,10 +152,21 @@ fn op_fs_read(ctx: &mut dyn CallContext, args: &[Value]) -> Result<Value, HostEr
     }
     let path = authorized_path(ctx, "op_fs_read", args, false)?;
     op_async(ctx, |_token| async move {
-        let bytes = blocking(move || std::fs::read(path))
+        let bytes = blocking(move || read_file(&path))
             .await?
             .map_err(io_error)?;
         Ok(read_value(bytes, text))
+    })
+}
+
+/// Windows refuses to open a directory with `PermissionDenied`; unix reports `IsADirectory`.
+fn read_file(path: &Path) -> io::Result<Vec<u8>> {
+    std::fs::read(path).map_err(|err| {
+        if err.kind() == io::ErrorKind::PermissionDenied && path.is_dir() {
+            io::ErrorKind::IsADirectory.into()
+        } else {
+            err
+        }
     })
 }
 
