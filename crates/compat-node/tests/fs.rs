@@ -99,7 +99,8 @@ fn sync_api_covers_files_directories_and_links() {
         fs.accessSync(j('copy.txt'), fs.constants.R_OK | fs.constants.W_OK);
         fails(() => fs.accessSync(j('nope')), 'ENOENT');
         fs.chmodSync(j('copy.txt'), 0o600);
-        eq(fs.statSync(j('copy.txt')).mode & 0o777, 0o600);
+        // Windows keeps only the owner write bit (read-only flag), so Node reports 0o666 there.
+        eq(fs.statSync(j('copy.txt')).mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
         fs.utimesSync(j('copy.txt'), 1000, 2000);
         eq(fs.statSync(j('copy.txt')).mtimeMs, 2000000);
         eq(fs.statSync(j('copy.txt')).atimeMs, 1000000);
