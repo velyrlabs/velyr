@@ -62,6 +62,11 @@ struct Classifier {
 
 impl Classifier {
     fn classify(&mut self, kind: &'static str, path: Option<&Path>) -> &'static str {
+        // inotify and ReadDirectoryChangesW report precise kinds, and ext4 stamps birth times with
+        // a coarse clock that can read earlier than `started`, so only FSEvents is reclassified.
+        if !cfg!(target_os = "macos") {
+            return kind;
+        }
         let Some(path) = path.filter(|_| matches!(kind, "create" | "modify" | "remove")) else {
             return kind;
         };
