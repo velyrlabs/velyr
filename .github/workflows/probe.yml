@@ -1,0 +1,11 @@
+name: probe
+on:
+  push:
+    branches: ['probe/**']
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo run -q
