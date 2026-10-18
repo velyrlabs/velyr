@@ -174,7 +174,7 @@ fn a_name_with_a_slash_needs_the_path_to_be_granted() {
     );
     // Grants match the resolved path literally, so grant the canonical one: on merged-/usr hosts
     // (Linux CI) `/bin/echo` is a symlink and `echo` resolves to `/usr/bin/echo`.
-    let echo = std::fs::canonicalize("/bin/echo").unwrap();
+    let echo = dunce::canonicalize("/bin/echo").unwrap();
     check(
         &[echo.to_str().unwrap()],
         r#"
@@ -324,7 +324,7 @@ fn max_buffer_has_a_64_mib_ceiling() {
 #[test]
 fn cwd_needs_fs_read() {
     let dir = tempfile::tempdir().unwrap();
-    let dir = std::fs::canonicalize(dir.path()).unwrap();
+    let dir = dunce::canonicalize(dir.path()).unwrap();
     let dir = dir.to_str().unwrap().to_owned();
     let body = format!(
         r#"

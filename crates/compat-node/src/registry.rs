@@ -115,7 +115,7 @@ impl NodeBuiltinResolver {
                 move |err: io::Error| io::Error::new(err.kind(), format!("{what} {path}: {err}"))
             };
             std::fs::create_dir_all(dir).map_err(context("create", dir))?;
-            let dir = std::fs::canonicalize(dir).map_err(context("canonicalize", dir))?;
+            let dir = dunce::canonicalize(dir).map_err(context("canonicalize", dir))?;
             for builtin in BUILTINS {
                 let file = facade_file(builtin.name);
                 write_if_changed(&dir, &file, &facade_source(builtin))

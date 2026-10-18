@@ -161,8 +161,8 @@ fn op_context<'a>(
 fn resolve(raw: &str, mode: PathMode) -> io::Result<PathBuf> {
     let path = Path::new(raw);
     match mode {
-        PathMode::Follow => path.canonicalize(),
-        PathMode::Create => match path.canonicalize() {
+        PathMode::Follow => dunce::canonicalize(path),
+        PathMode::Create => match dunce::canonicalize(path) {
             Ok(canonical) => Ok(canonical),
             Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 if path.symlink_metadata().is_ok() {
@@ -182,7 +182,7 @@ fn deep_path(path: &Path) -> io::Result<PathBuf> {
     let mut missing = Vec::new();
     let mut cursor = path;
     loop {
-        match cursor.canonicalize() {
+        match dunce::canonicalize(cursor) {
             Ok(mut base) => {
                 base.extend(missing.iter().rev());
                 return Ok(base);
@@ -206,13 +206,13 @@ fn deep_path(path: &Path) -> io::Result<PathBuf> {
 /// The canonical parent plus the final component, which is not followed.
 fn entry_path(path: &Path) -> io::Result<PathBuf> {
     let Some(name) = path.file_name() else {
-        return path.canonicalize();
+        return dunce::canonicalize(path);
     };
     let parent = match path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
     };
-    Ok(parent.canonicalize()?.join(name))
+    Ok(dunce::canonicalize(parent)?.join(name))
 }
 
 /// Resolves `raw`, authorizes the canonical path for `access` and returns it. The caller must
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     fn deep_resolution_keeps_missing_names_and_refuses_parent_components() {
         let dir = tempfile::tempdir().unwrap();
-        let base = dir.path().canonicalize().unwrap();
+        let base = dunce::canonicalize(dir.path()).unwrap();
         let deep = resolve(base.join("a/b/c").to_str().unwrap(), PathMode::Deep).unwrap();
         assert_eq!(deep, base.join("a/b/c"));
         let escape = base.join("a/../../x");
@@ -407,7 +407,7 @@ mod tests {
     #[test]
     fn create_refuses_a_dangling_link_but_entry_names_the_link_itself() {
         let dir = tempfile::tempdir().unwrap();
-        let base = dir.path().canonicalize().unwrap();
+        let base = dunce::canonicalize(dir.path()).unwrap();
         let link = base.join("dangling");
         std::os::unix::fs::symlink(base.join("missing"), &link).unwrap();
         let text = link.to_str().unwrap();

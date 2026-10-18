@@ -6,7 +6,7 @@ use velyr_runtime_modules::{FsResolver, ModuleId, ModuleResolver, ResolveContext
 
 fn project() -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::create_dir_all(root.join("lib")).unwrap();
     fs::create_dir_all(root.join("lib2")).unwrap();
     for f in [

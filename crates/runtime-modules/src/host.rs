@@ -248,7 +248,7 @@ mod tests {
     /// Two sibling dirs: `root/app/main.js` and `root/outside/secret.js`.
     fn tree() -> (tempfile::TempDir, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         for (d, f) in [("app", "main.js"), ("outside", "secret.js")] {
             fs::create_dir_all(root.join(d)).unwrap();
             fs::write(root.join(d).join(f), format!("// {f}")).unwrap();

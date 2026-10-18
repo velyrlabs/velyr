@@ -54,7 +54,7 @@ fn config(permissions: &Arc<CapabilitySet>) -> RuntimeConfig {
 fn temp_dir() -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("velyr-web-api-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::canonicalize(dir).unwrap()
+    dunce::canonicalize(dir).unwrap()
 }
 
 fn host(permissions: &Arc<CapabilitySet>) -> WorkerHost {

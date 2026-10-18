@@ -13,7 +13,7 @@ fn write(dir: &Path, name: &str, text: &str) -> String {
 }
 
 fn allow_dir(dir: &Path) -> Permissions {
-    let pattern = PathPattern::new(dir.canonicalize().unwrap().to_str().unwrap());
+    let pattern = PathPattern::new(dunce::canonicalize(dir).unwrap().to_str().unwrap());
     Permissions::new().allow(Capability::ImportLocal(pattern))
 }
 

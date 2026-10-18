@@ -36,7 +36,7 @@ fn allow_env_grants_only_the_named_variable() {
 #[test]
 fn entry_reached_through_a_symlink_can_import_siblings() {
     let dir = tempfile::tempdir().unwrap();
-    let base = dir.path().canonicalize().unwrap();
+    let base = dunce::canonicalize(dir.path()).unwrap();
     let real = base.join("real");
     std::fs::create_dir(&real).unwrap();
     std::fs::write(real.join("lib.js"), "export const v = 'lib-ok';").unwrap();

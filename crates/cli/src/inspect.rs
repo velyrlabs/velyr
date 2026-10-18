@@ -146,7 +146,7 @@ mod enabled {
     }
 
     fn target(file: &Path) -> Target {
-        let path = std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+        let path = dunce::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
         Target {
             title: file.display().to_string(),
             url: format!("file://{}", path.display()),

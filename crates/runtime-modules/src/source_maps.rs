@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn file_map_is_read_only_when_the_path_is_authorized() {
         let dir = tempfile::tempdir().unwrap();
-        let root = std::fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         std::fs::write(root.join("bundle.js.map"), MAP).unwrap();
         let module = module(&root);
         let code = "x;\n//# sourceMappingURL=bundle.js.map";

@@ -6,10 +6,10 @@ use std::path::{Path, PathBuf};
 use assert_cmd::Command;
 
 fn project() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/typescript-project")
-        .canonicalize()
-        .unwrap()
+    dunce::canonicalize(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/typescript-project"),
+    )
+    .unwrap()
 }
 
 fn run(entry: &str, engine: Option<&str>) -> (String, String, bool) {

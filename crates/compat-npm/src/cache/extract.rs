@@ -55,7 +55,7 @@ pub(super) fn verify_and_extract(
         .map_err(|e| io_error("cannot read tarball", e))?;
     fs::create_dir(dest).map_err(|e| io_error("cannot create package directory", e))?;
     let root =
-        fs::canonicalize(dest).map_err(|e| io_error("cannot resolve package directory", e))?;
+        dunce::canonicalize(dest).map_err(|e| io_error("cannot resolve package directory", e))?;
     let mut extractor = Extractor {
         root,
         limits,
@@ -115,7 +115,8 @@ impl Extractor {
     fn real_dir(&self, rel_dir: &Path) -> Result<PathBuf, VelyrError> {
         let dir = self.root.join(rel_dir);
         fs::create_dir_all(&dir).map_err(|e| io_error("cannot create directory", e))?;
-        let real = fs::canonicalize(&dir).map_err(|e| io_error("cannot resolve directory", e))?;
+        let real =
+            dunce::canonicalize(&dir).map_err(|e| io_error("cannot resolve directory", e))?;
         if !real.starts_with(&self.root) {
             return Err(unsafe_entry("entry escapes the package directory"));
         }
@@ -184,7 +185,7 @@ impl Extractor {
             .ok_or_else(|| unsafe_entry("hardlink without target"))?;
         let target_rel =
             strip_root(&target)?.ok_or_else(|| unsafe_entry("hardlink target is not a file"))?;
-        let source = fs::canonicalize(self.root.join(target_rel))
+        let source = dunce::canonicalize(self.root.join(target_rel))
             .map_err(|_| unsafe_entry("hardlink target was not extracted"))?;
         let is_file = fs::metadata(&source).is_ok_and(|m| m.is_file());
         if !source.starts_with(&self.root) || !is_file {

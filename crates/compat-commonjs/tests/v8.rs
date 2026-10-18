@@ -76,7 +76,7 @@ impl Harness {
     /// `files` are written under a fresh root; `allowed` is the grant (the root when `None`).
     fn new(files: &[(&str, &str)], allowed: Option<&str>) -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         for (name, text) in files {
             let path = root.join(name);
             fs::create_dir_all(path.parent().unwrap()).unwrap();

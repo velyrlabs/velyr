@@ -46,7 +46,7 @@ assert.throws(() => assert.strictEqual(1, 2), { code: 'ERR_ASSERTION' });
 "#;
 
 fn canonical(dir: &tempfile::TempDir) -> std::path::PathBuf {
-    std::fs::canonicalize(dir.path()).unwrap()
+    dunce::canonicalize(dir.path()).unwrap()
 }
 
 #[test]

@@ -101,7 +101,7 @@ pub fn authorize_spawn(
     let text = candidate.as_deref().and_then(Path::to_str);
     let canonical = candidate
         .as_ref()
-        .and_then(|path| std::fs::canonicalize(path).ok());
+        .and_then(|path| dunce::canonicalize(path).ok());
     let canonical_text = canonical.as_deref().and_then(Path::to_str);
     let identities: Vec<&str> = text.into_iter().chain(canonical_text).collect();
     if !permissions.check_spawn(program, &identities).is_allow() {
@@ -127,7 +127,7 @@ pub fn authorize_spawn(
 fn is_runtime_executable(path: &Path) -> bool {
     let Some(own) = std::env::current_exe()
         .ok()
-        .and_then(|exe| std::fs::canonicalize(exe).ok())
+        .and_then(|exe| dunce::canonicalize(exe).ok())
     else {
         return false;
     };

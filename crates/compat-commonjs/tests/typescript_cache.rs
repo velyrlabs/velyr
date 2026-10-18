@@ -38,7 +38,7 @@ fn run(dir: &Path) {
 
 #[test]
 fn cts_code_cache_key_is_the_stripped_text() {
-    let dir = std::fs::canonicalize(std::env::temp_dir())
+    let dir = dunce::canonicalize(std::env::temp_dir())
         .unwrap()
         .join(format!("velyr-cts-cache-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

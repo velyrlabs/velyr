@@ -269,7 +269,7 @@ fn zlib_interoperates_with_the_system_gzip() {
     let from_system = system_gzip(&["-c", "-6"], &plain);
     let multi = [system_gzip(&["-c"], b"one "), system_gzip(&["-c"], b"two")].concat();
     let dir = tempfile::tempdir().unwrap();
-    let canonical = dir.path().canonicalize().unwrap();
+    let canonical = dunce::canonicalize(dir.path()).unwrap();
     let dir_text = canonical.to_str().unwrap();
     std::fs::write(canonical.join("system.gz"), &from_system).unwrap();
     std::fs::write(canonical.join("multi.gz"), &multi).unwrap();
@@ -381,8 +381,8 @@ fn create_require_works_from_esm() {
     let work = tempfile::tempdir().unwrap();
     let facades = tempfile::tempdir().unwrap();
     let (work, facades) = (
-        std::fs::canonicalize(work.path()).unwrap(),
-        std::fs::canonicalize(facades.path()).unwrap(),
+        dunce::canonicalize(work.path()).unwrap(),
+        dunce::canonicalize(facades.path()).unwrap(),
     );
     std::fs::write(
         work.join("dep.cjs"),

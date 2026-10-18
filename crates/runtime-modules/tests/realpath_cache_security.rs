@@ -20,7 +20,7 @@ use velyr_runtime_permissions::{Capability, CapabilitySet, PathPattern};
 /// `root/app` is granted; `root/secret` is not.
 fn tree() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     for d in ["app/sub", "app/real", "secret/deep"] {
         fs::create_dir_all(root.join(d)).unwrap();
     }
@@ -169,7 +169,7 @@ fn dot_dot_after_a_symlink_follows_the_target_and_is_denied() {
     let p = root.join("app/jump/../s.js");
     assert_eq!(
         cache.canonicalize(&p).unwrap(),
-        fs::canonicalize(&p).unwrap()
+        dunce::canonicalize(&p).unwrap()
     );
     for _ in 0..2 {
         assert_eq!(
@@ -214,7 +214,7 @@ fn leaf_case_matches_fs_canonicalize() {
     let cache = RealpathCache::default();
     assert_eq!(
         cache.canonicalize(&p).unwrap(),
-        fs::canonicalize(&p).unwrap()
+        dunce::canonicalize(&p).unwrap()
     );
 }
 
@@ -231,7 +231,7 @@ fn trailing_slash_on_a_symlinked_dir_matches_fs_canonicalize() {
         let p = PathBuf::from(format!("{}/{raw}", root.display()));
         assert_eq!(
             cache.canonicalize(&p).unwrap(),
-            fs::canonicalize(&p).unwrap(),
+            dunce::canonicalize(&p).unwrap(),
             "{raw}"
         );
     }

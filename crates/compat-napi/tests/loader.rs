@@ -27,7 +27,7 @@ fn fresh_copy(name: &str) -> PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(format!("{name}-{}.node", std::process::id()));
     std::fs::copy(support::addon(), &path).unwrap();
-    std::fs::canonicalize(path).unwrap()
+    dunce::canonicalize(path).unwrap()
 }
 
 fn load_error(path: &Path, permissions: &CapabilitySet) -> velyr_runtime_errors::VelyrError {
@@ -68,7 +68,7 @@ fn a_file_that_is_not_a_library_fails_cleanly() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("garbage.node");
     std::fs::write(&path, b"not a shared library").unwrap();
-    let path = std::fs::canonicalize(path).unwrap();
+    let path = dunce::canonicalize(path).unwrap();
     let err = load_error(&path, &support::allow_native(&path));
     assert_eq!(err.code(), ErrorCode::InvalidData);
 }

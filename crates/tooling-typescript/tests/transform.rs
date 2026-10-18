@@ -120,7 +120,7 @@ fn syntax_error_reports_file_line_and_column() {
 
 fn project(files: &[(&str, &str)]) -> (tempfile::TempDir, PathBuf, LoadContext) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     for (name, text) in files {
         fs::write(root.join(name), text).unwrap();
     }

@@ -62,7 +62,7 @@ fn uncaught_module_error_exits_1_after_earlier_output() {
 #[test]
 fn classic_globals_are_not_shared_with_module_scope() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::write(
         root.join("main.mjs"),
         "var x = 1; console.log(typeof globalThis.x, this);",
@@ -76,7 +76,7 @@ fn classic_globals_are_not_shared_with_module_scope() {
 #[test]
 fn import_outside_project_root_needs_allow_read() {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     fs::create_dir_all(root.join("app")).unwrap();
     fs::create_dir_all(root.join("shared")).unwrap();
     fs::write(root.join("shared/x.js"), "export const x = 7;").unwrap();

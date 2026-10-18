@@ -40,7 +40,7 @@ fn fixtures() -> &'static Path {
             &addon_dir.join("include"),
             &dir.join("probe.node"),
         );
-        std::fs::canonicalize(dir).unwrap()
+        dunce::canonicalize(dir).unwrap()
     })
 }
 

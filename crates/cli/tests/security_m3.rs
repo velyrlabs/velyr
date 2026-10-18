@@ -9,11 +9,12 @@ const DENIED: &str = "VELYR_PERMISSION_DENIED";
 const SECRET_VALUE: &str = "s3cr3t-value-7f3a9c1e";
 
 fn fixtures(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/m3-security")
-        .join(name)
-        .canonicalize()
-        .unwrap()
+    dunce::canonicalize(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/m3-security")
+            .join(name),
+    )
+    .unwrap()
 }
 
 fn velyr(cwd: &Path, args: &[&str]) -> Command {
@@ -104,7 +105,7 @@ fn absence_probe_discriminates_between_present_and_absent_apis() {
     let results = probe(&fixtures("default-deny"), &["main.js"]);
     assert_eq!(results["typeof Velyr.spawn"], "undefined");
     let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
+    let cwd = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(cwd.join("main.js"), "console.log(typeof Velyr.readFile);").unwrap();
     let output = velyr(&cwd, &["main.js"]).output().unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout), "function\n");
@@ -138,7 +139,7 @@ fn deny_read_wins_over_allow_read() {
 #[test]
 fn symlink_inside_root_pointing_outside_is_denied() {
     let dir = tempfile::tempdir().unwrap();
-    let base = dir.path().canonicalize().unwrap();
+    let base = dunce::canonicalize(dir.path()).unwrap();
     let (root, outside) = (base.join("root"), base.join("outside"));
     std::fs::create_dir_all(&root).unwrap();
     std::fs::create_dir_all(&outside).unwrap();
@@ -173,7 +174,7 @@ console.log(JSON.stringify([await attempt("link.txt"), await attempt("link-dir/s
 #[test]
 fn denial_events_and_messages_do_not_leak_env_values() {
     let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
+    let cwd = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(
         cwd.join("main.js"),
         r#"for (const call of [() => Velyr.env.get("VELYR_M3_SECRET"), () => Velyr.env.toObject()]) {
@@ -206,7 +207,7 @@ fn denial_events_and_messages_do_not_leak_env_values() {
 #[test]
 fn env_value_is_visible_to_script_when_granted() {
     let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
+    let cwd = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(
         cwd.join("main.js"),
         r#"console.log(Velyr.env.get("VELYR_M3_SECRET"));"#,
@@ -222,7 +223,7 @@ fn env_value_is_visible_to_script_when_granted() {
 #[test]
 fn leak_check_reports_no_open_resources_after_run() {
     let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
+    let cwd = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(
         cwd.join("main.js"),
         r#"await Velyr.writeTextFile("a.txt", "x");

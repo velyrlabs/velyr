@@ -72,7 +72,7 @@ fn compile(name: &str, defines: &[&str]) -> PathBuf {
         status.success(),
         "compiling the test addon failed: {status}"
     );
-    std::fs::canonicalize(out).expect("canonical addon path")
+    dunce::canonicalize(out).expect("canonical addon path")
 }
 
 /// The addon keeps global C state (counters, a weak ref), so tests in one binary run one at a time.

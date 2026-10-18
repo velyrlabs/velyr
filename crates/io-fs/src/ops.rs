@@ -58,7 +58,7 @@ fn canonicalize(raw: &str, for_write: bool) -> Result<PathBuf, VelyrError> {
         return Err(VelyrError::invalid_data("invalid path"));
     }
     let path = Path::new(raw);
-    match path.canonicalize() {
+    match dunce::canonicalize(path) {
         Ok(canonical) => Ok(canonical),
         Err(err) if for_write && err.kind() == io::ErrorKind::NotFound => {
             if path.symlink_metadata().is_ok() {
@@ -74,7 +74,7 @@ fn canonicalize(raw: &str, for_write: bool) -> Result<PathBuf, VelyrError> {
                 Some(parent) if !parent.as_os_str().is_empty() => parent,
                 _ => Path::new("."),
             };
-            Ok(parent.canonicalize().map_err(io_error)?.join(name))
+            Ok(dunce::canonicalize(parent).map_err(io_error)?.join(name))
         }
         Err(err) => Err(io_error(err)),
     }

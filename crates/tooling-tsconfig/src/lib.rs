@@ -148,7 +148,7 @@ impl TsconfigLoader {
         roots
             .iter()
             .flat_map(|root| extends_candidates(root))
-            .filter_map(|c| fs::canonicalize(c).ok())
+            .filter_map(|c| dunce::canonicalize(c).ok())
             .find(|c| authorize_path(c, &self.permissions).is_ok() && c.is_file())
             .ok_or_else(|| extends_error(from, &format!("cannot resolve extends `{spec}`")))
     }

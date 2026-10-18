@@ -206,7 +206,7 @@ mod tests {
     #[tokio::test]
     async fn file_edited_between_workers_is_seen_by_the_second() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().canonicalize().unwrap().join("main.js");
+        let path = dunce::canonicalize(dir.path()).unwrap().join("main.js");
         std::fs::write(&path, "export const a = 1;").unwrap();
         let module = ResolvedModule {
             id: ModuleId::from_path(&path).unwrap(),
@@ -222,7 +222,7 @@ mod tests {
     }
 
     fn ctx_for(dir: &std::path::Path) -> LoadContext {
-        let dir = dir.canonicalize().unwrap();
+        let dir = dunce::canonicalize(dir).unwrap();
         LoadContext {
             permissions: CapabilitySet::builder()
                 .allow(Capability::ImportLocal(PathPattern::new(

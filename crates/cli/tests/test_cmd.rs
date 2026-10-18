@@ -323,7 +323,7 @@ fn watch_reruns_the_tests_when_a_test_file_is_edited() {
     let one = "import { it } from 'velyr:test';\nit('first', () => {});\n";
     let two = "import { it } from 'velyr:test';\nit('first', () => {});\nit('second', () => {});\n";
     let dir = project(&[("w.test.mjs", one)]);
-    let root = dir.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let watcher = Watcher::start(&root);
     watcher.wait_for("1 passed, 0 failed");
     std::thread::sleep(Duration::from_millis(600));

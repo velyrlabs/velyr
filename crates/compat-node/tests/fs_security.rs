@@ -46,11 +46,11 @@ impl Sandbox {
     }
 
     fn dir_path(&self) -> PathBuf {
-        self.dir.path().canonicalize().unwrap()
+        dunce::canonicalize(self.dir.path()).unwrap()
     }
 
     fn out_path(&self) -> PathBuf {
-        self.out.path().canonicalize().unwrap()
+        dunce::canonicalize(self.out.path()).unwrap()
     }
 
     /// Runs `body` with read and write on `DIR`, minus `denied` (paths relative to `DIR`).

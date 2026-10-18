@@ -37,7 +37,7 @@ impl SourceTransform for Shout {
 
 fn setup(files: &[(&str, &str)]) -> (tempfile::TempDir, std::path::PathBuf, LoadContext) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     for (name, text) in files {
         fs::write(root.join(name), text).unwrap();
     }

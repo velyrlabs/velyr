@@ -33,7 +33,7 @@ fn grants(dir: &str, read: bool, write: bool) -> Arc<CapabilitySet> {
 
 fn run_fs(body: &str, read: bool, write: bool) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let canonical = dir.path().canonicalize().unwrap();
+    let canonical = dunce::canonicalize(dir.path()).unwrap();
     let dir_text = canonical.to_str().unwrap();
     let script = format!("{CHECKS}const DIR = {dir_text:?};{PRELUDE}{body}");
     run_with(&script, grants(dir_text, read, write), "")
@@ -399,7 +399,9 @@ fn write_only_grant_cannot_read() {
 #[test]
 fn symlinks_cannot_escape_the_grant() {
     let outside = tempfile::tempdir().unwrap();
-    let secret = outside.path().canonicalize().unwrap().join("secret.txt");
+    let secret = dunce::canonicalize(outside.path())
+        .unwrap()
+        .join("secret.txt");
     std::fs::write(&secret, "secret").unwrap();
     let body = format!(
         "{DENIED_CALLS}const secret = {:?};{}",

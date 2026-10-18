@@ -140,7 +140,7 @@ pub fn build(
         None => entry_dir(cwd, entry),
     };
     // Compare the same form the module loader sees (symlinks resolved); keep the lexical path if it does not exist.
-    let root = root.canonicalize().unwrap_or(root);
+    let root = dunce::canonicalize(&root).unwrap_or(root);
 
     let mut builder =
         CapabilitySet::builder().allow(Capability::ImportLocal(path_pattern(cwd, &root)));

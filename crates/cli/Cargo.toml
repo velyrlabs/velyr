@@ -36,6 +36,7 @@ test-ops = ["velyr-runtime-ops/test-ops"]
 engine-native = ["dep:velyr-engine-native"]
 
 [dependencies]
+dunce.workspace = true
 velyr-engine-api = { path = "../engine-api" }
 velyr-engine-v8 = { path = "../engine-v8" }
 velyr-engine-native = { path = "../engine-native", optional = true }
@@ -111,6 +112,7 @@ velyr-web-websocket = { path = "../web-websocket", optional = true }
 velyr-web-streams = { path = "../web-streams" }
 
 [dev-dependencies]
+dunce.workspace = true
 assert_cmd = "2.2"
 tempfile = "3"
 rcgen = "=0.14.10"

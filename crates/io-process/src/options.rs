@@ -178,7 +178,7 @@ pub fn authorize(
         // A working directory is a read of that path: without this, `cwd` would tell a script
         // which directories exist outside its grants. Decided before anything looks at the program
         // or the directory's existence beyond canonicalizing it.
-        let target = std::fs::canonicalize(&cwd).unwrap_or_else(|_| normalize(&cwd));
+        let target = dunce::canonicalize(&cwd).unwrap_or_else(|_| normalize(&cwd));
         let text = target
             .to_str()
             .ok_or_else(|| VelyrError::permission_denied("fs-read", "<redacted>"))?;

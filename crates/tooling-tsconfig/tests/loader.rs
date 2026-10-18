@@ -29,7 +29,7 @@ fn allow(dir: &Path) -> Arc<CapabilitySet> {
 /// Fixture with a base config and an app config extending it, plus a loader allowed on the tree.
 fn project() -> (TempDir, PathBuf, TsconfigLoader) {
     let dir = tempfile::tempdir().unwrap();
-    let root = fs::canonicalize(dir.path()).unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     write(&root, "tsconfig.base.json", BASE);
     write(&root, "app/tsconfig.json", APP);
     let loader = TsconfigLoader::new(allow(&root));
@@ -183,7 +183,7 @@ fn files_under_node_modules_get_no_config() {
 fn unauthorized_root_returns_none_without_reading() {
     let (_dir, root, _) = project();
     let other = tempfile::tempdir().unwrap();
-    let loader = TsconfigLoader::new(allow(&fs::canonicalize(other.path()).unwrap()));
+    let loader = TsconfigLoader::new(allow(&dunce::canonicalize(other.path()).unwrap()));
     assert!(
         loader
             .for_file(&root.join("app/src/x.ts"))

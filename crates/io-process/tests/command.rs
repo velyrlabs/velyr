@@ -259,7 +259,7 @@ fn max_buffer_has_a_ceiling_and_loader_variables_are_refused() {
 #[test]
 fn cwd_needs_fs_read_and_is_decided_before_existence() {
     let dir = tempfile::tempdir().unwrap();
-    let dir = std::fs::canonicalize(dir.path()).unwrap();
+    let dir = dunce::canonicalize(dir.path()).unwrap();
     let dir = dir.to_str().unwrap().to_owned();
     let script = format!(
         "{CATCH}

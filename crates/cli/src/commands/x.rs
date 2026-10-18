@@ -36,10 +36,9 @@ fn execute(
     }
     let cwd = std::env::current_dir().map_err(|e| format!("error: cannot read the cwd: {e}"))?;
     let (project, link) = find_bin(&cwd, bin)?;
-    let target = link
-        .canonicalize()
+    let target = dunce::canonicalize(&link)
         .map_err(|e| format!("error: cannot resolve {}: {e}", link.display()))?;
-    let root = project.canonicalize().map_err(|e| format!("error: {e}"))?;
+    let root = dunce::canonicalize(&project).map_err(|e| format!("error: {e}"))?;
     // The entry directory is the project, so the import root covers its node_modules.
     let prepared = run::prepare(&root.join("x"), flags)?;
     if !target.starts_with(&root) {

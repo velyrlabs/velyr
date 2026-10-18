@@ -16,11 +16,11 @@ const WAIT: Duration = Duration::from_secs(20);
 fn module(name: &str, text: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("velyr-worker-{name}-{}.mjs", std::process::id()));
     std::fs::write(&path, text).unwrap();
-    std::fs::canonicalize(path).unwrap()
+    dunce::canonicalize(path).unwrap()
 }
 
 fn import_dir() -> Capability {
-    let dir = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    let dir = dunce::canonicalize(std::env::temp_dir()).unwrap();
     Capability::ImportLocal(PathPattern::new(dir.to_str().unwrap()))
 }
 

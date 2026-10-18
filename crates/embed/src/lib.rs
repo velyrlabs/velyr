@@ -201,7 +201,7 @@ impl RuntimeBuilder {
         let id = SCRATCH_COUNTER.fetch_add(1, Ordering::Relaxed);
         let scratch = std::env::temp_dir().join(format!("velyr-embed-{}-{id}", std::process::id()));
         std::fs::create_dir_all(&scratch)?;
-        let scratch = scratch.canonicalize()?;
+        let scratch = dunce::canonicalize(&scratch)?;
         Ok(Runtime {
             capabilities: self.permissions.into_set(&scratch),
             scratch,

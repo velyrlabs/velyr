@@ -8,6 +8,7 @@ license.workspace = true
 links = "velyr_napi"
 
 [dependencies]
+dunce.workspace = true
 velyr-engine-api = { path = "../engine-api" }
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
@@ -16,6 +17,7 @@ tracing.workspace = true
 v8.workspace = true
 
 [dev-dependencies]
+dunce.workspace = true
 # Compiles the C test addon in `tests/addons/` when the tests run.
 cc = "1"
 

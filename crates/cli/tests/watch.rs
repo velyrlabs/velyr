@@ -78,7 +78,7 @@ impl Drop for Supervisor {
 
 fn project() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     std::fs::write(
         root.join("main.mjs"),
         "import { value } from './lib/dep.mjs';\nconsole.log('value=' + value);\n",

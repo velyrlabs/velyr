@@ -14,7 +14,7 @@ const FILE_BYTES: usize = 1 << 20;
 #[test]
 fn read_burst_stays_within_the_blocking_thread_cap() {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
     let data = root.join("data.bin");
     std::fs::write(&data, vec![7u8; FILE_BYTES]).unwrap();
     let entry = root.join("main.mjs");

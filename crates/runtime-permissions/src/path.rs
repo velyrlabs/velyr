@@ -97,7 +97,7 @@ fn canonicalize_prefix(lexical: &Path) -> Option<PathBuf> {
     let mut existing = lexical.to_path_buf();
     let mut suffix: Vec<OsString> = Vec::new();
     loop {
-        match fs::canonicalize(&existing) {
+        match dunce::canonicalize(&existing) {
             Ok(mut real) => {
                 real.extend(suffix.iter().rev());
                 return Some(real);

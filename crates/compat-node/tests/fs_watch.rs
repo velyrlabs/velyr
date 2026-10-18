@@ -36,7 +36,7 @@ const within = (promise, label) => Promise.race([promise, sleep(5000).then(() =>
 
 fn run_script(body: &str, grant: bool) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let canonical = dir.path().canonicalize().unwrap();
+    let canonical = dunce::canonicalize(dir.path()).unwrap();
     let text = canonical.to_str().unwrap().to_owned();
     let entry: PathBuf = canonical.join("main.js");
     // The watched directory is a sub-directory, so the entry file itself raises no events.

@@ -18,7 +18,7 @@ impl Tree {
     /// `files`: `(relative path, content)`; `.json` content is written from the value verbatim.
     fn new(files: &[(&str, Value)]) -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         for (rel, content) in files {
             let path = root.join(rel);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -70,7 +70,7 @@ fn err_code(result: Result<PathBuf, VelyrError>) -> (ErrorCode, String) {
 }
 
 fn same(a: &Path, b: &Path) -> bool {
-    fs::canonicalize(a).unwrap() == fs::canonicalize(b).unwrap()
+    dunce::canonicalize(a).unwrap() == dunce::canonicalize(b).unwrap()
 }
 
 #[test]

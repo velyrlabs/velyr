@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+dunce.workspace = true
 velyr-runtime-errors = { path = "../runtime-errors" }
 velyr-runtime-modules = { path = "../runtime-modules" }
 velyr-runtime-permissions = { path = "../runtime-permissions" }
@@ -13,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+dunce.workspace = true
 tempfile = "3"
 
 [lints]

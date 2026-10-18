@@ -149,11 +149,11 @@ impl Fixture {
         let facades = tempfile::tempdir().unwrap();
         let resolver = NodeBuiltinResolver::new(
             Arc::new(FsResolver),
-            &std::fs::canonicalize(facades.path()).unwrap(),
+            &dunce::canonicalize(facades.path()).unwrap(),
         )
         .unwrap();
         Self {
-            dir: std::fs::canonicalize(work.path()).unwrap(),
+            dir: dunce::canonicalize(work.path()).unwrap(),
             _work: work,
             _facades: facades,
             resolver,
