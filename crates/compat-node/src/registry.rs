@@ -108,10 +108,17 @@ impl NodeBuiltinResolver {
         ModuleHost::register_embedded_facades(names, facade_source_of);
         #[cfg(windows)]
         let dir = {
-            std::fs::create_dir_all(dir)?;
-            let dir = std::fs::canonicalize(dir)?;
+            let context = |what: &str, path: &Path| {
+                let path = path.display().to_string();
+                let what = what.to_owned();
+                move |err: io::Error| io::Error::new(err.kind(), format!("{what} {path}: {err}"))
+            };
+            std::fs::create_dir_all(dir).map_err(context("create", dir))?;
+            let dir = std::fs::canonicalize(dir).map_err(context("canonicalize", dir))?;
             for builtin in BUILTINS {
-                write_if_changed(&dir, &facade_file(builtin.name), &facade_source(builtin))?;
+                let file = facade_file(builtin.name);
+                write_if_changed(&dir, &file, &facade_source(builtin))
+                    .map_err(context("write", &dir.join(&file)))?;
             }
             dir
         };
