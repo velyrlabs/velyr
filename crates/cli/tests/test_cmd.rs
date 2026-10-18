@@ -298,16 +298,23 @@ impl Watcher {
     }
 
     fn wait_for(&self, want: &str) {
-        let end = std::time::Instant::now() + Duration::from_secs(60);
+        assert!(
+            self.saw(want, Duration::from_secs(60)),
+            "no line with `{want}` within 60 s"
+        );
+    }
+
+    fn saw(&self, want: &str, within: Duration) -> bool {
+        let end = std::time::Instant::now() + within;
         while let Ok(line) = self
             .lines
             .recv_timeout(end.saturating_duration_since(std::time::Instant::now()))
         {
             if line.contains(want) {
-                return;
+                return true;
             }
         }
-        panic!("no line with `{want}` within 60 s");
+        false
     }
 }
 
@@ -326,7 +333,11 @@ fn watch_reruns_the_tests_when_a_test_file_is_edited() {
     let root = dunce::canonicalize(dir.path()).unwrap();
     let watcher = Watcher::start(&root);
     watcher.wait_for("1 passed, 0 failed");
-    std::thread::sleep(Duration::from_millis(600));
-    fs::write(root.join("w.test.mjs"), two).unwrap();
-    watcher.wait_for("2 passed, 0 failed");
+    // The test file is watched once the supervisor polls the module report, so an edit made
+    // before that on a loaded runner goes unseen; keep editing until the rerun shows up.
+    let rerun = (0..12).any(|_| {
+        fs::write(root.join("w.test.mjs"), two).unwrap();
+        watcher.saw("2 passed, 0 failed", Duration::from_secs(5))
+    });
+    assert!(rerun, "no rerun with `2 passed, 0 failed` within 60 s");
 }

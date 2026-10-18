@@ -230,7 +230,7 @@ fn callback_api_matches_the_sync_results() {
         eq((await cb(fs.close, fd)).error.code, 'EBADF');
         eq((await cb(fs.read, fd, buf, 0, 4, 0)).error.code, 'EBADF');
         eq((await cb(fs.readFile, j('nope'))).error.code, 'ENOENT');
-        ok(await cb(fs.unlink, j('ln')));
+        if (LINKS) ok(await cb(fs.unlink, j('ln')));
         ok(await cb(fs.rm, j('m'), { recursive: true }));
         ok(await cb(fs.mkdir, j('rd')));
         ok(await cb(fs.rmdir, j('rd')));
@@ -272,7 +272,7 @@ fn promises_api_and_file_handles() {
         const names = [];
         for await (const entry of await fsp.opendir(j('q'))) names.push(entry.name);
         same(names, ['r']);
-        await fsp.unlink(j('pl'));
+        if (LINKS) await fsp.unlink(j('pl'));
         await fsp.rm(j('q'), { recursive: true });
         await fsp.rmdir(j('q2/r')).catch((e) => eq(e.code, 'ENOTEMPTY'));
         await rejects(fsp.readFile(j('nope')), 'ENOENT');
